@@ -1,0 +1,60 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+exporters:
+  # Slim exporter config
+  slim:
+    # address of the SLIM node where to connect
+    endpoint: "http://127.0.0.1:46357"
+    # exporter local name
+    local-name: "agntcy/otel/exporter"
+    # shared secret used for MLS and identity provider
+    shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
+    # sessions configuration
+    # if no session is defiend the exporter will listen for invitation
+    # to join channels sent from other participants
+    sessions: 
+        # name of the SLIM channel to create for the session
+        # the name will be suffixed with the signal types
+      - channel-name: "agntcy/otel/telemetry-1"
+        # signals types to export on this channel
+        signals: 
+          - metrics
+          - logs
+        # list of participants to invite to this channel
+        participants:
+          - "agntcy/otel/receiver-app"
+        # flag to enable or disable MLS for this session
+        mls-enabled: false
+  # Standard OTLP exporter
+  otlp:
+    endpoint: localhost:4317
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [slim]
+    
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [slim]
+    
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [slim]

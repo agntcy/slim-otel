@@ -1,0 +1,8 @@
+# OpenTelemetry Collector Builder binary
+ocb
+
+# Built collector directory
+slim-otelcol/
+
+# Coverage reports
+slimexporter/slimexporter-coverage.out
