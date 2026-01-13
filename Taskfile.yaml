@@ -1,0 +1,215 @@
+# Copyright AGNTCY Contributors (https://github.com/agntcy)
+# SPDX-License-Identifier: Apache-2.0
+
+version: '3'
+
+silent: true
+
+includes:
+  tools:
+    taskfile: ./tools.yaml
+    flatten: true
+
+vars:
+  ROOT_DIR:
+    sh: pwd
+  # OpenTelemetry Collector Builder settings
+  OCB_VERSION: 0.142.0
+  GOOS:
+    sh: go env GOOS
+  GOARCH:
+    sh: go env GOARCH
+  OCB_BINARY: ocb_{{.OCB_VERSION}}_{{.GOOS}}_{{.GOARCH}}
+  OCB_URL: https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/cmd%2Fbuilder%2Fv{{.OCB_VERSION}}/{{.OCB_BINARY}}
+  COLLECTOR_OUTPUT: ./slim-otelcol
+  # Docker settings
+  DOCKER_IMAGE: slim-otelcol
+  DOCKER_TAG: latest
+
+  MAIN_MODULE: github.com/agntcy/slim
+
+  MODULES:
+    sh: |
+      find {{.ROOT_DIR}} -type f -name "go.mod" ! -path "./third-party/*" -exec dirname {} \; | \
+        sort | \
+        tr '\n' ' '
+
+env:
+  GOTOOLCHAIN: "go1.25.0+auto"
+
+tasks:
+  default:
+    cmds:
+      - task -l
+
+  # OpenTelemetry Collector Builder
+  collector:download-ocb:
+    desc: Download OpenTelemetry Collector Builder for current architecture
+    cmds:
+      - echo "Downloading OCB {{.OCB_VERSION}} for {{.GOOS}}/{{.GOARCH}}..."
+      - curl -L -o ocb "{{.OCB_URL}}"
+      - chmod +x ocb
+      - echo "OCB downloaded successfully"
+    status:
+      - test -f ocb
+
+  collector:foreach-module:
+    internal: true
+    desc: Run task for each module
+    cmds:
+      - |
+        for dir in {{.MODULES}}; do
+          pushd ${dir} > /dev/null
+          echo "${dir}: running {{.CMD}}"
+          {{.CMD}}
+          popd > /dev/null
+        done
+
+  collector:fetch-and-run:
+    internal: true
+    desc: Fetch and install bindings
+    cmds:
+      - task: collector:foreach-module
+        vars:
+          CMD: go mod download
+      - go run github.com/agntcy/slim-bindings-go/cmd/slim-bindings-setup
+
+  collector:modtidy:
+    desc: Install go modules
+    cmds:
+      - task: collector:foreach-module
+        vars:
+          CMD: go mod tidy
+
+  collector:build:
+    desc: Build the SLIM OpenTelemetry Collector
+    deps:
+      - collector:download-ocb
+      - collector:fetch-and-run
+    cmds:
+      - echo "Generating collector sources..."
+      - ./ocb --config builder-config.yaml --skip-compilation
+      - echo "Compiling with CGO enabled..."
+      - cd {{.COLLECTOR_OUTPUT}} && CGO_ENABLED=1 go build -trimpath -o slim-otelcol -ldflags="-s -w"
+      - echo "Collector built successfully at {{.COLLECTOR_OUTPUT}}/slim-otelcol"
+
+  collector:clean:
+    desc: Clean the generated collector directory
+    cmds:
+      - rm -rf {{.COLLECTOR_OUTPUT}}
+      - echo "Collector build directory cleaned"
+
+  collector:run:
+    desc: Run the SLIM OpenTelemetry Collector
+    cmds:
+      - echo "Running SLIM OpenTelemetry Collector..."
+      - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/collector-config.yaml"
+
+  collector:test:
+    desc: Run tests for the SLIM exporter
+    dir: slimexporter
+    deps:
+      - collector:fetch-and-run
+    cmds:
+      - echo "Running slimexporter tests..."
+      - go test -v
+
+  collector:lint:
+    desc: Run go linter
+    deps:
+      - tools
+    cmds:
+      - task: collector:foreach-module
+        vars:
+          CMD: "echo ${PWD} && {{.TOOLS_INSTALL_DIR}}/golangci-lint run"
+
+  collector:impi:
+    desc: Run go impi
+    deps:
+      - tools
+    cmds:
+      - task: collector:foreach-module
+        vars:
+          CMD: |
+            {{.TOOLS_INSTALL_DIR}}/impi \
+              --local github.com/agntcy/slim \
+              --ignore-generated=true \
+              --scheme stdThirdPartyLocal \
+              ./...
+
+
+  collector:vuln:
+    desc: Run go govulncheck
+    deps:
+      - tools
+    cmds:
+      - task: collector:foreach-module
+        vars:
+          CMD: "{{.TOOLS_INSTALL_DIR}}/govulncheck ./..."
+
+  collector:coverage-reports:
+    desc: Check test coverage
+    deps:
+      - tools
+      - collector:fetch-and-run
+    cmds:
+      - task: collector:foreach-module
+        vars:
+          CMD: |
+            {{.TOOLS_INSTALL_DIR}}/go-acc --output=$(basename  ${dir})-coverage.out ./...
+
+  collector:coverage:
+    desc: Show coverage in browser
+    deps:
+      - collector:coverage-reports
+    cmds:
+      - echo find . -name '*coverage.out' -execdir go tool cover -html=./{} \;
+
+  # Docker tasks
+  docker:build:
+    desc: Build Docker image for the SLIM OpenTelemetry Collector
+    cmds:
+      - echo "Building Docker image {{.DOCKER_IMAGE}}:{{.DOCKER_TAG}}..."
+      - docker build -t {{.DOCKER_IMAGE}}:{{.DOCKER_TAG}} .
+      - echo "Cleaning up temporary bindings..."
+      - echo "Docker image built successfully"
+
+  docker:run:
+    desc: Run the SLIM collector in Docker
+    cmds:
+      - echo "Starting SLIM OpenTelemetry Collector container..."
+      - >
+        docker run --rm -p 4317:4317 -p 4318:4318
+        -v {{.ROOT_DIR}}/collector-config.yaml:/etc/otel/config.yaml:ro
+        {{.DOCKER_IMAGE}}:{{.DOCKER_TAG}}
+
+  # Examples
+  test:app:participant:
+    desc: Run the test app
+    dir: testapp
+    cmds:
+      - echo "Running test app in participant mode..."
+      - >
+        go run .
+        --app-name "agntcy/otel/receiver-app"
+        --server "http://localhost:46357"
+        --secret "a-very-long-shared-secret-0123456789-abcdefg"
+
+  test:app:initiator:
+    desc: Run the test app
+    dir: testapp
+    cmds:
+      - echo "Running test app in initiator mode..."
+      - >
+        go run .
+        --app-name "agntcy/otel/receiver-app"
+        --server "http://localhost:46357"
+        --secret "a-very-long-shared-secret-0123456789-abcdefg"
+        --exporter-name "agntcy/otel/exporter"
+        --channel-name "agntcy/otel/initiator-channel"
+
+  test:slim:run:
+    desc: Run a SLIM node for testing
+    dir: ../data-plane
+    cmds:
+      - cargo run --bin slim -- --config ./config/base/server-config.yaml
