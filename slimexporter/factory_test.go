@@ -35,8 +35,16 @@ func TestCreateDefaultConfig(t *testing.T) {
 		t.Errorf("SlimEndpoint = %v, want http://127.0.0.1:46357", slimCfg.SlimEndpoint)
 	}
 
-	if slimCfg.LocalName != "agntcy/otel/exporter" {
-		t.Errorf("LocalName = %v, want agntcy/otel/exporter", slimCfg.LocalName)
+	if slimCfg.ExporterNames.Metrics != "agntcy/otel/exporter-metrics" {
+		t.Errorf("ExporterNames.Metrics = %v, want agntcy/otel/exporter-metrics", slimCfg.ExporterNames.Metrics)
+	}
+
+	if slimCfg.ExporterNames.Traces != "agntcy/otel/exporter-traces" {
+		t.Errorf("ExporterNames.Traces = %v, want agntcy/otel/exporter-traces", slimCfg.ExporterNames.Traces)
+	}
+
+	if slimCfg.ExporterNames.Logs != "agntcy/otel/exporter-logs" {
+		t.Errorf("ExporterNames.Logs = %v, want agntcy/otel/exporter-logs", slimCfg.ExporterNames.Logs)
 	}
 }
 

@@ -16,18 +16,33 @@ exporters:
   slim:
     # address of the SLIM node where to connect
     endpoint: "http://127.0.0.1:46357"
-    # exporter local name
-    local-name: "agntcy/otel/exporter"
+    # list of the exporter names for each signal type
+    exporter-names:
+      # name for metrics producer
+      # add this name to your SLIM channel to receive metrics from this exporter
+      # default is "agntcy/otel/exporter-metrics"
+      - metrics: "agntcy/otel/exporter-metrics"
+      # name for traces producer
+      # add this name to your SLIM channel to receive traces from this exporter
+      # default is "agntcy/otel/exporter-traces"
+      - traces: "agntcy/otel/exporter-traces"
+      # name for logs producer
+      # add this name to your SLIM channel to receive logs from this exporter
+      # default is "agntcy/otel/exporter-logs"
+      - logs: "agntcy/otel/exporter-logs"
     # shared secret used for MLS and identity provider
     shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
-    # sessions configuration
-    # if no session is defiend the exporter will listen for invitation
+    # channels configuration
+    # if no channel is defiend the exporter will listen for invitation
     # to join channels sent from other participants
-    sessions: 
-        # name of the SLIM channel to create for the session
-        # the name will be suffixed with the signal types
+    channels: 
+        # name of the SLIM channel to create. 
       - channel-name: "agntcy/otel/telemetry-1"
         # signals types to export on this channel
+        # by default, each channel exports only one signal type,
+        # if multiple signals are specified, multiple channels will
+        # be created, one for each signal. The channel name
+        # will be suffixed with the signal type to avoid name conflicts.
         signals: 
           - metrics
           - logs

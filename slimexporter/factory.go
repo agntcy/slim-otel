@@ -34,7 +34,11 @@ func NewFactory() exporter.Factory {
 func createDefaultConfig() component.Config {
 	return &Config{
 		SlimEndpoint: "http://127.0.0.1:46357",
-		LocalName:    "agntcy/otel/exporter",
+		ExporterNames: ExporterNames{
+			Metrics: "agntcy/otel/exporter-metrics",
+			Traces:  "agntcy/otel/exporter-traces",
+			Logs:    "agntcy/otel/exporter-logs",
+		},
 	}
 }
 

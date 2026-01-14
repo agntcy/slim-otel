@@ -14,71 +14,11 @@ import (
 	common "github.com/agntcy/slim/otel"
 )
 
-// TestSignalSessions_RemoveSession tests removing sessions from SignalSessions
-func TestSignalSessions_RemoveSession(t *testing.T) {
-	t.Run("remove existing session", func(t *testing.T) {
-		ss := &SignalSessions{
-			sessions: map[uint32]*slim.BindingsSessionContext{
-				1: nil, // Mock session using a nil pointer
-			},
-		}
-
-		err := ss.RemoveSession(1)
-		if err != nil {
-			t.Errorf("expected no error, got %v", err)
-		}
-		if len(ss.sessions) != 0 {
-			t.Errorf("expected 0 sessions, got %d", len(ss.sessions))
-		}
-	})
-
-	t.Run("remove non-existing session", func(t *testing.T) {
-		ss := &SignalSessions{
-			sessions: map[uint32]*slim.BindingsSessionContext{},
-		}
-
-		err := ss.RemoveSession(1)
-		if err == nil {
-			t.Error("expected error, got nil")
-		}
-	})
-
-	t.Run("remove session with nil sessions map", func(t *testing.T) {
-		ss := &SignalSessions{}
-
-		err := ss.RemoveSession(1)
-		if err == nil {
-			t.Error("expected error, got nil")
-		}
-	})
-}
-
-// TestSignalSessions_PublishToAll tests publishing data to all sessions
-func TestSignalSessions_PublishToAll(t *testing.T) {
-	logger := zap.NewNop()
-
-	t.Run("publish to all sessions with empty map", func(t *testing.T) {
-		ss := &SignalSessions{
-			sessions: map[uint32]*slim.BindingsSessionContext{},
-		}
-
-		data := []byte("test data")
-		closedSessions, err := ss.PublishToAll(data, logger, "test-signal")
-
-		if err != nil {
-			t.Errorf("expected no error, got %v", err)
-		}
-		if len(closedSessions) != 0 {
-			t.Errorf("expected no closed sessions, got %d", len(closedSessions))
-		}
-	})
-}
-
 // TestExporterSessions_RemoveSessionForSignal tests removing sessions for different signal types
 func TestExporterSessions_RemoveSessionForSignal(t *testing.T) {
 	t.Run("remove metrics session", func(t *testing.T) {
 		es := &ExporterSessions{
-			metricsSessions: &SignalSessions{
+			metricsSessions: &SessionsList{
 				sessions: map[uint32]*slim.BindingsSessionContext{1: nil},
 			},
 		}
@@ -94,7 +34,7 @@ func TestExporterSessions_RemoveSessionForSignal(t *testing.T) {
 
 	t.Run("remove traces session", func(t *testing.T) {
 		es := &ExporterSessions{
-			tracesSessions: &SignalSessions{
+			tracesSessions: &SessionsList{
 				sessions: map[uint32]*slim.BindingsSessionContext{2: nil},
 			},
 		}
@@ -110,7 +50,7 @@ func TestExporterSessions_RemoveSessionForSignal(t *testing.T) {
 
 	t.Run("remove logs session", func(t *testing.T) {
 		es := &ExporterSessions{
-			logsSessions: &SignalSessions{
+			logsSessions: &SessionsList{
 				sessions: map[uint32]*slim.BindingsSessionContext{3: nil},
 			},
 		}
@@ -140,7 +80,7 @@ func TestExporterSessions_RemoveAllSessionsForSignal(t *testing.T) {
 		// Note: We can't fully test this without mocking BindingsAdapter.DeleteSession
 		// This is a basic structure test
 		es := &ExporterSessions{
-			metricsSessions: &SignalSessions{
+			metricsSessions: &SessionsList{
 				sessions: map[uint32]*slim.BindingsSessionContext{},
 			},
 		}
@@ -151,7 +91,7 @@ func TestExporterSessions_RemoveAllSessionsForSignal(t *testing.T) {
 
 	t.Run("remove all sessions with unknown signal type", func(t *testing.T) {
 		es := &ExporterSessions{
-			metricsSessions: &SignalSessions{
+			metricsSessions: &SessionsList{
 				sessions: map[uint32]*slim.BindingsSessionContext{1: nil},
 			},
 		}
@@ -180,7 +120,7 @@ func TestSlimExporter_PublishData(t *testing.T) {
 
 		mutex.Lock()
 		state = &ExporterSessions{
-			tracesSessions: &SignalSessions{
+			tracesSessions: &SessionsList{
 				sessions: map[uint32]*slim.BindingsSessionContext{},
 			},
 		}
@@ -208,7 +148,7 @@ func TestSlimExporter_PublishData(t *testing.T) {
 
 		mutex.Lock()
 		state = &ExporterSessions{
-			metricsSessions: &SignalSessions{
+			metricsSessions: &SessionsList{
 				sessions: map[uint32]*slim.BindingsSessionContext{},
 			},
 		}
@@ -236,7 +176,7 @@ func TestSlimExporter_PublishData(t *testing.T) {
 
 		mutex.Lock()
 		state = &ExporterSessions{
-			logsSessions: &SignalSessions{
+			logsSessions: &SessionsList{
 				sessions: map[uint32]*slim.BindingsSessionContext{},
 			},
 		}
@@ -286,7 +226,7 @@ func TestSlimExporter_PushTraces(t *testing.T) {
 	t.Run("push traces with empty data", func(t *testing.T) {
 		mutex.Lock()
 		state = &ExporterSessions{
-			tracesSessions: &SignalSessions{
+			tracesSessions: &SessionsList{
 				sessions: map[uint32]*slim.BindingsSessionContext{},
 			},
 		}
@@ -322,7 +262,7 @@ func TestSlimExporter_PushMetrics(t *testing.T) {
 	t.Run("push metrics with empty data", func(t *testing.T) {
 		mutex.Lock()
 		state = &ExporterSessions{
-			metricsSessions: &SignalSessions{
+			metricsSessions: &SessionsList{
 				sessions: map[uint32]*slim.BindingsSessionContext{},
 			},
 		}
@@ -358,7 +298,7 @@ func TestSlimExporter_PushLogs(t *testing.T) {
 	t.Run("push logs with empty data", func(t *testing.T) {
 		mutex.Lock()
 		state = &ExporterSessions{
-			logsSessions: &SignalSessions{
+			logsSessions: &SessionsList{
 				sessions: map[uint32]*slim.BindingsSessionContext{},
 			},
 		}
@@ -387,10 +327,10 @@ func TestSlimExporter_PushLogs(t *testing.T) {
 	})
 }
 
-// TestConcurrentAccess tests concurrent access to SignalSessions
+// TestConcurrentAccess tests concurrent access to SessionsList
 func TestConcurrentAccess(t *testing.T) {
 	t.Run("concurrent map initialization", func(t *testing.T) {
-		ss := &SignalSessions{}
+		ss := &SessionsList{}
 		logger := zap.NewNop()
 		var wg sync.WaitGroup
 

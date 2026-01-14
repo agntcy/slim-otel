@@ -16,9 +16,13 @@ func TestConfig_Validate(t *testing.T) {
 			name: "valid config with all fields",
 			config: &Config{
 				SlimEndpoint: "http://localhost:46357",
-				LocalName:    "agntcy/test/exporter",
+				ExporterNames: ExporterNames{
+					Metrics: "agntcy/test/exporter-metrics",
+					Traces:  "agntcy/test/exporter-traces",
+					Logs:    "agntcy/test/exporter-logs",
+				},
 				SharedSecret: "test-secret",
-				Sessions: []SessionConfig{
+				Channels: []ChannelsConfig{
 					{
 						ChannelName:  "agntcy/test/channel",
 						Signals:      []string{"traces", "metrics", "logs"},
@@ -33,7 +37,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "valid config with minimal fields",
 			config: &Config{
 				SharedSecret: "test-secret",
-				Sessions: []SessionConfig{
+				Channels: []ChannelsConfig{
 					{
 						ChannelName:  "agntcy/test/channel",
 						Signals:      []string{"traces"},
@@ -44,12 +48,16 @@ func TestConfig_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "valid config with empty sessions",
+			name: "valid config with empty channels",
 			config: &Config{
 				SlimEndpoint: "http://localhost:46357",
-				LocalName:    "agntcy/test/exporter",
+				ExporterNames: ExporterNames{
+					Metrics: "agntcy/test/exporter-metrics",
+					Traces:  "agntcy/test/exporter-traces",
+					Logs:    "agntcy/test/exporter-logs",
+				},
 				SharedSecret: "test-secret",
-				Sessions:     []SessionConfig{},
+				Channels:     []ChannelsConfig{},
 			},
 			wantErr: false,
 		},
@@ -57,8 +65,10 @@ func TestConfig_Validate(t *testing.T) {
 			name: "missing shared secret",
 			config: &Config{
 				SlimEndpoint: "http://localhost:46357",
-				LocalName:    "agntcy/test/exporter",
-				Sessions: []SessionConfig{
+				ExporterNames: ExporterNames{
+					Metrics: "agntcy/test/exporter-metrics",
+				},
+				Channels: []ChannelsConfig{
 					{
 						ChannelName:  "agntcy/test/channel",
 						Signals:      []string{"traces"},
@@ -70,10 +80,10 @@ func TestConfig_Validate(t *testing.T) {
 			errMsg:  "missing shared secret",
 		},
 		{
-			name: "session with missing channel name",
+			name: "channel with missing channel name",
 			config: &Config{
 				SharedSecret: "test-secret",
-				Sessions: []SessionConfig{
+				Channels: []ChannelsConfig{
 					{
 						ChannelName:  "",
 						Signals:      []string{"traces"},
@@ -85,10 +95,10 @@ func TestConfig_Validate(t *testing.T) {
 			errMsg:  "channel-name is required",
 		},
 		{
-			name: "session with empty signals",
+			name: "channel with empty signals",
 			config: &Config{
 				SharedSecret: "test-secret",
-				Sessions: []SessionConfig{
+				Channels: []ChannelsConfig{
 					{
 						ChannelName:  "agntcy/test/channel",
 						Signals:      []string{},
@@ -100,10 +110,10 @@ func TestConfig_Validate(t *testing.T) {
 			errMsg:  "at least one signal must be specified",
 		},
 		{
-			name: "session with invalid signal type",
+			name: "channel with invalid signal type",
 			config: &Config{
 				SharedSecret: "test-secret",
-				Sessions: []SessionConfig{
+				Channels: []ChannelsConfig{
 					{
 						ChannelName:  "agntcy/test/channel",
 						Signals:      []string{"traces", "invalid-signal"},
@@ -115,10 +125,10 @@ func TestConfig_Validate(t *testing.T) {
 			errMsg:  "invalid signal type",
 		},
 		{
-			name: "session with empty participants",
+			name: "channel with empty participants",
 			config: &Config{
 				SharedSecret: "test-secret",
-				Sessions: []SessionConfig{
+				Channels: []ChannelsConfig{
 					{
 						ChannelName:  "agntcy/test/channel",
 						Signals:      []string{"traces"},
@@ -130,10 +140,10 @@ func TestConfig_Validate(t *testing.T) {
 			errMsg:  "at least one participant must be specified",
 		},
 		{
-			name: "multiple valid sessions",
+			name: "multiple valid channels",
 			config: &Config{
 				SharedSecret: "test-secret",
-				Sessions: []SessionConfig{
+				Channels: []ChannelsConfig{
 					{
 						ChannelName:  "agntcy/test/channel1",
 						Signals:      []string{"traces"},
@@ -154,7 +164,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "valid config with all signal types",
 			config: &Config{
 				SharedSecret: "test-secret",
-				Sessions: []SessionConfig{
+				Channels: []ChannelsConfig{
 					{
 						ChannelName:  "agntcy/test/channel",
 						Signals:      []string{"traces", "metrics", "logs"},
@@ -185,7 +195,7 @@ func TestConfig_Validate(t *testing.T) {
 func TestConfig_Validate_DefaultValues(t *testing.T) {
 	config := &Config{
 		SharedSecret: "test-secret",
-		Sessions:     []SessionConfig{},
+		Channels:     []ChannelsConfig{},
 	}
 
 	err := config.Validate()
@@ -198,7 +208,13 @@ func TestConfig_Validate_DefaultValues(t *testing.T) {
 	if config.SlimEndpoint != defaultCfg.SlimEndpoint {
 		t.Errorf("SlimEndpoint = %v, want %v", config.SlimEndpoint, defaultCfg.SlimEndpoint)
 	}
-	if config.LocalName != defaultCfg.LocalName {
-		t.Errorf("LocalName = %v, want %v", config.LocalName, defaultCfg.LocalName)
+	if config.ExporterNames.Metrics != defaultCfg.ExporterNames.Metrics {
+		t.Errorf("ExporterNames.Metrics = %v, want %v", config.ExporterNames.Metrics, defaultCfg.ExporterNames.Metrics)
+	}
+	if config.ExporterNames.Traces != defaultCfg.ExporterNames.Traces {
+		t.Errorf("ExporterNames.Traces = %v, want %v", config.ExporterNames.Traces, defaultCfg.ExporterNames.Traces)
+	}
+	if config.ExporterNames.Logs != defaultCfg.ExporterNames.Logs {
+		t.Errorf("ExporterNames.Logs = %v, want %v", config.ExporterNames.Logs, defaultCfg.ExporterNames.Logs)
 	}
 }

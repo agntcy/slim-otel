@@ -10,26 +10,36 @@ type Config struct {
 	// Slim endpoint where to connect
 	SlimEndpoint string `mapstructure:"endpoint"`
 
-	// Local name in the form org/ns/service
-	// default = agntcy/otel/exporter
-	LocalName string `mapstructure:"local-name"`
+	// exporter names
+	ExporterNames ExporterNames `mapstructure:"exporter-names"`
 
 	// Shared Secret
 	SharedSecret string `mapstructure:"shared-secret"`
 
 	// List of sessions/channels to create
-	Sessions []SessionConfig `mapstructure:"sessions"`
+	Channels []ChannelsConfig `mapstructure:"channels"`
 }
 
-// SessionConfig defines configuration for a single session/channel
-type SessionConfig struct {
-	// Channel name in the form org/ns/service
-	// this is the base name, actual channels will be
-	// channel-name-traces, channel-name-metrics, channel-name-logs
+// ExporterNames holds the names of the exporters for each signal type
+type ExporterNames struct {
+	// exporter name for metrics in the SLIM format
+	Metrics string `mapstructure:"metrics"`
+
+	// exporter name for traces in the SLIM format
+	Traces string `mapstructure:"traces"`
+
+	// exporter name for logs in the SLIM format
+	Logs string `mapstructure:"logs"`
+}
+
+// ChannelsConfig defines configuration for SLIM channels
+type ChannelsConfig struct {
+	// Channel name in the SLIM format
+	// if multiple signals are specified, this name is
+	// suffixed with the signal type
 	ChannelName string `mapstructure:"channel-name"`
 
-	// Signals to export on this channels (traces, metrics, logs)
-	// signals will be added to the channel name as suffix
+	// Signals to export on these channels (traces, metrics, logs)
 	Signals []string `mapstructure:"signals"`
 
 	// List of participants to invite to the channels
@@ -50,28 +60,35 @@ func (cfg *Config) Validate() error {
 		cfg.SlimEndpoint = defaultCfg.SlimEndpoint
 	}
 
-	if cfg.LocalName == "" {
-		cfg.LocalName = defaultCfg.LocalName
+	// Set default exporter names if not provided
+	if cfg.ExporterNames.Metrics == "" {
+		cfg.ExporterNames.Metrics = defaultCfg.ExporterNames.Metrics
+	}
+	if cfg.ExporterNames.Traces == "" {
+		cfg.ExporterNames.Traces = defaultCfg.ExporterNames.Traces
+	}
+	if cfg.ExporterNames.Logs == "" {
+		cfg.ExporterNames.Logs = defaultCfg.ExporterNames.Logs
 	}
 
-	// Validate each session (the list can be empty)
-	for i, session := range cfg.Sessions {
-		if session.ChannelName == "" {
-			return fmt.Errorf("channel-name is required for session %d", i)
+	// Validate each channel (the list can be empty)
+	for i, channel := range cfg.Channels {
+		if channel.ChannelName == "" {
+			return fmt.Errorf("channel-name is required for channel %d", i)
 		}
-		if len(session.Signals) == 0 {
-			return fmt.Errorf("at least one signal must be specified for session '%s'", session.ChannelName)
+		if len(channel.Signals) == 0 {
+			return fmt.Errorf("at least one signal must be specified for channel '%s'", channel.ChannelName)
 		}
 		// Validate signal types
-		for _, signal := range session.Signals {
+		for _, signal := range channel.Signals {
 			if signal != "traces" && signal != "metrics" && signal != "logs" {
 				return fmt.Errorf(
-					"invalid signal type '%s' for session '%s' (must be traces, metrics, or logs)",
-					signal, session.ChannelName)
+					"invalid signal type '%s' for channel '%s' (must be traces, metrics, or logs)",
+					signal, channel.ChannelName)
 			}
 		}
-		if len(session.Participants) == 0 {
-			return fmt.Errorf("at least one participant must be specified for session '%s'", session.ChannelName)
+		if len(channel.Participants) == 0 {
+			return fmt.Errorf("at least one participant must be specified for channel '%s'", channel.ChannelName)
 		}
 	}
 

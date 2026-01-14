@@ -209,7 +209,9 @@ tasks:
         --channel-name "agntcy/otel/initiator-channel"
 
   test:slim:run:
-    desc: Run a SLIM node for testing
-    dir: ../data-plane
+    desc: Run a SLIM node as a docker container for testing 
     cmds:
-      - cargo run --bin slim -- --config ./config/base/server-config.yaml
+      - >
+        docker run -it
+        -v ./slim-test-config.yaml:/config.yaml -p 46357:46357
+        ghcr.io/agntcy/slim:0.7.0 /slim --config /config.yaml

@@ -3,8 +3,7 @@ package slimexporter
 import (
 	"context"
 	"fmt"
-	"strings"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/collector/component"
@@ -24,273 +23,182 @@ const (
 	defaultIntervalMs = 1000
 )
 
-// SignalSessions holds sessions related to a specific signal type
-type SignalSessions struct {
-	mutex    sync.RWMutex
-	sessions map[uint32]*slim.BindingsSessionContext
-}
-
-func (s *SignalSessions) AddSession(session *slim.BindingsSessionContext) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if s.sessions == nil {
-		s.sessions = make(map[uint32]*slim.BindingsSessionContext)
-	}
-	id, err := session.SessionId()
-	if err != nil {
-		return fmt.Errorf("session id is not set")
-	}
-	s.sessions[id] = session
-	return nil
-}
-
-func (s *SignalSessions) RemoveSession(id uint32) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if s.sessions == nil {
-		return fmt.Errorf("sessions map is nil")
-	}
-	if _, exists := s.sessions[id]; !exists {
-		return fmt.Errorf("session with id %d not found", id)
-	}
-	delete(s.sessions, id)
-	return nil
-}
-
-// PublishToAll publishes data to all sessions and returns a list of closed session IDs
-func (s *SignalSessions) PublishToAll(data []byte, logger *zap.Logger, signalName string) ([]uint32, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	var closedSessions []uint32
-	for id, session := range s.sessions {
-		if err := session.Publish(data, nil, nil); err != nil {
-			if strings.Contains(err.Error(), "Session already closed or dropped") {
-				logger.Info("Session closed, marking for removal", zap.Uint32("session_id", id))
-				closedSessions = append(closedSessions, id)
-				continue
-			}
-			logger.Error("Error sending "+signalName+" message", zap.Error(err))
-			return closedSessions, err
-		}
-		logger.Debug("Published "+signalName+" to session", zap.Uint32("session_id", id))
-	}
-
-	return closedSessions, nil
-}
-
-// ExporterSessions holds session available in the
-// exporter for each signal type
-type ExporterSessions struct {
-	app             *slim.BindingsAdapter
-	connID          uint64
-	metricsSessions *SignalSessions
-	tracesSessions  *SignalSessions
-	logsSessions    *SignalSessions
-}
-
-// AddSessionForSignal adds a session to the appropriate signal type's session list
-func (e *ExporterSessions) AddSessionForSignal(
-	signalType common.SignalType,
-	session *slim.BindingsSessionContext,
-) error {
-	switch signalType {
-	case common.SignalMetrics:
-		return e.metricsSessions.AddSession(session)
-	case common.SignalTraces:
-		return e.tracesSessions.AddSession(session)
-	case common.SignalLogs:
-		return e.logsSessions.AddSession(session)
-	default:
-		return fmt.Errorf("unknown signal type: %s", signalType)
-	}
-}
-
-// RemoveSessionForSignal removes a session from the appropriate signal type's session list
-func (e *ExporterSessions) RemoveSessionForSignal(signalType common.SignalType, id uint32) error {
-	switch signalType {
-	case common.SignalMetrics:
-		return e.metricsSessions.RemoveSession(id)
-	case common.SignalTraces:
-		return e.tracesSessions.RemoveSession(id)
-	case common.SignalLogs:
-		return e.logsSessions.RemoveSession(id)
-	default:
-		return fmt.Errorf("unknown signal type: %s", signalType)
-	}
-}
-
-// RemoveAllSessionsForSignal removes all sessions for a specific signal type
-func (e *ExporterSessions) RemoveAllSessionsForSignal(signalType common.SignalType) {
-	var sessions *SignalSessions
-	switch signalType {
-	case common.SignalMetrics:
-		sessions = e.metricsSessions
-	case common.SignalTraces:
-		sessions = e.tracesSessions
-	case common.SignalLogs:
-		sessions = e.logsSessions
-	default:
-		return
-	}
-
-	sessions.mutex.Lock()
-	defer sessions.mutex.Unlock()
-	for id, session := range sessions.sessions {
-		_ = e.app.DeleteSession(session)
-		delete(sessions.sessions, id)
-	}
-}
-
 var (
-	// used to settup app and connID only once
-	mutex               sync.Mutex
-	state               *ExporterSessions
-	listenerStartedOnce sync.Once
-	shutdownChan        chan struct{}
+	// true if connection is already established
+	connected atomic.Bool
+	// the connection id is the same for all the applicaions
+	connID atomic.Uint64
 )
 
 // slimExporter implements the exporter for traces, metrics, and logs
 type slimExporter struct {
-	config     *Config
-	logger     *zap.Logger
-	signalType common.SignalType
-	sessions   *ExporterSessions
+	config       *Config
+	logger       *zap.Logger
+	signalType   common.SignalType
+	app          *slim.BindingsAdapter
+	connID       uint64
+	sessions     *SessionsList
+	shutdownChan chan struct{}
 }
 
-// getOrCreateApp creates or retrieves a shared slim application and connection ID
-func getOrCreateApp(localID string, serverAddr string, secret string) (*slim.BindingsAdapter, uint64, error) {
-	mutex.Lock()
-	defer mutex.Unlock()
+// createApp creates a new slim application and connects to the SLIM server
+// if not done yet. Returns the app instance and connection ID.
+func CreateApp(
+	cfg *Config,
+	logger *zap.Logger,
+	signalType common.SignalType,
+) (*slim.BindingsAdapter, uint64, error) {
+	if !connected.Load() {
+		// Initialize crypto subsystem (idempotent, safe to call multiple times)
+		slim.InitializeCryptoProvider()
 
-	// If connection exists and matches config, reuse it
-	if state != nil {
-		return state.app, state.connID, nil
+		// Connect to SLIM server and get the connection ID
+		config := slim.ClientConfig{
+			Endpoint: cfg.SlimEndpoint,
+			Tls:      slim.TlsConfig{Insecure: true},
+		}
+
+		// Connect to SLIM server (returns connection ID)
+		config := slim.NewInsecureClientConfig(cfg.SlimEndpoint)
+		connIDValue, err := slim.Connect(config)
+		if err != nil {
+			return nil, 0, fmt.Errorf("connection with remote SLIM server failed: %w", err)
+		}
+		connected.Store(true)
+		connID.Store(connIDValue)
+		logger.Info("Connected to SLIM server", zap.String("endpoint", cfg.SlimEndpoint), zap.Uint64("connection_id", connIDValue))
 	}
 
-	app, connID, err := common.CreateAndConnectApp(localID, serverAddr, secret)
+	// Parse the app identity string based on signal type
+	var exporterName string
+	switch signalType {
+	case common.SignalTraces:
+		exporterName = cfg.ExporterNames.Traces
+	case common.SignalMetrics:
+		exporterName = cfg.ExporterNames.Metrics
+	case common.SignalLogs:
+		exporterName = cfg.ExporterNames.Logs
+	default:
+		return nil, 0, fmt.Errorf("unknown signal type: %s", signalType)
+	}
+
+	appName, err := common.SplitID(exporterName)
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to create/connect app:: %w", err)
+		return nil, 0, fmt.Errorf("invalid local ID: %w", err)
+	}
+	app, err := slim.CreateAppWithSecret(appName, cfg.SharedSecret)
+	if err != nil {
+		return nil, 0, fmt.Errorf("create app failed: %w", err)
 	}
 
-	// Store shared connection
-	state = &ExporterSessions{
-		app:             app,
-		connID:          connID,
-		metricsSessions: &SignalSessions{},
-		tracesSessions:  &SignalSessions{},
-		logsSessions:    &SignalSessions{},
-	}
-	shutdownChan = make(chan struct{})
-
-	return app, connID, nil
+	return app, connID.Load(), nil
 }
 
 // createSessionAndInvite creates a session for the given channel and signal,
 // and invites the participants specified in the config
-func createSessionAndInvite(
-	app *slim.BindingsAdapter,
-	connID uint64,
-	config SessionConfig,
-	channel string,
-	signal string,
-) (*slim.BindingsSessionContext, error) {
-	channel = fmt.Sprintf("%s-%s", channel, signal)
-	name, err := common.SplitID(channel)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse channel name: %w", err)
-	}
+func createSessionsAndInvite(
+	e *slimExporter,
+) error {
+	signalType := string(e.signalType)
+	for _, config := range e.config.Channels {
+		// if signal is not in config.Signals, skip this channel
+		found := false
+		for _, s := range config.Signals {
+			if s == signalType {
+				found = true
+				break
+			}
+		}
+		if !found {
+			// signal not found in this channel, skip
+			continue
+		}
 
-	maxRetries := uint32(defaultMaxRetries)
-	intervalMs := uint64(defaultIntervalMs)
-	sessionConfig := slim.SessionConfig{
-		SessionType: slim.SessionTypeGroup,
-		EnableMls:   config.MlsEnabled,
-		MaxRetries:  &maxRetries,
-		IntervalMs:  &intervalMs,
-		Initiator:   true,
-	}
-
-	session, err := app.CreateSession(sessionConfig, name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create the session: %w", err)
-	}
-
-	for _, participant := range config.Participants {
-		participantName, err := common.SplitID(participant)
+		channel := config.ChannelName
+		if len(config.Signals) > 1 {
+			// if multiple signals are specified, suffix the channel name with the signal type
+			channel = fmt.Sprintf("%s-%s", channel, signalType)
+		}
+		name, err := common.SplitID(channel)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse participant name %s: %w", participant, err)
+			return fmt.Errorf("failed to parse channel name: %w", err)
 		}
-		if err := app.SetRoute(participantName, connID); err != nil {
-			return nil, fmt.Errorf("failed to set route for participant %s: %w", participant, err)
+
+		// setup standard session config
+		maxRetries := uint32(defaultMaxRetries)
+		intervalMs := uint64(defaultIntervalMs)
+		sessionConfig := slim.SessionConfig{
+			SessionType: slim.SessionTypeGroup,
+			EnableMls:   config.MlsEnabled,
+			MaxRetries:  &maxRetries,
+			IntervalMs:  &intervalMs,
+			Initiator:   true,
 		}
-		if err := session.Invite(participantName); err != nil {
-			return nil, fmt.Errorf("failed to invite participant %s: %w", participant, err)
+
+		session, err := e.app.CreateSession(sessionConfig, name)
+		if err != nil {
+			return fmt.Errorf("failed to create the session: %w", err)
 		}
-		time.Sleep(inviteDelayMs * time.Millisecond)
+
+		// TODO update to the latest bindings version
+		for _, participant := range config.Participants {
+			participantName, err := common.SplitID(participant)
+			if err != nil {
+				return fmt.Errorf("failed to parse participant name %s for channel %s: %w", participant, channel, err)
+			}
+			if err := e.app.SetRoute(participantName, e.connID); err != nil {
+				return fmt.Errorf("failed to set route for participant %s for channel %s: %w", participant, channel, err)
+			}
+			if err := session.Invite(participantName); err != nil {
+				return fmt.Errorf("failed to invite participant %s for channel %s: %w", participant, channel, err)
+			}
+			time.Sleep(inviteDelayMs * time.Millisecond)
+		}
+
+		// add session to the list
+		err = e.sessions.AddSession(session)
+		if err != nil {
+			return fmt.Errorf("failed to add session for channel %s: %w", channel, err)
+		}
+
+		e.logger.Info("Created session and invited participants",
+			zap.String("signal", string(e.signalType)),
+			zap.String("channel", channel),
+			zap.Strings("participants", config.Participants))
 	}
 
-	return session, nil
+	return nil
 }
 
-// listenForAllSessions is a shared function that listens for all incoming sessions
-// and distributes them to the appropriate exporters based on the session name suffix
-func listenForAllSessions(ctx context.Context, app *slim.BindingsAdapter, logger *zap.Logger) {
-	logger.Info("Listener started, waiting for incoming sessions...")
+// listenForSessions listens for all incoming sessions
+func listenForSessions(ctx context.Context, e *slimExporter) {
+	e.logger.Info("Listener started, waiting for incoming sessions...")
 
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Info("Shutting down listener...")
+			e.logger.Info("Shutting down listener...")
 			return
 
-		case <-shutdownChan:
-			logger.Info("All sessions closed, shutting down listener...")
+		case <-e.shutdownChan:
+			e.logger.Info("All sessions closed, shutting down listener...")
 			return
 
 		default:
 			timeout := uint32(sessionTimeoutMs)
-			session, err := app.ListenForSession(&timeout)
+			session, err := e.app.ListenForSession(&timeout)
 			if err != nil {
-				logger.Debug("Timeout waiting for session, retrying...")
+				e.logger.Debug("Timeout waiting for session, retrying...")
 				continue
 			}
 
-			logger.Info("New session established!")
+			e.logger.Info("New session received for signal",
+				zap.String("signal", string(e.signalType)))
 
-			// Parse the session name to determine which channel it belongs to
-			sessionName, err := session.Destination()
+			// add session to the list
+			err = e.sessions.AddSession(session)
 			if err != nil {
-				logger.Error("Failed to get session destination", zap.Error(err))
-				continue
-			}
-
-			// Check the third component (index 2) of the session name
-			if len(sessionName.Components) < 3 {
-				logger.Error("Received session with invalid name structure",
-					zap.Int("components_count", len(sessionName.Components)))
-				continue
-			}
-
-			channelComponent := sessionName.Components[2]
-
-			// Determine signal type from suffix and assign to appropriate exporter
-			assignedSignal, err := common.ExtractSignalType(channelComponent)
-			if err != nil {
-				logger.Error("Received session with unrecognized suffix",
-					zap.String("session_name", channelComponent),
-					zap.Error(err))
-				continue
-			}
-
-			logger.Info("New session received for signal",
-				zap.String("signal", string(assignedSignal)),
-				zap.String("session_name", channelComponent))
-
-			// Store session in exporter sessions
-			err = state.AddSessionForSignal(assignedSignal, session)
-			if err != nil {
-				logger.Error("Failed to add session", zap.String("signal", string(assignedSignal)), zap.Error(err))
+				e.logger.Error("Failed to add session", zap.String("signal", string(e.signalType)), zap.Error(err))
 				continue
 			}
 		}
@@ -299,16 +207,19 @@ func listenForAllSessions(ctx context.Context, app *slim.BindingsAdapter, logger
 
 // newSlimExporter creates a new instance of the slim exporter
 func newSlimExporter(cfg *Config, logger *zap.Logger, signalType common.SignalType) (*slimExporter, error) {
-	_, _, err := getOrCreateApp(cfg.LocalName, cfg.SlimEndpoint, cfg.SharedSecret)
+	app, connID, err := CreateApp(cfg, logger, signalType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create/connect app: %w", err)
 	}
 
 	slim := &slimExporter{
-		config:     cfg,
-		logger:     logger,
-		signalType: signalType,
-		sessions:   state,
+		config:       cfg,
+		logger:       logger,
+		signalType:   signalType,
+		app:          app,
+		connID:       connID,
+		sessions:     &SessionsList{},
+		shutdownChan: make(chan struct{}),
 	}
 
 	return slim, nil
@@ -316,41 +227,18 @@ func newSlimExporter(cfg *Config, logger *zap.Logger, signalType common.SignalTy
 
 // start is invoked during service startup
 func (e *slimExporter) start(ctx context.Context, _ component.Host) error {
-	e.logger.Info("Starting Slim exporter",
-		zap.String("endpoint", e.config.SlimEndpoint),
-		zap.String("local-name", e.config.LocalName),
+	e.logger.Info("Starting Slim exporter for signal",
 		zap.String("signal", string(e.signalType)))
 
-	// create sessions for each configured channel related to this signal type
-	app := e.sessions.app
-	connID := e.sessions.connID
-	for _, sessionCfg := range e.config.Sessions {
-		for _, signal := range sessionCfg.Signals {
-			if signal == string(e.signalType) {
-				session, err := createSessionAndInvite(app, connID, sessionCfg, sessionCfg.ChannelName, signal)
-				if err != nil {
-					return fmt.Errorf(
-						"failed to create and invite session for channel %s and signal %s: %w",
-						sessionCfg.ChannelName, signal, err)
-				}
-				e.logger.Info("Session created and participants invited",
-					zap.String("channel", sessionCfg.ChannelName),
-					zap.String("signal", signal))
-
-				// Store session in exporter sessions
-				err = state.AddSessionForSignal(e.signalType, session)
-				if err != nil {
-					return fmt.Errorf("failed to add %s session: %w", signal, err)
-				}
-			}
-		}
+	// create all sessions defined in the config
+	err := createSessionsAndInvite(e)
+	if err != nil {
+		return err
 	}
 
-	// if the session reception loop is not started yet, start it
-	listenerStartedOnce.Do(func() {
-		e.logger.Info("Starting shared session listener")
-		go listenForAllSessions(ctx, e.sessions.app, e.logger)
-	})
+	// start to listen for incoming sessions
+	e.logger.Info("Start to listen for new sessions for signal", zap.String("signal", string(e.signalType)))
+	go listenForSessions(ctx, e)
 
 	return nil
 }
@@ -359,24 +247,26 @@ func (e *slimExporter) start(ctx context.Context, _ component.Host) error {
 func (e *slimExporter) shutdown(_ context.Context) error {
 	e.logger.Info("Shutting down Slim exporter", zap.String("signal", string(e.signalType)))
 
-	// Update shared data and close the app if all sessions are nil
-	if state != nil {
-		state.RemoveAllSessionsForSignal(e.signalType)
+	// stop the receiver listener
+	close(e.shutdownChan)
 
-		// if all sessions are closed, destroy the app
-		allMetricsClosed := len(state.metricsSessions.sessions) == 0
-		allTracesClosed := len(state.tracesSessions.sessions) == 0
-		allLogsClosed := len(state.logsSessions.sessions) == 0
+	// remove all sessions
+	e.sessions.RemoveAllSessions()
 
-		if allMetricsClosed && allTracesClosed && allLogsClosed {
-			e.logger.Info("All sessions closed, destroying application")
-			// Signal the listener to shut down
-			if shutdownChan != nil {
-				close(shutdownChan)
-			}
-			// this is safe as only one exporter can reach this point
-			e.sessions.app.Destroy()
-			state = nil
+	return nil
+}
+
+// publishData sends data to all sessions and removes closed ones
+func (e *slimExporter) publishData(data []byte) error {
+	closedSessions, err := e.sessions.PublishToAll(data, e.logger, string(e.signalType))
+	if err != nil {
+		return err
+	}
+
+	// Remove closed sessions after iteration
+	for _, id := range closedSessions {
+		if err := e.sessions.RemoveSession(id); err != nil {
+			return err
 		}
 	}
 
@@ -392,7 +282,7 @@ func (e *slimExporter) pushTraces(_ context.Context, td ptrace.Traces) error {
 		return err
 	}
 
-	return e.publishData(message, "traces", td.SpanCount())
+	return e.publishData(message)
 }
 
 // pushMetrics exports metrics data
@@ -404,7 +294,7 @@ func (e *slimExporter) pushMetrics(_ context.Context, md pmetric.Metrics) error 
 		return err
 	}
 
-	return e.publishData(message, "metrics", md.DataPointCount())
+	return e.publishData(message)
 }
 
 // pushLogs exports logs data
@@ -416,44 +306,5 @@ func (e *slimExporter) pushLogs(_ context.Context, ld plog.Logs) error {
 		return err
 	}
 
-	return e.publishData(message, "logs", ld.LogRecordCount())
-}
-
-// send data to all sessions related to the signal type
-func (e *slimExporter) publishData(data []byte, signalName string, count int) error {
-	e.logger.Info("Exporting "+signalName,
-		zap.Int("count", count),
-		zap.String("endpoint", e.config.SlimEndpoint))
-
-	var closedSessions []uint32
-	var err error
-	var signalType common.SignalType
-
-	switch signalName {
-	case "traces":
-		closedSessions, err = state.tracesSessions.PublishToAll(data, e.logger, signalName)
-		signalType = common.SignalTraces
-	case "metrics":
-		closedSessions, err = state.metricsSessions.PublishToAll(data, e.logger, signalName)
-		signalType = common.SignalMetrics
-	case "logs":
-		closedSessions, err = state.logsSessions.PublishToAll(data, e.logger, signalName)
-		signalType = common.SignalLogs
-	default:
-		e.logger.Error("Unknown signal type: " + signalName)
-		return fmt.Errorf("unknown signal type: %s", signalName)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	// Remove closed sessions after iteration
-	for _, id := range closedSessions {
-		if err := state.RemoveSessionForSignal(signalType, id); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return e.publishData(message)
 }
