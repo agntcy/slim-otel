@@ -60,13 +60,13 @@ task collector:test
 
 #### 1. Start a SLIM Node
 
-First, start a SLIM node for testing:
+First, start a SLIM node for testing in Docker:
 
 ```bash
 task test:slim:run
 ```
 
-This runs a SLIM data plane node with the base server configuration.
+This runs a SLIM data plane node in a Docker container using the configuration from `slim-test-config.yaml`. The node will be accessible on port 46357.
 
 #### 2. Start the Collector
 

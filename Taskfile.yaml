@@ -214,4 +214,4 @@ tasks:
       - >
         docker run -it
         -v ./slim-test-config.yaml:/config.yaml -p 46357:46357
-        ghcr.io/agntcy/slim:0.7.0 /slim --config /config.yaml
+        ghcr.io/agntcy/slim:latest /slim --config /config.yaml
