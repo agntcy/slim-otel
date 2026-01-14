@@ -77,10 +77,13 @@ func TestSessionsList_RemoveSession(t *testing.T) {
 	})
 }
 
-// TestSessionsList_RemoveAllSessions tests removing all sessions
-func TestSessionsList_RemoveAllSessions(t *testing.T) {
-	t.Run("remove all sessions from populated list", func(t *testing.T) {
+// TestSessionsList_DeleteAll tests removing all sessions
+func TestSessionsList_DeleteAll(t *testing.T) {
+	t.Run("delete all sessions from populated list", func(t *testing.T) {
+		logger := zap.NewNop()
 		ss := &SessionsList{
+			logger:     logger,
+			signalType: "test",
 			sessions: map[uint32]*slim.BindingsSessionContext{
 				1: nil,
 				2: nil,
@@ -88,18 +91,25 @@ func TestSessionsList_RemoveAllSessions(t *testing.T) {
 			},
 		}
 
-		ss.RemoveAllSessions()
+		ss.DeleteAll(nil)
 
-		if ss.sessions != nil {
-			t.Error("expected sessions map to be nil after RemoveAllSessions")
+		// When app is nil, sessions should NOT be deleted
+		if ss.sessions == nil {
+			t.Error("expected sessions map to remain when app is nil")
+		}
+		if len(ss.sessions) != 3 {
+			t.Errorf("expected 3 sessions to remain, got %d", len(ss.sessions))
 		}
 	})
 
-	t.Run("remove all sessions with nil map", func(t *testing.T) {
-		ss := &SessionsList{}
+	t.Run("delete all sessions with nil map", func(t *testing.T) {
+		logger := zap.NewNop()
+		ss := &SessionsList{
+			logger: logger,
+		}
 
 		// Should not panic
-		ss.RemoveAllSessions()
+		ss.DeleteAll(nil)
 
 		if ss.sessions != nil {
 			t.Error("expected sessions map to remain nil")
@@ -109,15 +119,13 @@ func TestSessionsList_RemoveAllSessions(t *testing.T) {
 
 // TestSessionsList_PublishToAll tests publishing data to all sessions
 func TestSessionsList_PublishToAll(t *testing.T) {
-	logger := zap.NewNop()
-
 	t.Run("publish to all sessions with empty map", func(t *testing.T) {
 		ss := &SessionsList{
 			sessions: map[uint32]*slim.BindingsSessionContext{},
 		}
 
 		data := []byte("test data")
-		closedSessions, err := ss.PublishToAll(data, logger, "test-signal")
+		closedSessions, err := ss.PublishToAll(data)
 
 		if err != nil {
 			t.Errorf("expected no error, got %v", err)
@@ -132,7 +140,7 @@ func TestSessionsList_PublishToAll(t *testing.T) {
 			sessions: map[uint32]*slim.BindingsSessionContext{},
 		}
 
-		closedSessions, err := ss.PublishToAll(nil, logger, "test-signal")
+		closedSessions, err := ss.PublishToAll(nil)
 
 		if err == nil {
 			t.Error("expected error for nil data, got nil")
@@ -152,7 +160,6 @@ func TestSessionsList_ConcurrentAccess(t *testing.T) {
 		ss := &SessionsList{
 			sessions: make(map[uint32]*slim.BindingsSessionContext),
 		}
-		logger := zap.NewNop()
 		var wg sync.WaitGroup
 
 		// Concurrent RemoveSession operations
@@ -170,15 +177,18 @@ func TestSessionsList_ConcurrentAccess(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				data := []byte("test data")
-				_, _ = ss.PublishToAll(data, logger, "test")
+				_, _ = ss.PublishToAll(data)
 			}()
 		}
 
 		wg.Wait()
 	})
 
-	t.Run("concurrent RemoveAllSessions calls", func(t *testing.T) {
+	t.Run("concurrent DeleteAll calls", func(t *testing.T) {
+		logger := zap.NewNop()
 		ss := &SessionsList{
+			logger:     logger,
+			signalType: "test",
 			sessions: map[uint32]*slim.BindingsSessionContext{
 				1: nil,
 				2: nil,
@@ -191,14 +201,15 @@ func TestSessionsList_ConcurrentAccess(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				ss.RemoveAllSessions()
+				ss.DeleteAll(nil)
 			}()
 		}
 
 		wg.Wait()
 
-		if ss.sessions != nil {
-			t.Error("expected sessions map to be nil after concurrent RemoveAllSessions")
+		// When app is nil, sessions should NOT be deleted
+		if ss.sessions == nil {
+			t.Error("expected sessions map to remain when app is nil")
 		}
 	})
 }

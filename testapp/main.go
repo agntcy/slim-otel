@@ -128,13 +128,13 @@ func initiateSessions(
 	logger.Info("Create session and invite exporter", zap.String("exporter", *exporterNameStr))
 
 	maxRetries := uint32(10)
-	intervalMs := uint64(1000)
+	interval := time.Millisecond * 1000
 	config := slim.SessionConfig{
 		SessionType: slim.SessionTypeGroup,
 		EnableMls:   mlsEnabled,
 		MaxRetries:  &maxRetries,
-		IntervalMs:  &intervalMs,
-		Initiator:   true,
+		Interval:    &interval,
+		Metadata:    make(map[string]string),
 	}
 
 	err = app.SetRoute(exporterName, connID)
@@ -142,11 +142,11 @@ func initiateSessions(
 		logger.Fatal("Failed to set route", zap.Error(err))
 	}
 	// create traces session
-	sessionTraces, err := app.CreateSession(config, tracesChannel)
+	sessionTraces, err := app.CreateSessionAndWait(config, tracesChannel)
 	if err != nil {
 		logger.Fatal("Failed to create traces session", zap.Error(err))
 	}
-	err = sessionTraces.Invite(exporterName)
+	err = sessionTraces.InviteAndWait(exporterName)
 	if err != nil {
 		logger.Fatal("Failed to invite exporter to traces session", zap.Error(err))
 	}
@@ -155,11 +155,11 @@ func initiateSessions(
 	go handleSession(ctx, wg, logger, app, sessionTraces, common.SignalTraces)
 
 	// create metrics session
-	sessionMetrics, err := app.CreateSession(config, metricsChannel)
+	sessionMetrics, err := app.CreateSessionAndWait(config, metricsChannel)
 	if err != nil {
 		logger.Fatal("Failed to create metrics session", zap.Error(err))
 	}
-	err = sessionMetrics.Invite(exporterName)
+	err = sessionMetrics.InviteAndWait(exporterName)
 	if err != nil {
 		logger.Fatal("Failed to invite exporter to metrics session", zap.Error(err))
 	}
@@ -167,11 +167,11 @@ func initiateSessions(
 	wg.Add(1)
 	go handleSession(ctx, wg, logger, app, sessionMetrics, common.SignalMetrics)
 	// create logs session
-	sessionLogs, err := app.CreateSession(config, logsChannel)
+	sessionLogs, err := app.CreateSessionAndWait(config, logsChannel)
 	if err != nil {
 		logger.Fatal("Failed to create logs session", zap.Error(err))
 	}
-	err = sessionLogs.Invite(exporterName)
+	err = sessionLogs.InviteAndWait(exporterName)
 	if err != nil {
 		logger.Fatal("Failed to invite exporter to logs session", zap.Error(err))
 	}
@@ -201,7 +201,7 @@ func waitForSessionsAndMessages(
 
 		default:
 			// Wait for new session with timeout
-			timeout := uint32(1000) // 1 sec
+			timeout := time.Second * 1
 			session, err := app.ListenForSession(&timeout)
 			if err != nil {
 				// Timeout is normal, just continue
@@ -214,20 +214,21 @@ func waitForSessionsAndMessages(
 				continue
 			}
 
-			if len(dst.Components) < 3 {
+			components := dst.Components()
+			if len(components) < 3 {
 				logger.Error("session destination has insufficient components")
 				continue
 			}
 
-			// Extract signal type from dst.Components[2] suffix
-			telemetryType := dst.Components[2]
+			// Extract signal type from components[2] suffix
+			telemetryType := components[2]
 			signalType, err := common.ExtractSignalType(telemetryType)
 			if err != nil {
 				logger.Error("error extracting signal type", zap.Error(err))
 				continue
 			}
 
-			dstStr := dst.Components[0] + "/" + dst.Components[1] + "/" + dst.Components[2]
+			dstStr := components[0] + "/" + components[1] + "/" + components[2]
 
 			logger.Info(
 				"New session established",
@@ -260,7 +261,7 @@ func handleSession(
 
 	defer func() {
 
-		if err := app.DeleteSession(session); err != nil {
+		if err := app.DeleteSessionAndWait(session); err != nil {
 			logger.Warn("failed to delete session",
 				zap.Uint32("sessionId", sessionNum),
 				zap.String("signalType", string(signalType)),

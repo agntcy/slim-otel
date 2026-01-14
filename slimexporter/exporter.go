@@ -48,22 +48,19 @@ func CreateApp(
 	logger *zap.Logger,
 	signalType common.SignalType,
 ) (*slim.BindingsAdapter, uint64, error) {
+	// TODO: here it can happen that we try to connect multiple times, remove the atmomic and use a mutex
 	if !connected.Load() {
 		// Initialize crypto subsystem (idempotent, safe to call multiple times)
-		slim.InitializeCryptoProvider()
-
-		// Connect to SLIM server and get the connection ID
-		config := slim.ClientConfig{
-			Endpoint: cfg.SlimEndpoint,
-			Tls:      slim.TlsConfig{Insecure: true},
-		}
+		slim.InitializeWithDefaults()
 
 		// Connect to SLIM server (returns connection ID)
 		config := slim.NewInsecureClientConfig(cfg.SlimEndpoint)
 		connIDValue, err := slim.Connect(config)
 		if err != nil {
-			return nil, 0, fmt.Errorf("connection with remote SLIM server failed: %w", err)
+			connected.Store(false)
+			return nil, 0, fmt.Errorf("failed to connect to SLIM server: %w", err)
 		}
+
 		connected.Store(true)
 		connID.Store(connIDValue)
 		logger.Info("Connected to SLIM server", zap.String("endpoint", cfg.SlimEndpoint), zap.Uint64("connection_id", connIDValue))
@@ -125,17 +122,16 @@ func createSessionsAndInvite(
 		}
 
 		// setup standard session config
-		maxRetries := uint32(defaultMaxRetries)
-		intervalMs := uint64(defaultIntervalMs)
+		interval := time.Millisecond * defaultIntervalMs
 		sessionConfig := slim.SessionConfig{
 			SessionType: slim.SessionTypeGroup,
 			EnableMls:   config.MlsEnabled,
-			MaxRetries:  &maxRetries,
-			IntervalMs:  &intervalMs,
-			Initiator:   true,
+			MaxRetries:  &[]uint32{defaultMaxRetries}[0],
+			Interval:    &interval,
+			Metadata:    make(map[string]string),
 		}
 
-		session, err := e.app.CreateSession(sessionConfig, name)
+		session, err := e.app.CreateSessionAndWait(sessionConfig, name)
 		if err != nil {
 			return fmt.Errorf("failed to create the session: %w", err)
 		}
@@ -149,10 +145,9 @@ func createSessionsAndInvite(
 			if err := e.app.SetRoute(participantName, e.connID); err != nil {
 				return fmt.Errorf("failed to set route for participant %s for channel %s: %w", participant, channel, err)
 			}
-			if err := session.Invite(participantName); err != nil {
+			if err := session.InviteAndWait(participantName); err != nil {
 				return fmt.Errorf("failed to invite participant %s for channel %s: %w", participant, channel, err)
 			}
-			time.Sleep(inviteDelayMs * time.Millisecond)
 		}
 
 		// add session to the list
@@ -185,7 +180,7 @@ func listenForSessions(ctx context.Context, e *slimExporter) {
 			return
 
 		default:
-			timeout := uint32(sessionTimeoutMs)
+			timeout := time.Millisecond * sessionTimeoutMs
 			session, err := e.app.ListenForSession(&timeout)
 			if err != nil {
 				e.logger.Debug("Timeout waiting for session, retrying...")
@@ -218,7 +213,7 @@ func newSlimExporter(cfg *Config, logger *zap.Logger, signalType common.SignalTy
 		signalType:   signalType,
 		app:          app,
 		connID:       connID,
-		sessions:     &SessionsList{},
+		sessions:     &SessionsList{logger: logger, signalType: signalType},
 		shutdownChan: make(chan struct{}),
 	}
 
@@ -251,14 +246,17 @@ func (e *slimExporter) shutdown(_ context.Context) error {
 	close(e.shutdownChan)
 
 	// remove all sessions
-	e.sessions.RemoveAllSessions()
+	e.sessions.DeleteAll(e.app)
+
+	// destroy the app
+	e.app.Destroy()
 
 	return nil
 }
 
 // publishData sends data to all sessions and removes closed ones
 func (e *slimExporter) publishData(data []byte) error {
-	closedSessions, err := e.sessions.PublishToAll(data, e.logger, string(e.signalType))
+	closedSessions, err := e.sessions.PublishToAll(data)
 	if err != nil {
 		return err
 	}

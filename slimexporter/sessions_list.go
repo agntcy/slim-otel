@@ -8,12 +8,15 @@ import (
 	"go.uber.org/zap"
 
 	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
+	common "github.com/agntcy/slim/otel"
 )
 
 // SessionsList holds sessions related to a specific signal type
 type SessionsList struct {
-	mutex    sync.RWMutex
-	sessions map[uint32]*slim.BindingsSessionContext
+	mutex      sync.RWMutex
+	logger     *zap.Logger
+	signalType common.SignalType
+	sessions   map[uint32]*slim.BindingsSessionContext
 }
 
 func (s *SessionsList) AddSession(session *slim.BindingsSessionContext) error {
@@ -30,6 +33,19 @@ func (s *SessionsList) AddSession(session *slim.BindingsSessionContext) error {
 	return nil
 }
 
+func (s *SessionsList) GetSession(id uint32) (*slim.BindingsSessionContext, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	if s.sessions == nil {
+		return nil, fmt.Errorf("sessions map is nil")
+	}
+	session, exists := s.sessions[id]
+	if !exists {
+		return nil, fmt.Errorf("session with id %d not found", id)
+	}
+	return session, nil
+}
+
 func (s *SessionsList) RemoveSession(id uint32) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -39,12 +55,16 @@ func (s *SessionsList) RemoveSession(id uint32) error {
 	if _, exists := s.sessions[id]; !exists {
 		return fmt.Errorf("session with id %d not found", id)
 	}
-	//s.sessions[id].Close()
 	delete(s.sessions, id)
 	return nil
 }
 
-func (s *SessionsList) RemoveAllSessions() {
+func (s *SessionsList) DeleteAll(app *slim.BindingsAdapter) {
+	if app == nil {
+		s.logger.Warn("Cannot delete sessions, app is nil", zap.String("signal_type", string(s.signalType)))
+		return
+	}
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if s.sessions == nil {
@@ -52,20 +72,32 @@ func (s *SessionsList) RemoveAllSessions() {
 		return
 	}
 
-	//for _, v := range s.sessions {
-	//	v.Close()
-	//}
+	for id, session := range s.sessions {
+		if err := app.DeleteSessionAndWait(session); err != nil {
+			// log and continue
+			s.logger.Warn("failed to delete session",
+				zap.Uint32("session_id", id),
+				zap.Error(err))
+		}
+	}
+
+	s.logger.Info("All sessions deleted for signal", zap.String("signal_type", string(s.signalType)))
 
 	s.sessions = nil
 }
 
 // PublishToAll publishes data to all sessions and returns a list of closed session IDs
-func (s *SessionsList) PublishToAll(data []byte, logger *zap.Logger, signalName string) ([]uint32, error) {
+func (s *SessionsList) PublishToAll(data []byte) ([]uint32, error) {
 	// TODO:
 	// 1. copy the current kyes to avoid holding the lock during Publish calls
-	// 2. mode the the latest publish version of the bindings
-	if data == nil || logger == nil {
+	if data == nil {
 		return nil, fmt.Errorf("missing data or logger")
+	}
+
+	if s.sessions == nil {
+		// nothing to do
+		s.logger.Debug("No sessions to publish to", zap.String("signal_name", string(s.signalType)))
+		return nil, nil
 	}
 
 	s.mutex.RLock()
@@ -73,16 +105,16 @@ func (s *SessionsList) PublishToAll(data []byte, logger *zap.Logger, signalName 
 
 	var closedSessions []uint32
 	for id, session := range s.sessions {
-		if err := session.Publish(data, nil, nil); err != nil {
+		if err := session.PublishAndWait(data, nil, nil); err != nil {
 			if strings.Contains(err.Error(), "Session already closed or dropped") {
-				logger.Info("Session closed, marking for removal", zap.Uint32("session_id", id))
+				s.logger.Info("Session closed, marking for removal", zap.Uint32("session_id", id))
 				closedSessions = append(closedSessions, id)
 				continue
 			}
-			logger.Error("Error sending "+signalName+" message", zap.Error(err))
+			s.logger.Error("Error sending "+string(s.signalType)+" message", zap.Error(err))
 			return closedSessions, err
 		}
-		logger.Debug("Published "+signalName+" to session", zap.Uint32("session_id", id))
+		s.logger.Debug("Published "+string(s.signalType)+" to session", zap.Uint32("session_id", id))
 	}
 
 	return closedSessions, nil
