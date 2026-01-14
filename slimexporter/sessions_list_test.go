@@ -1,0 +1,204 @@
+package slimexporter
+
+import (
+	"sync"
+	"testing"
+
+	"go.uber.org/zap"
+
+	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
+)
+
+// TestSessionsList_RemoveSession tests removing sessions from SessionsList
+func TestSessionsList_RemoveSession(t *testing.T) {
+	t.Run("remove existing session", func(t *testing.T) {
+		ss := &SessionsList{
+			sessions: map[uint32]*slim.BindingsSessionContext{
+				1: nil, // Mock session using a nil pointer
+			},
+		}
+
+		err := ss.RemoveSession(1)
+		if err != nil {
+			t.Errorf("expected no error, got %v", err)
+		}
+		if len(ss.sessions) != 0 {
+			t.Errorf("expected 0 sessions, got %d", len(ss.sessions))
+		}
+	})
+
+	t.Run("remove non-existing session", func(t *testing.T) {
+		ss := &SessionsList{
+			sessions: map[uint32]*slim.BindingsSessionContext{},
+		}
+
+		err := ss.RemoveSession(1)
+		if err == nil {
+			t.Error("expected error, got nil")
+		}
+	})
+
+	t.Run("remove session with nil sessions map", func(t *testing.T) {
+		ss := &SessionsList{}
+
+		err := ss.RemoveSession(1)
+		if err == nil {
+			t.Error("expected error, got nil")
+		}
+	})
+
+	t.Run("remove multiple sessions", func(t *testing.T) {
+		ss := &SessionsList{
+			sessions: map[uint32]*slim.BindingsSessionContext{
+				1: nil,
+				2: nil,
+				3: nil,
+			},
+		}
+
+		err := ss.RemoveSession(2)
+		if err != nil {
+			t.Errorf("expected no error, got %v", err)
+		}
+		if len(ss.sessions) != 2 {
+			t.Errorf("expected 2 sessions, got %d", len(ss.sessions))
+		}
+
+		// Verify the correct session was removed
+		if _, exists := ss.sessions[2]; exists {
+			t.Error("expected session 2 to be removed")
+		}
+		if _, exists := ss.sessions[1]; !exists {
+			t.Error("expected session 1 to still exist")
+		}
+		if _, exists := ss.sessions[3]; !exists {
+			t.Error("expected session 3 to still exist")
+		}
+	})
+}
+
+// TestSessionsList_RemoveAllSessions tests removing all sessions
+func TestSessionsList_RemoveAllSessions(t *testing.T) {
+	t.Run("remove all sessions from populated list", func(t *testing.T) {
+		ss := &SessionsList{
+			sessions: map[uint32]*slim.BindingsSessionContext{
+				1: nil,
+				2: nil,
+				3: nil,
+			},
+		}
+
+		ss.RemoveAllSessions()
+
+		if ss.sessions != nil {
+			t.Error("expected sessions map to be nil after RemoveAllSessions")
+		}
+	})
+
+	t.Run("remove all sessions with nil map", func(t *testing.T) {
+		ss := &SessionsList{}
+
+		// Should not panic
+		ss.RemoveAllSessions()
+
+		if ss.sessions != nil {
+			t.Error("expected sessions map to remain nil")
+		}
+	})
+}
+
+// TestSessionsList_PublishToAll tests publishing data to all sessions
+func TestSessionsList_PublishToAll(t *testing.T) {
+	logger := zap.NewNop()
+
+	t.Run("publish to all sessions with empty map", func(t *testing.T) {
+		ss := &SessionsList{
+			sessions: map[uint32]*slim.BindingsSessionContext{},
+		}
+
+		data := []byte("test data")
+		closedSessions, err := ss.PublishToAll(data, logger, "test-signal")
+
+		if err != nil {
+			t.Errorf("expected no error, got %v", err)
+		}
+		if len(closedSessions) != 0 {
+			t.Errorf("expected no closed sessions, got %d", len(closedSessions))
+		}
+	})
+
+	t.Run("publish with nil data", func(t *testing.T) {
+		ss := &SessionsList{
+			sessions: map[uint32]*slim.BindingsSessionContext{},
+		}
+
+		closedSessions, err := ss.PublishToAll(nil, logger, "test-signal")
+
+		if err == nil {
+			t.Error("expected error for nil data, got nil")
+		}
+		if err.Error() != "missing data or logger" {
+			t.Errorf("expected 'missing data or logger' error, got %v", err)
+		}
+		if closedSessions != nil {
+			t.Errorf("expected nil closedSessions, got %v", closedSessions)
+		}
+	})
+}
+
+// TestSessionsList_ConcurrentAccess tests concurrent access to SessionsList
+func TestSessionsList_ConcurrentAccess(t *testing.T) {
+	t.Run("concurrent operations", func(t *testing.T) {
+		ss := &SessionsList{
+			sessions: make(map[uint32]*slim.BindingsSessionContext),
+		}
+		logger := zap.NewNop()
+		var wg sync.WaitGroup
+
+		// Concurrent RemoveSession operations
+		for i := 0; i < 5; i++ {
+			wg.Add(1)
+			go func(id uint32) {
+				defer wg.Done()
+				_ = ss.RemoveSession(id)
+			}(uint32(i))
+		}
+
+		// Concurrent PublishToAll
+		for i := 0; i < 5; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				data := []byte("test data")
+				_, _ = ss.PublishToAll(data, logger, "test")
+			}()
+		}
+
+		wg.Wait()
+	})
+
+	t.Run("concurrent RemoveAllSessions calls", func(t *testing.T) {
+		ss := &SessionsList{
+			sessions: map[uint32]*slim.BindingsSessionContext{
+				1: nil,
+				2: nil,
+				3: nil,
+			},
+		}
+		var wg sync.WaitGroup
+
+		for i := 0; i < 5; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				ss.RemoveAllSessions()
+			}()
+		}
+
+		wg.Wait()
+
+		if ss.sessions != nil {
+			t.Error("expected sessions map to be nil after concurrent RemoveAllSessions")
+		}
+	})
+}
