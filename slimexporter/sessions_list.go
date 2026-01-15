@@ -16,14 +16,14 @@ type SessionsList struct {
 	mutex      sync.RWMutex
 	logger     *zap.Logger
 	signalType common.SignalType
-	sessions   map[uint32]*slim.BindingsSessionContext
+	sessions   map[uint32]*slim.Session
 }
 
-func (s *SessionsList) AddSession(session *slim.BindingsSessionContext) error {
+func (s *SessionsList) AddSession(session *slim.Session) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if s.sessions == nil {
-		s.sessions = make(map[uint32]*slim.BindingsSessionContext)
+		s.sessions = make(map[uint32]*slim.Session)
 	}
 	id, err := session.SessionId()
 	if err != nil {
@@ -33,7 +33,7 @@ func (s *SessionsList) AddSession(session *slim.BindingsSessionContext) error {
 	return nil
 }
 
-func (s *SessionsList) GetSession(id uint32) (*slim.BindingsSessionContext, error) {
+func (s *SessionsList) GetSession(id uint32) (*slim.Session, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	if s.sessions == nil {
@@ -59,7 +59,7 @@ func (s *SessionsList) RemoveSession(id uint32) error {
 	return nil
 }
 
-func (s *SessionsList) DeleteAll(app *slim.BindingsAdapter) {
+func (s *SessionsList) DeleteAll(app *slim.App) {
 	if app == nil {
 		s.logger.Warn("Cannot delete sessions, app is nil", zap.String("signal_type", string(s.signalType)))
 		return

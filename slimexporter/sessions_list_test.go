@@ -13,7 +13,7 @@ import (
 func TestSessionsList_RemoveSession(t *testing.T) {
 	t.Run("remove existing session", func(t *testing.T) {
 		ss := &SessionsList{
-			sessions: map[uint32]*slim.BindingsSessionContext{
+			sessions: map[uint32]*slim.Session{
 				1: nil, // Mock session using a nil pointer
 			},
 		}
@@ -29,7 +29,7 @@ func TestSessionsList_RemoveSession(t *testing.T) {
 
 	t.Run("remove non-existing session", func(t *testing.T) {
 		ss := &SessionsList{
-			sessions: map[uint32]*slim.BindingsSessionContext{},
+			sessions: map[uint32]*slim.Session{},
 		}
 
 		err := ss.RemoveSession(1)
@@ -49,7 +49,7 @@ func TestSessionsList_RemoveSession(t *testing.T) {
 
 	t.Run("remove multiple sessions", func(t *testing.T) {
 		ss := &SessionsList{
-			sessions: map[uint32]*slim.BindingsSessionContext{
+			sessions: map[uint32]*slim.Session{
 				1: nil,
 				2: nil,
 				3: nil,
@@ -84,7 +84,7 @@ func TestSessionsList_DeleteAll(t *testing.T) {
 		ss := &SessionsList{
 			logger:     logger,
 			signalType: "test",
-			sessions: map[uint32]*slim.BindingsSessionContext{
+			sessions: map[uint32]*slim.Session{
 				1: nil,
 				2: nil,
 				3: nil,
@@ -121,7 +121,7 @@ func TestSessionsList_DeleteAll(t *testing.T) {
 func TestSessionsList_PublishToAll(t *testing.T) {
 	t.Run("publish to all sessions with empty map", func(t *testing.T) {
 		ss := &SessionsList{
-			sessions: map[uint32]*slim.BindingsSessionContext{},
+			sessions: map[uint32]*slim.Session{},
 		}
 
 		data := []byte("test data")
@@ -137,7 +137,7 @@ func TestSessionsList_PublishToAll(t *testing.T) {
 
 	t.Run("publish with nil data", func(t *testing.T) {
 		ss := &SessionsList{
-			sessions: map[uint32]*slim.BindingsSessionContext{},
+			sessions: map[uint32]*slim.Session{},
 		}
 
 		closedSessions, err := ss.PublishToAll(nil)
@@ -158,7 +158,7 @@ func TestSessionsList_PublishToAll(t *testing.T) {
 func TestSessionsList_ConcurrentAccess(t *testing.T) {
 	t.Run("concurrent operations", func(t *testing.T) {
 		ss := &SessionsList{
-			sessions: make(map[uint32]*slim.BindingsSessionContext),
+			sessions: make(map[uint32]*slim.Session),
 		}
 		var wg sync.WaitGroup
 
@@ -189,7 +189,7 @@ func TestSessionsList_ConcurrentAccess(t *testing.T) {
 		ss := &SessionsList{
 			logger:     logger,
 			signalType: "test",
-			sessions: map[uint32]*slim.BindingsSessionContext{
+			sessions: map[uint32]*slim.Session{
 				1: nil,
 				2: nil,
 				3: nil,

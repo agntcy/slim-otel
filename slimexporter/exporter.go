@@ -37,7 +37,7 @@ type slimExporter struct {
 	config       *Config
 	logger       *zap.Logger
 	signalType   common.SignalType
-	app          *slim.BindingsAdapter
+	app          *slim.App
 	connID       uint64
 	sessions     *SessionsList
 	shutdownChan chan struct{}
@@ -76,7 +76,7 @@ func CreateApp(
 	cfg *Config,
 	logger *zap.Logger,
 	signalType common.SignalType,
-) (*slim.BindingsAdapter, uint64, error) {
+) (*slim.App, uint64, error) {
 	err := initConnection(cfg, logger, signalType)
 	if err != nil {
 		return nil, 0, err

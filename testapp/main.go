@@ -111,7 +111,7 @@ func initiateSessions(
 	ctx context.Context,
 	wg *sync.WaitGroup,
 	logger *zap.Logger,
-	app *slim.BindingsAdapter,
+	app *slim.App,
 	exporterNameMetricsStr *string,
 	channelNameMetricsStr *string,
 	exporterNameTracesStr *string,
@@ -140,7 +140,7 @@ func createAndHandleSession(
 	ctx context.Context,
 	wg *sync.WaitGroup,
 	logger *zap.Logger,
-	app *slim.BindingsAdapter,
+	app *slim.App,
 	exporterNameStr *string,
 	channelNameStr *string,
 	signalType common.SignalType,
@@ -193,7 +193,7 @@ func waitForSessionsAndMessages(
 	ctx context.Context,
 	wg *sync.WaitGroup,
 	logger *zap.Logger,
-	app *slim.BindingsAdapter,
+	app *slim.App,
 ) {
 	logger.Info("Waiting for incoming sessions...")
 	logger.Info("Press Ctrl+C to stop")
@@ -252,8 +252,8 @@ func handleSession(
 	ctx context.Context,
 	wg *sync.WaitGroup,
 	logger *zap.Logger,
-	app *slim.BindingsAdapter,
-	session *slim.BindingsSessionContext,
+	app *slim.App,
+	session *slim.Session,
 	signalType common.SignalType,
 ) {
 	defer wg.Done()
