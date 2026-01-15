@@ -25,30 +25,6 @@ const (
 	SignalLogs    SignalType = "logs"
 )
 
-// ExtractSignalType extracts the signal type from a string
-// by checking its suffix.
-//
-// Args:
-//
-//	component: The component string to analyze.
-//
-// Returns:
-//
-//	SignalType: The detected signal type (traces, metrics, or logs)
-//	error: If no known suffix is found
-func ExtractSignalType(component string) (SignalType, error) {
-	switch {
-	case strings.HasSuffix(component, string(SignalTraces)):
-		return SignalTraces, nil
-	case strings.HasSuffix(component, string(SignalMetrics)):
-		return SignalMetrics, nil
-	case strings.HasSuffix(component, string(SignalLogs)):
-		return SignalLogs, nil
-	default:
-		return "", fmt.Errorf("unknown signal type in component '%s'", component)
-	}
-}
-
 // SplitID splits an ID of form organization/namespace/application (or channel).
 //
 // Args:
@@ -109,6 +85,8 @@ func CreateAndConnectApp(localID, serverAddr, secret string) (*slim.App, uint64,
 		app.Destroy()
 		return nil, 0, fmt.Errorf("connect failed: %w", err)
 	}
+
+	app.Subscribe(appName, &connID)
 
 	return app, connID, nil
 }

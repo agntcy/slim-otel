@@ -185,7 +185,7 @@ tasks:
 
   # Examples
   test:app:participant:
-    desc: Run the test app
+    desc: Run the test app as participant
     dir: testapp
     cmds:
       - echo "Running test app in participant mode..."
@@ -195,19 +195,49 @@ tasks:
         --server "http://localhost:46357"
         --secret "a-very-long-shared-secret-0123456789-abcdefg"
 
-  test:app:initiator:
-    desc: Run the test app
+  test:app:get-metrics:
+    desc: Run the test app createing a challenge to get metrics
     dir: testapp
     cmds:
-      - echo "Running test app in initiator mode..."
+      - echo "Running test app creating a challenge to get metrics..."
       - >
         go run .
         --app-name "agntcy/otel/receiver-app"
         --server "http://localhost:46357"
         --secret "a-very-long-shared-secret-0123456789-abcdefg"
-        --exporter-name "agntcy/otel/exporter"
-        --channel-name "agntcy/otel/initiator-channel"
+        --exporter-name-metrics "agntcy/otel/exporter-metrics"
+        --channel-name-metrics "agntcy/otel/test-app-channel"
 
+  test:app:get-traces:
+    desc: Run the test app createing a challenge to get traces
+    dir: testapp
+    cmds:
+      - echo "Running test app creating a challenge to get traces..."
+      - >
+        go run .
+        --app-name "agntcy/otel/receiver-app"
+        --server "http://localhost:46357"
+        --secret "a-very-long-shared-secret-0123456789-abcdefg"
+        --exporter-name-traces "agntcy/otel/exporter-traces"
+        --channel-name-traces "agntcy/otel/test-app-channel"
+
+  test:app:get-all-signals:
+    desc: Run the test app creating a challenge to get all signals (traces, metrics, logs)
+    dir: testapp
+    cmds:
+      - echo "Running test app creating a challenge to get all signals..."
+      - >
+        go run .
+        --app-name "agntcy/otel/receiver-app"
+        --server "http://localhost:46357"
+        --secret "a-very-long-shared-secret-0123456789-abcdefg"
+        --exporter-name-traces "agntcy/otel/exporter-traces"
+        --channel-name-traces "agntcy/otel/test-app-channel-traces"
+        --exporter-name-metrics "agntcy/otel/exporter-metrics"
+        --channel-name-metrics "agntcy/otel/test-app-channel-metrics"
+        --exporter-name-logs "agntcy/otel/exporter-logs"
+        --channel-name-logs "agntcy/otel/test-app-channel-logs"
+  
   test:slim:run:
     desc: Run a SLIM node as a docker container for testing 
     cmds:

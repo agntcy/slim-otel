@@ -96,6 +96,9 @@ func CreateApp(
 		return nil, 0, fmt.Errorf("create app failed: %w", err)
 	}
 
+	app.Subscribe(appName, &connID)
+
+	logger.Info("created SLIM app", zap.String("app_name", exporterName), zap.String("signal", string(signalType)))
 	return app, connID, nil
 }
 
@@ -114,7 +117,7 @@ func createSessionsAndInvite(
 		channel, err := config.ChannelNames.GetNameForSignal(signalType)
 		if err != nil {
 			// this should not happen as we checked before
-			e.logger.Warn("failed to get channel name for signal", zap.String("signal", signalType), zap.Error(err))
+			e.logger.Warn("failed to get channel name", zap.String("signal", signalType), zap.Error(err))
 			continue
 		}
 
@@ -137,6 +140,10 @@ func createSessionsAndInvite(
 		if err != nil {
 			return fmt.Errorf("failed to create the session: %w", err)
 		}
+
+		e.logger.Info("Created session for channel",
+			zap.String("signal", string(e.signalType)),
+			zap.String("channel", channel))
 
 		for _, participant := range config.Participants {
 			participantName, err := common.SplitID(participant)
@@ -188,7 +195,7 @@ func listenForSessions(ctx context.Context, e *slimExporter) {
 				continue
 			}
 
-			e.logger.Info("New session received for signal",
+			e.logger.Info("New session received",
 				zap.String("signal", string(e.signalType)))
 
 			// add session to the list
@@ -223,7 +230,7 @@ func newSlimExporter(cfg *Config, logger *zap.Logger, signalType common.SignalTy
 
 // start is invoked during service startup
 func (e *slimExporter) start(ctx context.Context, _ component.Host) error {
-	e.logger.Info("Starting Slim exporter for signal",
+	e.logger.Info("Starting Slim exporter",
 		zap.String("signal", string(e.signalType)))
 
 	// create all sessions defined in the config
@@ -233,7 +240,7 @@ func (e *slimExporter) start(ctx context.Context, _ component.Host) error {
 	}
 
 	// start to listen for incoming sessions
-	e.logger.Info("Start to listen for new sessions for signal", zap.String("signal", string(e.signalType)))
+	e.logger.Info("Start to listen for new sessions", zap.String("signal", string(e.signalType)))
 	go listenForSessions(ctx, e)
 
 	return nil
@@ -264,6 +271,7 @@ func (e *slimExporter) publishData(data []byte) error {
 
 	// Remove closed sessions after iteration
 	for _, id := range closedSessions {
+		e.logger.Info("Removing closed session", zap.Uint32("session_id", id))
 		if err := e.sessions.RemoveSession(id); err != nil {
 			return err
 		}
@@ -281,6 +289,7 @@ func (e *slimExporter) pushTraces(_ context.Context, td ptrace.Traces) error {
 		return err
 	}
 
+	e.logger.Info("Exporting Traces")
 	return e.publishData(message)
 }
 
@@ -293,6 +302,7 @@ func (e *slimExporter) pushMetrics(_ context.Context, md pmetric.Metrics) error 
 		return err
 	}
 
+	e.logger.Info("Exporting Metrics")
 	return e.publishData(message)
 }
 
@@ -305,5 +315,6 @@ func (e *slimExporter) pushLogs(_ context.Context, ld plog.Logs) error {
 		return err
 	}
 
+	e.logger.Info("Exporting Logs")
 	return e.publishData(message)
 }

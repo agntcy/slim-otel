@@ -13,11 +13,34 @@ import (
 	"syscall"
 	"time"
 
+	"go.opentelemetry.io/collector/pdata/plog"
+	"go.opentelemetry.io/collector/pdata/pmetric"
+	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
 
 	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
 	common "github.com/agntcy/slim/otel"
 )
+
+// detectSignalType attempts to determine the signal type of an OTLP payload
+func detectSignalType(payload []byte) string {
+	// Try traces
+	if traces, err := (&ptrace.ProtoUnmarshaler{}).UnmarshalTraces(payload); err == nil && traces.SpanCount() > 0 {
+		return "traces"
+	}
+
+	// Try metrics
+	if metrics, err := (&pmetric.ProtoUnmarshaler{}).UnmarshalMetrics(payload); err == nil && metrics.DataPointCount() > 0 {
+		return "metrics"
+	}
+
+	// Try logs
+	if logs, err := (&plog.ProtoUnmarshaler{}).UnmarshalLogs(payload); err == nil && logs.LogRecordCount() > 0 {
+		return "logs"
+	}
+
+	return "unknown"
+}
 
 func main() {
 	// Initialize zap logger
@@ -54,6 +77,18 @@ func main() {
 		(*exporterNameLogsStr != "" && *channelNameLogsStr == "") {
 		logger.Fatal("channel-name-metrics, channel-name-traces, and channel-name-logs must be provided when the corresponding exporter-name is set")
 	}
+
+	logger.Info("Starting SLIM test application",
+		zap.String("appName", *appNameStr),
+		zap.String("serverAddr", *serverAddr),
+		zap.String("channelNameMetrics", *channelNameMetricsStr),
+		zap.String("channelNameTraces", *channelNameTracesStr),
+		zap.String("channelNameLogs", *channelNameLogsStr),
+		zap.String("exporterNameMetrics", *exporterNameMetricsStr),
+		zap.String("exporterNameTraces", *exporterNameTracesStr),
+		zap.String("exporterNameLogs", *exporterNameLogsStr),
+		zap.Bool("mlsEnabled", *mlsEnabled),
+	)
 
 	// Create and connect app
 	app, connID, err := common.CreateAndConnectApp(*appNameStr, *serverAddr, *sharedSecret)
@@ -104,6 +139,7 @@ func main() {
 	case <-time.After(15 * time.Second):
 		logger.Warn("Shutdown timeout reached, forcing exit")
 	}
+	logger.Info("Application exited")
 }
 
 // initiateSessions creates and manages outgoing telemetry sessions
@@ -184,7 +220,7 @@ func createAndHandleSession(
 
 	time.Sleep(500 * time.Millisecond)
 	wg.Add(1)
-	go handleSession(ctx, wg, logger, app, session, signalType)
+	go handleSession(ctx, wg, logger, app, session)
 }
 
 // waitForSessionsAndMessages listens for incoming sessions and
@@ -219,30 +255,13 @@ func waitForSessionsAndMessages(
 				continue
 			}
 
-			components := dst.Components()
-			if len(components) < 3 {
-				logger.Error("session destination has insufficient components")
-				continue
-			}
-
-			// Extract signal type from components[2] suffix
-			telemetryType := components[2]
-			signalType, err := common.ExtractSignalType(telemetryType)
-			if err != nil {
-				logger.Error("error extracting signal type", zap.Error(err))
-				continue
-			}
-
-			dstStr := components[0] + "/" + components[1] + "/" + components[2]
-
 			logger.Info(
 				"New session established",
-				zap.String("telemetryType", string(signalType)),
-				zap.String("channelName", dstStr),
+				zap.String("channelName", dst.AsString()),
 			)
 			// Handle the session in a goroutine
 			wg.Add(1)
-			go handleSession(ctx, wg, logger, app, session, signalType)
+			go handleSession(ctx, wg, logger, app, session)
 		}
 	}
 }
@@ -254,25 +273,23 @@ func handleSession(
 	logger *zap.Logger,
 	app *slim.App,
 	session *slim.Session,
-	signalType common.SignalType,
 ) {
 	defer wg.Done()
 
-	sessionNum, err := session.SessionId()
+	dst, err := session.Destination()
 	if err != nil {
-		logger.Error("error getting session ID", zap.Error(err))
-		return
+		logger.Error("error getting destination from new received session", zap.Error(err))
 	}
+	sessionName := dst.AsString()
 
 	defer func() {
 
 		if err := app.DeleteSessionAndWait(session); err != nil {
 			logger.Warn("failed to delete session",
-				zap.Uint32("sessionId", sessionNum),
-				zap.String("signalType", string(signalType)),
+				zap.String("sessionName", sessionName),
 				zap.Error(err))
 		}
-		logger.Info("Session closed", zap.Uint32("sessionId", sessionNum), zap.String("signalType", string(signalType)))
+		logger.Info("Session closed", zap.String("sessionName", sessionName))
 	}()
 
 	messageCount := 0
@@ -281,8 +298,7 @@ func handleSession(
 		select {
 		case <-ctx.Done():
 			logger.Info("Shutting down session",
-				zap.Uint32("sessionId", sessionNum),
-				zap.String("signalType", string(signalType)),
+				zap.String("sessionName", sessionName),
 				zap.Int("totalMessages", messageCount))
 			return
 		default:
@@ -293,21 +309,23 @@ func handleSession(
 				errMsg := err.Error()
 				switch {
 				case strings.Contains(errMsg, "session closed"):
-					logger.Info("Session closed by peer", zap.Uint32("sessionId", sessionNum), zap.Error(err))
+					logger.Info("Session closed by peer", zap.String("sessionName", sessionName), zap.Error(err))
 					return
 				case strings.Contains(errMsg, "receive timeout waiting for message"):
 					// Normal timeout, continue
 					continue
 				default:
-					logger.Error("Error getting message", zap.Uint32("sessionId", sessionNum), zap.Error(err))
+					logger.Error("Error getting message", zap.String("sessionName", sessionName), zap.Error(err))
 					continue
 				}
 			}
 
 			messageCount++
+
+			signalType := detectSignalType(msg.Payload)
 			logger.Info("Received message",
-				zap.Uint32("sessionId", sessionNum),
-				zap.String("signalType", string(signalType)),
+				zap.String("sessionName", sessionName),
+				zap.String("signalType", signalType),
 				zap.Int("messageNumber", messageCount),
 				zap.Int("sizeBytes", len(msg.Payload)))
 		}
