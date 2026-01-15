@@ -42,18 +42,8 @@ tasks:
     cmds:
       - task -l
 
-  # OpenTelemetry Collector Builder
-  collector:download-ocb:
-    desc: Download OpenTelemetry Collector Builder for current architecture
-    cmds:
-      - echo "Downloading OCB {{.OCB_VERSION}} for {{.GOOS}}/{{.GOARCH}}..."
-      - curl -L -o ocb "{{.OCB_URL}}"
-      - chmod +x ocb
-      - echo "OCB downloaded successfully"
-    status:
-      - test -f ocb
-
-  collector:foreach-module:
+  # go and code related tasks
+  foreach-module:
     internal: true
     desc: Run task for each module
     cmds:
@@ -66,27 +56,89 @@ tasks:
           popd > /dev/null
         done
 
-  collector:fetch-and-run:
+  fetch-and-run:
     internal: true
     desc: Fetch and install bindings
     cmds:
-      - task: collector:foreach-module
+      - task: foreach-module
         vars:
           CMD: go mod download
       - go run github.com/agntcy/slim-bindings-go/cmd/slim-bindings-setup
 
-  collector:modtidy:
+  modtidy:
     desc: Install go modules
     cmds:
-      - task: collector:foreach-module
+      - task: foreach-module
         vars:
           CMD: go mod tidy
+
+  lint:
+    desc: Run go linter
+    deps:
+      - tools
+    cmds:
+      - task: foreach-module
+        vars:
+          CMD: "echo ${PWD} && {{.TOOLS_INSTALL_DIR}}/golangci-lint run"
+
+  impi:
+    desc: Run go impi
+    deps:
+      - tools
+    cmds:
+      - task: foreach-module
+        vars:
+          CMD: |
+            {{.TOOLS_INSTALL_DIR}}/impi \
+              --local github.com/agntcy/slim \
+              --ignore-generated=true \
+              --scheme stdThirdPartyLocal \
+              ./...
+
+  vuln:
+    desc: Run go govulncheck
+    deps:
+      - tools
+    cmds:
+      - task: foreach-module
+        vars:
+          CMD: "{{.TOOLS_INSTALL_DIR}}/govulncheck ./..."
+
+  coverage-reports:
+    desc: Check test coverage
+    deps:
+      - tools
+      # - fetch-and-run
+    cmds:
+      - task: foreach-module
+        vars:
+          CMD: |
+            {{.TOOLS_INSTALL_DIR}}/go-acc --output=$(basename  ${dir})-coverage.out ./...
+
+  coverage:
+    desc: Show coverage in browser
+    deps:
+      - coverage-reports
+    cmds:
+      - echo find . -name '*coverage.out' -execdir go tool cover -html=./{} \;
+
+  # expoter related tasks
+  download-ocb:
+    internal: true
+    desc: Download OpenTelemetry Collector Builder for current architecture
+    cmds:
+      - echo "Downloading OCB {{.OCB_VERSION}} for {{.GOOS}}/{{.GOARCH}}..."
+      - curl -L -o ocb "{{.OCB_URL}}"
+      - chmod +x ocb
+      - echo "OCB downloaded successfully"
+    status:
+      - test -f ocb
 
   collector:build:
     desc: Build the SLIM OpenTelemetry Collector
     deps:
-      - collector:download-ocb
-      #- collector:fetch-and-run
+      - download-ocb
+      #- fetch-and-run
     cmds:
       - echo "Generating collector sources..."
       - ./ocb --config builder-config.yaml --skip-compilation
@@ -110,61 +162,10 @@ tasks:
     desc: Run tests for the SLIM exporter
     dir: slimexporter
     deps:
-      - collector:fetch-and-run
+      - fetch-and-run
     cmds:
       - echo "Running slimexporter tests..."
       - go test -v
-
-  collector:lint:
-    desc: Run go linter
-    deps:
-      - tools
-    cmds:
-      - task: collector:foreach-module
-        vars:
-          CMD: "echo ${PWD} && {{.TOOLS_INSTALL_DIR}}/golangci-lint run"
-
-  collector:impi:
-    desc: Run go impi
-    deps:
-      - tools
-    cmds:
-      - task: collector:foreach-module
-        vars:
-          CMD: |
-            {{.TOOLS_INSTALL_DIR}}/impi \
-              --local github.com/agntcy/slim \
-              --ignore-generated=true \
-              --scheme stdThirdPartyLocal \
-              ./...
-
-
-  collector:vuln:
-    desc: Run go govulncheck
-    deps:
-      - tools
-    cmds:
-      - task: collector:foreach-module
-        vars:
-          CMD: "{{.TOOLS_INSTALL_DIR}}/govulncheck ./..."
-
-  collector:coverage-reports:
-    desc: Check test coverage
-    deps:
-      - tools
-      - collector:fetch-and-run
-    cmds:
-      - task: collector:foreach-module
-        vars:
-          CMD: |
-            {{.TOOLS_INSTALL_DIR}}/go-acc --output=$(basename  ${dir})-coverage.out ./...
-
-  collector:coverage:
-    desc: Show coverage in browser
-    deps:
-      - collector:coverage-reports
-    cmds:
-      - echo find . -name '*coverage.out' -execdir go tool cover -html=./{} \;
 
   # Docker tasks
   docker:build:
@@ -185,6 +186,14 @@ tasks:
         {{.DOCKER_IMAGE}}:{{.DOCKER_TAG}}
 
   # Examples
+  test:app:build:
+    desc: Build the test app
+    dir: testapp
+    cmds:
+      - echo "Building test app..."
+      - go build -a .
+      - echo "Test app built successfully"
+
   test:app:participant:
     desc: Run the test app as participant
     dir: testapp
