@@ -2,6 +2,7 @@ package slimexporter
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 
@@ -16,7 +17,8 @@ type SessionsList struct {
 	mutex      sync.RWMutex
 	logger     *zap.Logger
 	signalType common.SignalType
-	sessions   map[uint32]*slim.Session
+	// map of session ID to Session
+	sessions map[uint32]*slim.Session
 }
 
 func (s *SessionsList) AddSession(session *slim.Session) error {
@@ -88,8 +90,6 @@ func (s *SessionsList) DeleteAll(app *slim.App) {
 
 // PublishToAll publishes data to all sessions and returns a list of closed session IDs
 func (s *SessionsList) PublishToAll(data []byte) ([]uint32, error) {
-	// TODO:
-	// 1. copy the current kyes to avoid holding the lock during Publish calls
 	if data == nil {
 		return nil, fmt.Errorf("missing data or logger")
 	}
@@ -101,10 +101,17 @@ func (s *SessionsList) PublishToAll(data []byte) ([]uint32, error) {
 	}
 
 	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	// get the keys to avoid holding the lock during PublishAndWait
+	keys := maps.Keys(s.sessions)
+	s.mutex.RUnlock()
 
 	var closedSessions []uint32
-	for id, session := range s.sessions {
+	for id := range keys {
+		session, ok := s.sessions[id]
+		if !ok {
+			// the session is no longer in the map, skip it
+			continue
+		}
 		if err := session.PublishAndWait(data, nil, nil); err != nil {
 			if strings.Contains(err.Error(), "Session already closed or dropped") {
 				s.logger.Info("Session closed, marking for removal", zap.Uint32("session_id", id))

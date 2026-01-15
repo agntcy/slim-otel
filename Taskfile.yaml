@@ -203,7 +203,7 @@ tasks:
       - echo "Running test app creating a challenge to get metrics..."
       - >
         go run .
-        --app-name "agntcy/otel/receiver-app"
+        --app-name "agntcy/otel/receiver-app-metrics"
         --server "http://localhost:46357"
         --secret "a-very-long-shared-secret-0123456789-abcdefg"
         --exporter-name-metrics "agntcy/otel/exporter-metrics"
@@ -216,7 +216,7 @@ tasks:
       - echo "Running test app creating a challenge to get traces..."
       - >
         go run .
-        --app-name "agntcy/otel/receiver-app"
+        --app-name "agntcy/otel/receiver-app-traces"
         --server "http://localhost:46357"
         --secret "a-very-long-shared-secret-0123456789-abcdefg"
         --exporter-name-traces "agntcy/otel/exporter-traces"
@@ -229,7 +229,7 @@ tasks:
       - echo "Running test app creating a challenge to get all signals..."
       - >
         go run .
-        --app-name "agntcy/otel/receiver-app"
+        --app-name "agntcy/otel/receiver-app-all"
         --server "http://localhost:46357"
         --secret "a-very-long-shared-secret-0123456789-abcdefg"
         --exporter-name-traces "agntcy/otel/exporter-traces"
