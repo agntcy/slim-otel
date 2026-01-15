@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"os"
 	"os/signal"
 	"strings"
@@ -34,12 +33,27 @@ func main() {
 	serverAddr := flag.String("server", "http://localhost:46357", "SLIM server address")
 	sharedSecret := flag.String("secret", "a-very-long-shared-secret-0123456789-abcdefg",
 		"Shared secret for authentication")
-	exporterNameStr := flag.String("exporter-name", "",
-		"Optional: exporter application name to invite to sessions")
-	channelNameStr := flag.String("channel-name", "",
-		"Optional: channel name to receive telemetry, required if the exporter name is provided")
+	channelNameMetricsStr := flag.String("channel-name-metrics", "",
+		"Optional: channel name to receive telemetry for metrics, required if the exporter name is provided")
+	channelNameTracesStr := flag.String("channel-name-traces", "",
+		"Optional: channel name to receive telemetry for traces, required if the exporter name is provided")
+	channelNameLogsStr := flag.String("channel-name-logs", "",
+		"Optional: channel name to receive telemetry for logs, required if the exporter name is provided")
+	exporterNameMetricsStr := flag.String("exporter-name-metrics", "",
+		"Optional: exporter application name to invite to sessions for metrics")
+	exporterNameTracesStr := flag.String("exporter-name-traces", "",
+		"Optional: exporter application name to invite to sessions for traces")
+	exporterNameLogsStr := flag.String("exporter-name-logs", "",
+		"Optional: exporter application name to invite to sessions for logs")
 	mlsEnabled := flag.Bool("mls-enabled", false, "Whether to use MLS")
 	flag.Parse()
+
+	// check the configuration
+	if (*exporterNameMetricsStr != "" && *channelNameMetricsStr == "") ||
+		(*exporterNameTracesStr != "" && *channelNameTracesStr == "") ||
+		(*exporterNameLogsStr != "" && *channelNameLogsStr == "") {
+		logger.Fatal("channel-name-metrics, channel-name-traces, and channel-name-logs must be provided when the corresponding exporter-name is set")
+	}
 
 	// Create and connect app
 	app, connID, err := common.CreateAndConnectApp(*appNameStr, *serverAddr, *sharedSecret)
@@ -65,13 +79,12 @@ func main() {
 		cancel()
 	}()
 
-	if *exporterNameStr == "" {
+	if *exporterNameMetricsStr == "" && *exporterNameTracesStr == "" && *exporterNameLogsStr == "" {
 		go waitForSessionsAndMessages(ctx, &wg, logger, app)
 	} else {
-		if *channelNameStr == "" {
-			logger.Fatal("channel-name must be provided when inviter-name is set")
-		}
-		initiateSessions(ctx, &wg, logger, app, exporterNameStr, channelNameStr, connID, *mlsEnabled)
+		initiateSessions(ctx, &wg, logger, app, exporterNameMetricsStr,
+			channelNameMetricsStr, exporterNameTracesStr, channelNameTracesStr,
+			exporterNameLogsStr, channelNameLogsStr, connID, *mlsEnabled)
 	}
 
 	// Wait for shutdown signal
@@ -99,33 +112,49 @@ func initiateSessions(
 	wg *sync.WaitGroup,
 	logger *zap.Logger,
 	app *slim.BindingsAdapter,
-	exporterNameStr *string,
-	channelNameStr *string,
+	exporterNameMetricsStr *string,
+	channelNameMetricsStr *string,
+	exporterNameTracesStr *string,
+	channelNameTracesStr *string,
+	exporterNameLogsStr *string,
+	channelNameLogsStr *string,
 	connID uint64,
 	mlsEnabled bool,
 ) {
-	// create names telemetry channel
-	channel := fmt.Sprintf("%s-%s", *channelNameStr, "traces")
-	tracesChannel, err := common.SplitID(channel)
-	if err != nil {
-		logger.Fatal("Invalid traces channel name", zap.Error(err))
+	// create traces, metrics, and logs sessions as needed
+	if channelNameMetricsStr != nil && *channelNameMetricsStr != "" {
+		go createAndHandleSession(ctx, wg, logger, app,
+			exporterNameMetricsStr, channelNameMetricsStr, common.SignalMetrics, connID, mlsEnabled)
 	}
-	channel = fmt.Sprintf("%s-%s", *channelNameStr, "metrics")
-	metricsChannel, err := common.SplitID(channel)
-	if err != nil {
-		logger.Fatal("Invalid metrics channel name", zap.Error(err))
+	if channelNameTracesStr != nil && *channelNameTracesStr != "" {
+		go createAndHandleSession(ctx, wg, logger, app,
+			exporterNameTracesStr, channelNameTracesStr, common.SignalTraces, connID, mlsEnabled)
 	}
-	channel = fmt.Sprintf("%s-%s", *channelNameStr, "logs")
-	logsChannel, err := common.SplitID(channel)
-	if err != nil {
-		logger.Fatal("Invalid logs channel name", zap.Error(err))
+	if channelNameLogsStr != nil && *channelNameLogsStr != "" {
+		go createAndHandleSession(ctx, wg, logger, app,
+			exporterNameLogsStr, channelNameLogsStr, common.SignalLogs, connID, mlsEnabled)
 	}
+}
+
+func createAndHandleSession(
+	ctx context.Context,
+	wg *sync.WaitGroup,
+	logger *zap.Logger,
+	app *slim.BindingsAdapter,
+	exporterNameStr *string,
+	channelNameStr *string,
+	signalType common.SignalType,
+	connID uint64,
+	mlsEnabled bool,
+) {
 	exporterName, err := common.SplitID(*exporterNameStr)
 	if err != nil {
-		logger.Fatal("Invalid application name", zap.Error(err))
+		logger.Fatal("Invalid exporter application name", zap.String("exporterName", *exporterNameStr), zap.Error(err))
 	}
-
-	logger.Info("Create session and invite exporter", zap.String("exporter", *exporterNameStr))
+	channelName, err := common.SplitID(*channelNameStr)
+	if err != nil {
+		logger.Fatal("Invalid channel name", zap.String("channelName", *channelNameStr), zap.Error(err))
+	}
 
 	maxRetries := uint32(10)
 	interval := time.Millisecond * 1000
@@ -139,47 +168,23 @@ func initiateSessions(
 
 	err = app.SetRoute(exporterName, connID)
 	if err != nil {
-		logger.Fatal("Failed to set route", zap.Error(err))
+		logger.Fatal("Failed to set route", zap.String("exporterName", *exporterNameStr), zap.Error(err))
 	}
-	// create traces session
-	sessionTraces, err := app.CreateSessionAndWait(config, tracesChannel)
-	if err != nil {
-		logger.Fatal("Failed to create traces session", zap.Error(err))
-	}
-	err = sessionTraces.InviteAndWait(exporterName)
-	if err != nil {
-		logger.Fatal("Failed to invite exporter to traces session", zap.Error(err))
-	}
-	time.Sleep(500 * time.Millisecond)
-	wg.Add(1)
-	go handleSession(ctx, wg, logger, app, sessionTraces, common.SignalTraces)
 
-	// create metrics session
-	sessionMetrics, err := app.CreateSessionAndWait(config, metricsChannel)
+	session, err := app.CreateSessionAndWait(config, channelName)
 	if err != nil {
-		logger.Fatal("Failed to create metrics session", zap.Error(err))
+		logger.Fatal("Failed to create session", zap.String("channelName", *channelNameStr), zap.Error(err))
 	}
-	err = sessionMetrics.InviteAndWait(exporterName)
+	err = session.InviteAndWait(exporterName)
 	if err != nil {
-		logger.Fatal("Failed to invite exporter to metrics session", zap.Error(err))
+		logger.Fatal("Failed to invite exporter to session", zap.String("exporterName", *exporterNameStr), zap.String("channelName", *channelNameStr), zap.Error(err))
 	}
-	time.Sleep(500 * time.Millisecond)
-	wg.Add(1)
-	go handleSession(ctx, wg, logger, app, sessionMetrics, common.SignalMetrics)
-	// create logs session
-	sessionLogs, err := app.CreateSessionAndWait(config, logsChannel)
-	if err != nil {
-		logger.Fatal("Failed to create logs session", zap.Error(err))
-	}
-	err = sessionLogs.InviteAndWait(exporterName)
-	if err != nil {
-		logger.Fatal("Failed to invite exporter to logs session", zap.Error(err))
-	}
-	time.Sleep(500 * time.Millisecond)
-	wg.Add(1)
-	go handleSession(ctx, wg, logger, app, sessionLogs, common.SignalLogs)
 
-	logger.Info("Sessions created. Press Ctrl+C to stop")
+	logger.Info("Create session and invite exporter", zap.String("exporterName", *exporterNameStr), zap.String("channelName", *channelNameStr), zap.String("signalType", string(signalType)))
+
+	time.Sleep(500 * time.Millisecond)
+	wg.Add(1)
+	go handleSession(ctx, wg, logger, app, session, signalType)
 }
 
 // waitForSessionsAndMessages listens for incoming sessions and
