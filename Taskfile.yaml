@@ -58,6 +58,7 @@ tasks:
     desc: Run task for each module
     cmds:
       - |
+        set -e
         for dir in {{.MODULES}}; do
           pushd ${dir} > /dev/null
           echo "${dir}: running {{.CMD}}"

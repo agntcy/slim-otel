@@ -47,7 +47,8 @@ type slimExporter struct {
 func initConnection(
 	cfg *Config,
 	logger *zap.Logger,
-	signalType common.SignalType) error {
+	_ common.SignalType,
+) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -65,7 +66,11 @@ func initConnection(
 
 		connected = true
 		connID = connIDValue
-		logger.Info("Connected to SLIM server", zap.String("endpoint", cfg.SlimEndpoint), zap.Uint64("connection_id", connIDValue))
+		logger.Info(
+			"Connected to SLIM server",
+			zap.String("endpoint", cfg.SlimEndpoint),
+			zap.Uint64("connection_id", connIDValue),
+		)
 	}
 	return nil
 }
@@ -96,7 +101,10 @@ func CreateApp(
 		return nil, 0, fmt.Errorf("create app failed: %w", err)
 	}
 
-	app.Subscribe(appName, &connID)
+	if err := app.Subscribe(appName, &connID); err != nil {
+		app.Destroy()
+		return nil, 0, fmt.Errorf("subscribe failed: %w", err)
+	}
 
 	logger.Info("created SLIM app", zap.String("app_name", exporterName), zap.String("signal", string(signalType)))
 	return app, connID, nil
@@ -146,15 +154,15 @@ func createSessionsAndInvite(
 			zap.String("channel", channel))
 
 		for _, participant := range config.Participants {
-			participantName, err := common.SplitID(participant)
-			if err != nil {
-				return fmt.Errorf("failed to parse participant name %s for channel %s: %w", participant, channel, err)
+			participantName, parseErr := common.SplitID(participant)
+			if parseErr != nil {
+				return fmt.Errorf("failed to parse participant name %s for channel %s: %w", participant, channel, parseErr)
 			}
-			if err := e.app.SetRoute(participantName, e.connID); err != nil {
-				return fmt.Errorf("failed to set route for participant %s for channel %s: %w", participant, channel, err)
+			if routeErr := e.app.SetRoute(participantName, e.connID); routeErr != nil {
+				return fmt.Errorf("failed to set route for participant %s for channel %s: %w", participant, channel, routeErr)
 			}
-			if err := session.InviteAndWait(participantName); err != nil {
-				return fmt.Errorf("failed to invite participant %s for channel %s: %w", participant, channel, err)
+			if inviteErr := session.InviteAndWait(participantName); inviteErr != nil {
+				return fmt.Errorf("failed to invite participant %s for channel %s: %w", participant, channel, inviteErr)
 			}
 		}
 

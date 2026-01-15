@@ -30,7 +30,8 @@ func detectSignalType(payload []byte) string {
 	}
 
 	// Try metrics
-	if metrics, err := (&pmetric.ProtoUnmarshaler{}).UnmarshalMetrics(payload); err == nil && metrics.DataPointCount() > 0 {
+	metrics, err := (&pmetric.ProtoUnmarshaler{}).UnmarshalMetrics(payload)
+	if err == nil && metrics.DataPointCount() > 0 {
 		return "metrics"
 	}
 
@@ -75,7 +76,10 @@ func main() {
 	if (*exporterNameMetricsStr != "" && *channelNameMetricsStr == "") ||
 		(*exporterNameTracesStr != "" && *channelNameTracesStr == "") ||
 		(*exporterNameLogsStr != "" && *channelNameLogsStr == "") {
-		logger.Fatal("channel-name-metrics, channel-name-traces, and channel-name-logs must be provided when the corresponding exporter-name is set")
+		logger.Fatal(
+			"channel-name-metrics, channel-name-traces, and channel-name-logs " +
+				"must be provided when the corresponding exporter-name is set",
+		)
 	}
 
 	logger.Info("Starting SLIM test application",
@@ -213,10 +217,20 @@ func createAndHandleSession(
 	}
 	err = session.InviteAndWait(exporterName)
 	if err != nil {
-		logger.Fatal("Failed to invite exporter to session", zap.String("exporterName", *exporterNameStr), zap.String("channelName", *channelNameStr), zap.Error(err))
+		logger.Fatal(
+			"Failed to invite exporter to session",
+			zap.String("exporterName", *exporterNameStr),
+			zap.String("channelName", *channelNameStr),
+			zap.Error(err),
+		)
 	}
 
-	logger.Info("Create session and invite exporter", zap.String("exporterName", *exporterNameStr), zap.String("channelName", *channelNameStr), zap.String("signalType", string(signalType)))
+	logger.Info(
+		"Create session and invite exporter",
+		zap.String("exporterName", *exporterNameStr),
+		zap.String("channelName", *channelNameStr),
+		zap.String("signalType", string(signalType)),
+	)
 
 	time.Sleep(500 * time.Millisecond)
 	wg.Add(1)
@@ -283,7 +297,6 @@ func handleSession(
 	sessionName := dst.AsString()
 
 	defer func() {
-
 		if err := app.DeleteSessionAndWait(session); err != nil {
 			logger.Warn("failed to delete session",
 				zap.String("sessionName", sessionName),

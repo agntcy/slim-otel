@@ -126,7 +126,6 @@ func TestSessionsList_PublishToAll(t *testing.T) {
 
 		data := []byte("test data")
 		closedSessions, err := ss.PublishToAll(data)
-
 		if err != nil {
 			t.Errorf("expected no error, got %v", err)
 		}
@@ -156,7 +155,7 @@ func TestSessionsList_PublishToAll(t *testing.T) {
 
 // TestSessionsList_ConcurrentAccess tests concurrent access to SessionsList
 func TestSessionsList_ConcurrentAccess(t *testing.T) {
-	t.Run("concurrent operations", func(t *testing.T) {
+	t.Run("concurrent operations", func(_ *testing.T) {
 		ss := &SessionsList{
 			sessions: make(map[uint32]*slim.Session),
 		}
@@ -168,7 +167,7 @@ func TestSessionsList_ConcurrentAccess(t *testing.T) {
 			go func(id uint32) {
 				defer wg.Done()
 				_ = ss.RemoveSession(id)
-			}(uint32(i))
+			}(uint32(i)) // #nosec G115
 		}
 
 		// Concurrent PublishToAll

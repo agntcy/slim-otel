@@ -86,7 +86,10 @@ func CreateAndConnectApp(localID, serverAddr, secret string) (*slim.App, uint64,
 		return nil, 0, fmt.Errorf("connect failed: %w", err)
 	}
 
-	app.Subscribe(appName, &connID)
+	if err := app.Subscribe(appName, &connID); err != nil {
+		app.Destroy()
+		return nil, 0, fmt.Errorf("subscribe failed: %w", err)
+	}
 
 	return app, connID, nil
 }
