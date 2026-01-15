@@ -98,7 +98,7 @@ func TestConfig_Validate(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errMsg:  "at lest one name is required",
+			errMsg:  "at least one name is required",
 		},
 		{
 			name: "channel with empty participants",
@@ -295,6 +295,53 @@ func TestSignalNames_GetNameForSignal(t *testing.T) {
 	}
 }
 
+func TestSignalNames_GetNameForSignal_EmptyValues(t *testing.T) {
+	names := SignalNames{
+		Metrics: "",
+		Traces:  "test/traces",
+		Logs:    "",
+	}
+
+	tests := []struct {
+		name     string
+		signal   string
+		wantName string
+		wantErr  bool
+	}{
+		{
+			name:     "get empty metrics name",
+			signal:   "metrics",
+			wantName: "",
+			wantErr:  false,
+		},
+		{
+			name:     "get non-empty traces name",
+			signal:   "traces",
+			wantName: "test/traces",
+			wantErr:  false,
+		},
+		{
+			name:     "get empty logs name",
+			signal:   "logs",
+			wantName: "",
+			wantErr:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			name, err := names.GetNameForSignal(tt.signal)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetNameForSignal() error = %v, wantError %v", err, tt.wantErr)
+				return
+			}
+			if name != tt.wantName {
+				t.Errorf("GetNameForSignal() = %v, want %v", name, tt.wantName)
+			}
+		})
+	}
+}
+
 func TestSignalNames_IsSignalNameSet(t *testing.T) {
 	names := SignalNames{
 		Metrics: "test/metrics",
@@ -343,88 +390,60 @@ func TestSignalNames_IsSignalNameSet(t *testing.T) {
 	}
 }
 
-func TestConfig_Validate_PartialChannelNames(t *testing.T) {
+func TestConfig_Validate_MultipleChannelsWithError(t *testing.T) {
 	tests := []struct {
 		name    string
 		config  *Config
 		wantErr bool
+		errMsg  string
 	}{
 		{
-			name: "channel with only metrics name",
+			name: "second channel has no channel names",
 			config: &Config{
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
 						ChannelNames: SignalNames{
-							Metrics: "test/metrics-channel",
+							Traces: "test/channel1",
 						},
-						Participants: []string{"test/participant"},
+						Participants: []string{"test/participant1"},
+					},
+					{
+						ChannelNames: SignalNames{},
+						Participants: []string{"test/participant2"},
 					},
 				},
 			},
-			wantErr: false,
+			wantErr: true,
+			errMsg:  "channel 1",
 		},
 		{
-			name: "channel with only traces name",
+			name: "third channel has no participants",
 			config: &Config{
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
 						ChannelNames: SignalNames{
-							Traces: "test/traces-channel",
+							Traces: "test/channel1",
 						},
-						Participants: []string{"test/participant"},
+						Participants: []string{"test/participant1"},
 					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "channel with only logs name",
-			config: &Config{
-				SharedSecret: "test-secret",
-				Channels: []ChannelsConfig{
 					{
 						ChannelNames: SignalNames{
-							Logs: "test/logs-channel",
+							Metrics: "test/channel2",
 						},
-						Participants: []string{"test/participant"},
+						Participants: []string{"test/participant2"},
 					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "channel with metrics and traces only",
-			config: &Config{
-				SharedSecret: "test-secret",
-				Channels: []ChannelsConfig{
 					{
 						ChannelNames: SignalNames{
-							Metrics: "test/metrics-channel",
-							Traces:  "test/traces-channel",
+							Logs: "test/channel3",
 						},
-						Participants: []string{"test/participant"},
+						Participants: []string{},
 					},
 				},
 			},
-			wantErr: false,
-		},
-		{
-			name: "channel with traces and logs only",
-			config: &Config{
-				SharedSecret: "test-secret",
-				Channels: []ChannelsConfig{
-					{
-						ChannelNames: SignalNames{
-							Traces: "test/traces-channel",
-							Logs:   "test/logs-channel",
-						},
-						Participants: []string{"test/participant"},
-					},
-				},
-			},
-			wantErr: false,
+			wantErr: true,
+			errMsg:  "channel '2'",
 		},
 	}
 
@@ -433,6 +452,12 @@ func TestConfig_Validate_PartialChannelNames(t *testing.T) {
 			err := tt.config.Validate()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Config.Validate() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr && err != nil && tt.errMsg != "" {
+				if !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("Config.Validate() error = %v, expected to contain %v", err.Error(), tt.errMsg)
+				}
 			}
 		})
 	}

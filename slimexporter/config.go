@@ -98,7 +98,7 @@ func (cfg *Config) Validate() error {
 		if channel.ChannelNames.Metrics == "" &&
 			channel.ChannelNames.Traces == "" &&
 			channel.ChannelNames.Logs == "" {
-			return fmt.Errorf("at lest one name is required for channel %d", i)
+			return fmt.Errorf("at least one name is required for channel %d", i)
 		}
 
 		// At least one participant must be specified

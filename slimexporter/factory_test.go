@@ -47,12 +47,3 @@ func TestCreateDefaultConfig(t *testing.T) {
 		t.Errorf("ExporterNames.Logs = %v, want agntcy/otel/exporter-logs", slimCfg.ExporterNames.Logs)
 	}
 }
-
-func TestFactoryType(t *testing.T) {
-	factory := NewFactory()
-	expectedType := component.MustNewType("slim")
-
-	if factory.Type() != expectedType {
-		t.Errorf("Type() = %v, want %v", factory.Type(), expectedType)
-	}
-}

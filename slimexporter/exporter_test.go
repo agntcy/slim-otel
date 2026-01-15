@@ -1,206 +1,62 @@
 package slimexporter
 
-/*// TestExporterSessions_RemoveSessionForSignal tests removing sessions for different signal types
-func TestExporterSessions_RemoveSessionForSignal(t *testing.T) {
-	t.Run("remove metrics session", func(t *testing.T) {
-		es := &ExporterSessions{
-			metricsSessions: &SessionsList{
-				sessions: map[uint32]*slim.BindingsSessionContext{1: nil},
-			},
-		}
+import (
+	"testing"
 
-		err := es.RemoveSessionForSignal(common.SignalMetrics, 1)
-		if err != nil {
-			t.Errorf("expected no error, got %v", err)
-		}
-		if len(es.metricsSessions.sessions) != 0 {
-			t.Errorf("expected empty sessions")
-		}
-	})
+	"go.opentelemetry.io/collector/pdata/plog"
+	"go.opentelemetry.io/collector/pdata/pmetric"
+	"go.opentelemetry.io/collector/pdata/ptrace"
+	"go.uber.org/zap"
 
-	t.Run("remove traces session", func(t *testing.T) {
-		es := &ExporterSessions{
-			tracesSessions: &SessionsList{
-				sessions: map[uint32]*slim.BindingsSessionContext{2: nil},
-			},
-		}
-
-		err := es.RemoveSessionForSignal(common.SignalTraces, 2)
-		if err != nil {
-			t.Errorf("expected no error, got %v", err)
-		}
-		if len(es.tracesSessions.sessions) != 0 {
-			t.Errorf("expected empty sessions")
-		}
-	})
-
-	t.Run("remove logs session", func(t *testing.T) {
-		es := &ExporterSessions{
-			logsSessions: &SessionsList{
-				sessions: map[uint32]*slim.BindingsSessionContext{3: nil},
-			},
-		}
-
-		err := es.RemoveSessionForSignal(common.SignalLogs, 3)
-		if err != nil {
-			t.Errorf("expected no error, got %v", err)
-		}
-		if len(es.logsSessions.sessions) != 0 {
-			t.Errorf("expected empty sessions")
-		}
-	})
-
-	t.Run("remove session with unknown signal type", func(t *testing.T) {
-		es := &ExporterSessions{}
-
-		err := es.RemoveSessionForSignal("unknown", 1)
-		if err == nil {
-			t.Error("expected error for unknown signal type")
-		}
-	})
-}
-
-// TestExporterSessions_RemoveAllSessionsForSignal tests removing all sessions for a signal type
-func TestExporterSessions_RemoveAllSessionsForSignal(t *testing.T) {
-	t.Run("remove all metrics sessions", func(_ *testing.T) {
-		// Note: We can't fully test this without mocking BindingsAdapter.DeleteSession
-		// This is a basic structure test
-		es := &ExporterSessions{
-			metricsSessions: &SessionsList{
-				sessions: map[uint32]*slim.BindingsSessionContext{},
-			},
-		}
-
-		// Should not panic
-		es.RemoveAllSessionsForSignal(common.SignalMetrics)
-	})
-
-	t.Run("remove all sessions with unknown signal type", func(t *testing.T) {
-		es := &ExporterSessions{
-			metricsSessions: &SessionsList{
-				sessions: map[uint32]*slim.BindingsSessionContext{1: nil},
-			},
-		}
-
-		// Should not panic or modify anything
-		es.RemoveAllSessionsForSignal("unknown")
-		if len(es.metricsSessions.sessions) != 1 {
-			t.Errorf("expected 1 session to remain, got %d", len(es.metricsSessions.sessions))
-		}
-	})
-}
+	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
+	common "github.com/agntcy/slim/otel"
+)
 
 // TestSlimExporter_PublishData tests the publishData method
 func TestSlimExporter_PublishData(t *testing.T) {
 	logger := zap.NewNop()
 
-	// Reset global state before each test
-	teardown := func() {
-		mutex.Lock()
-		state = nil
-		mutex.Unlock()
-	}
-
-	t.Run("publish trace successfully", func(t *testing.T) {
-		defer teardown()
-
-		mutex.Lock()
-		state = &ExporterSessions{
-			tracesSessions: &SessionsList{
-				sessions: map[uint32]*slim.BindingsSessionContext{},
-			},
-		}
-		mutex.Unlock()
-
+	t.Run("publish data with empty sessions list", func(t *testing.T) {
 		exporter := &slimExporter{
 			config: &Config{
 				SlimEndpoint: "test-endpoint",
 			},
 			logger:     logger,
 			signalType: common.SignalTraces,
-			sessions:   state,
+			sessions: &SessionsList{
+				logger:     logger,
+				signalType: common.SignalTraces,
+				sessions:   map[uint32]*slim.Session{},
+			},
 		}
 
 		data := []byte("test trace data")
-		err := exporter.publishData(data, "traces", 5)
+		err := exporter.publishData(data)
 
 		if err != nil {
 			t.Errorf("expected no error, got %v", err)
 		}
 	})
 
-	t.Run("publish metrics successfully", func(t *testing.T) {
-		defer teardown()
-
-		mutex.Lock()
-		state = &ExporterSessions{
-			metricsSessions: &SessionsList{
-				sessions: map[uint32]*slim.BindingsSessionContext{},
-			},
-		}
-		mutex.Unlock()
-
+	t.Run("publish data handles nil data", func(t *testing.T) {
 		exporter := &slimExporter{
 			config: &Config{
 				SlimEndpoint: "test-endpoint",
 			},
 			logger:     logger,
-			signalType: common.SignalMetrics,
-			sessions:   state,
-		}
-
-		data := []byte("test metric data")
-		err := exporter.publishData(data, "metrics", 10)
-
-		if err != nil {
-			t.Errorf("expected no error, got %v", err)
-		}
-	})
-
-	t.Run("publish logs successfully", func(t *testing.T) {
-		defer teardown()
-
-		mutex.Lock()
-		state = &ExporterSessions{
-			logsSessions: &SessionsList{
-				sessions: map[uint32]*slim.BindingsSessionContext{},
+			signalType: common.SignalTraces,
+			sessions: &SessionsList{
+				logger:     logger,
+				signalType: common.SignalTraces,
+				sessions:   map[uint32]*slim.Session{},
 			},
 		}
-		mutex.Unlock()
 
-		exporter := &slimExporter{
-			config: &Config{
-				SlimEndpoint: "test-endpoint",
-			},
-			logger:     logger,
-			signalType: common.SignalLogs,
-			sessions:   state,
-		}
+		err := exporter.publishData(nil)
 
-		data := []byte("test log data")
-		err := exporter.publishData(data, "logs", 3)
-
-		if err != nil {
-			t.Errorf("expected no error, got %v", err)
-		}
-	})
-
-	t.Run("publish with unknown signal type", func(t *testing.T) {
-		defer teardown()
-
-		exporter := &slimExporter{
-			config: &Config{
-				SlimEndpoint: "test-endpoint",
-			},
-			logger:     logger,
-			signalType: "unknown",
-		}
-
-		data := []byte("test data")
-		err := exporter.publishData(data, "unknown", 1)
-
+		// Should return error for nil data
 		if err == nil {
-			t.Error("expected error for unknown signal type")
+			t.Error("expected error for nil data, got nil")
 		}
 	})
 }
@@ -209,35 +65,54 @@ func TestSlimExporter_PublishData(t *testing.T) {
 func TestSlimExporter_PushTraces(t *testing.T) {
 	logger := zap.NewNop()
 
-	t.Run("push traces with empty data", func(t *testing.T) {
-		mutex.Lock()
-		state = &ExporterSessions{
-			tracesSessions: &SessionsList{
-				sessions: map[uint32]*slim.BindingsSessionContext{},
-			},
-		}
-		mutex.Unlock()
-
+	t.Run("push empty traces without panic", func(t *testing.T) {
 		exporter := &slimExporter{
 			config: &Config{
 				SlimEndpoint: "test-endpoint",
 			},
 			logger:     logger,
 			signalType: common.SignalTraces,
-			sessions:   state,
+			sessions: &SessionsList{
+				logger:     logger,
+				signalType: common.SignalTraces,
+				sessions:   map[uint32]*slim.Session{},
+			},
 		}
 
 		td := ptrace.NewTraces()
-		err := exporter.pushTraces(context.Background(), td)
+		err := exporter.pushTraces(t.Context(), td)
 
+		// Empty traces should not cause error
 		if err != nil {
 			t.Errorf("expected no error, got %v", err)
 		}
+	})
 
-		// Cleanup
-		mutex.Lock()
-		state = nil
-		mutex.Unlock()
+	t.Run("push traces with spans", func(t *testing.T) {
+		exporter := &slimExporter{
+			config: &Config{
+				SlimEndpoint: "test-endpoint",
+			},
+			logger:     logger,
+			signalType: common.SignalTraces,
+			sessions: &SessionsList{
+				logger:     logger,
+				signalType: common.SignalTraces,
+				sessions:   map[uint32]*slim.Session{},
+			},
+		}
+
+		td := ptrace.NewTraces()
+		spans := td.ResourceSpans().AppendEmpty().ScopeSpans().AppendEmpty().Spans()
+		span := spans.AppendEmpty()
+		span.SetName("test-span")
+
+		err := exporter.pushTraces(t.Context(), td)
+
+		// Should successfully publish data
+		if err != nil {
+			t.Errorf("expected no error, got %v", err)
+		}
 	})
 }
 
@@ -245,35 +120,27 @@ func TestSlimExporter_PushTraces(t *testing.T) {
 func TestSlimExporter_PushMetrics(t *testing.T) {
 	logger := zap.NewNop()
 
-	t.Run("push metrics with empty data", func(t *testing.T) {
-		mutex.Lock()
-		state = &ExporterSessions{
-			metricsSessions: &SessionsList{
-				sessions: map[uint32]*slim.BindingsSessionContext{},
-			},
-		}
-		mutex.Unlock()
-
+	t.Run("push empty metrics without panic", func(t *testing.T) {
 		exporter := &slimExporter{
 			config: &Config{
 				SlimEndpoint: "test-endpoint",
 			},
 			logger:     logger,
 			signalType: common.SignalMetrics,
-			sessions:   state,
+			sessions: &SessionsList{
+				logger:     logger,
+				signalType: common.SignalMetrics,
+				sessions:   map[uint32]*slim.Session{},
+			},
 		}
 
 		md := pmetric.NewMetrics()
-		err := exporter.pushMetrics(context.Background(), md)
+		err := exporter.pushMetrics(t.Context(), md)
 
+		// Empty metrics should not cause error
 		if err != nil {
 			t.Errorf("expected no error, got %v", err)
 		}
-
-		// Cleanup
-		mutex.Lock()
-		state = nil
-		mutex.Unlock()
 	})
 }
 
@@ -281,67 +148,26 @@ func TestSlimExporter_PushMetrics(t *testing.T) {
 func TestSlimExporter_PushLogs(t *testing.T) {
 	logger := zap.NewNop()
 
-	t.Run("push logs with empty data", func(t *testing.T) {
-		mutex.Lock()
-		state = &ExporterSessions{
-			logsSessions: &SessionsList{
-				sessions: map[uint32]*slim.BindingsSessionContext{},
-			},
-		}
-		mutex.Unlock()
-
+	t.Run("push empty logs without panic", func(t *testing.T) {
 		exporter := &slimExporter{
 			config: &Config{
 				SlimEndpoint: "test-endpoint",
 			},
 			logger:     logger,
 			signalType: common.SignalLogs,
-			sessions:   state,
+			sessions: &SessionsList{
+				logger:     logger,
+				signalType: common.SignalLogs,
+				sessions:   map[uint32]*slim.Session{},
+			},
 		}
 
 		ld := plog.NewLogs()
-		err := exporter.pushLogs(context.Background(), ld)
+		err := exporter.pushLogs(t.Context(), ld)
 
+		// Empty logs should not cause error
 		if err != nil {
 			t.Errorf("expected no error, got %v", err)
 		}
-
-		// Cleanup
-		mutex.Lock()
-		state = nil
-		mutex.Unlock()
 	})
 }
-
-// TestConcurrentAccess tests concurrent access to SessionsList
-func TestConcurrentAccess(t *testing.T) {
-	t.Run("concurrent map initialization", func(t *testing.T) {
-		ss := &SessionsList{}
-		logger := zap.NewNop()
-		var wg sync.WaitGroup
-
-		// Initialize the map safely
-		ss.mutex.Lock()
-		if ss.sessions == nil {
-			ss.sessions = make(map[uint32]*slim.BindingsSessionContext)
-		}
-		ss.mutex.Unlock()
-
-		// Test concurrent publish operations
-		for i := 0; i < 10; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				data := []byte("test data")
-				_, _ = ss.PublishToAll(data, logger, "test")
-			}()
-		}
-
-		wg.Wait()
-
-		// Verify no panics occurred
-		if ss.sessions == nil {
-			t.Error("expected sessions map to be initialized")
-		}
-	})
-}*/
