@@ -16,7 +16,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "valid config with all fields",
 			config: &Config{
 				SlimEndpoint: "http://localhost:46357",
-				ExporterNames: ExporterNames{
+				ExporterNames: SignalNames{
 					Metrics: "agntcy/test/exporter-metrics",
 					Traces:  "agntcy/test/exporter-traces",
 					Logs:    "agntcy/test/exporter-logs",
@@ -24,8 +24,11 @@ func TestConfig_Validate(t *testing.T) {
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelName:  "agntcy/test/channel",
-						Signals:      []string{"traces", "metrics", "logs"},
+						ChannelNames: SignalNames{
+							Metrics: "agntcy/test/channel",
+							Traces:  "agntcy/test/channel",
+							Logs:    "agntcy/test/channel",
+						},
 						Participants: []string{"agntcy/test/participant1", "agntcy/test/participant2"},
 						MlsEnabled:   true,
 					},
@@ -39,8 +42,11 @@ func TestConfig_Validate(t *testing.T) {
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelName:  "agntcy/test/channel",
-						Signals:      []string{"traces"},
+						ChannelNames: SignalNames{
+							Traces:  "agntcy/test/channel",
+							Metrics: "agntcy/test/channel",
+							Logs:    "agntcy/test/channel",
+						},
 						Participants: []string{"agntcy/test/participant1"},
 					},
 				},
@@ -51,7 +57,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "valid config with empty channels",
 			config: &Config{
 				SlimEndpoint: "http://localhost:46357",
-				ExporterNames: ExporterNames{
+				ExporterNames: SignalNames{
 					Metrics: "agntcy/test/exporter-metrics",
 					Traces:  "agntcy/test/exporter-traces",
 					Logs:    "agntcy/test/exporter-logs",
@@ -65,13 +71,14 @@ func TestConfig_Validate(t *testing.T) {
 			name: "missing shared secret",
 			config: &Config{
 				SlimEndpoint: "http://localhost:46357",
-				ExporterNames: ExporterNames{
+				ExporterNames: SignalNames{
 					Metrics: "agntcy/test/exporter-metrics",
 				},
 				Channels: []ChannelsConfig{
 					{
-						ChannelName:  "agntcy/test/channel",
-						Signals:      []string{"traces"},
+						ChannelNames: SignalNames{
+							Traces: "agntcy/test/channel",
+						},
 						Participants: []string{"agntcy/test/participant1"},
 					},
 				},
@@ -80,49 +87,18 @@ func TestConfig_Validate(t *testing.T) {
 			errMsg:  "missing shared secret",
 		},
 		{
-			name: "channel with missing channel name",
+			name: "channel with missing channel names",
 			config: &Config{
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelName:  "",
-						Signals:      []string{"traces"},
+						ChannelNames: SignalNames{},
 						Participants: []string{"agntcy/test/participant1"},
 					},
 				},
 			},
 			wantErr: true,
-			errMsg:  "channel-name is required",
-		},
-		{
-			name: "channel with empty signals",
-			config: &Config{
-				SharedSecret: "test-secret",
-				Channels: []ChannelsConfig{
-					{
-						ChannelName:  "agntcy/test/channel",
-						Signals:      []string{},
-						Participants: []string{"agntcy/test/participant1"},
-					},
-				},
-			},
-			wantErr: true,
-			errMsg:  "at least one signal must be specified",
-		},
-		{
-			name: "channel with invalid signal type",
-			config: &Config{
-				SharedSecret: "test-secret",
-				Channels: []ChannelsConfig{
-					{
-						ChannelName:  "agntcy/test/channel",
-						Signals:      []string{"traces", "invalid-signal"},
-						Participants: []string{"agntcy/test/participant1"},
-					},
-				},
-			},
-			wantErr: true,
-			errMsg:  "invalid signal type",
+			errMsg:  "at lest one name is required",
 		},
 		{
 			name: "channel with empty participants",
@@ -130,8 +106,9 @@ func TestConfig_Validate(t *testing.T) {
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelName:  "agntcy/test/channel",
-						Signals:      []string{"traces"},
+						ChannelNames: SignalNames{
+							Traces: "agntcy/test/channel",
+						},
 						Participants: []string{},
 					},
 				},
@@ -145,14 +122,17 @@ func TestConfig_Validate(t *testing.T) {
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelName:  "agntcy/test/channel1",
-						Signals:      []string{"traces"},
+						ChannelNames: SignalNames{
+							Traces: "agntcy/test/channel1",
+						},
 						Participants: []string{"agntcy/test/participant1"},
 						MlsEnabled:   true,
 					},
 					{
-						ChannelName:  "agntcy/test/channel2",
-						Signals:      []string{"metrics", "logs"},
+						ChannelNames: SignalNames{
+							Metrics: "agntcy/test/channel2",
+							Logs:    "agntcy/test/channel2",
+						},
 						Participants: []string{"agntcy/test/participant2", "agntcy/test/participant3"},
 						MlsEnabled:   false,
 					},
@@ -166,8 +146,11 @@ func TestConfig_Validate(t *testing.T) {
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelName:  "agntcy/test/channel",
-						Signals:      []string{"traces", "metrics", "logs"},
+						ChannelNames: SignalNames{
+							Traces:  "agntcy/test/channel",
+							Metrics: "agntcy/test/channel",
+							Logs:    "agntcy/test/channel",
+						},
 						Participants: []string{"agntcy/test/participant1"},
 					},
 				},
@@ -216,5 +199,241 @@ func TestConfig_Validate_DefaultValues(t *testing.T) {
 	}
 	if config.ExporterNames.Logs != defaultCfg.ExporterNames.Logs {
 		t.Errorf("ExporterNames.Logs = %v, want %v", config.ExporterNames.Logs, defaultCfg.ExporterNames.Logs)
+	}
+}
+
+func TestConfig_Validate_PartialDefaults(t *testing.T) {
+	config := &Config{
+		SlimEndpoint: "http://custom:8080",
+		ExporterNames: SignalNames{
+			Metrics: "custom/metrics",
+			// Traces and Logs should be filled with defaults
+		},
+		SharedSecret: "test-secret",
+		Channels:     []ChannelsConfig{},
+	}
+
+	err := config.Validate()
+	if err != nil {
+		t.Fatalf("Config.Validate() unexpected error = %v", err)
+	}
+
+	// Check that custom values are preserved
+	if config.SlimEndpoint != "http://custom:8080" {
+		t.Errorf("SlimEndpoint = %v, want http://custom:8080", config.SlimEndpoint)
+	}
+	if config.ExporterNames.Metrics != "custom/metrics" {
+		t.Errorf("ExporterNames.Metrics = %v, want custom/metrics", config.ExporterNames.Metrics)
+	}
+
+	// Check that defaults are applied for missing values
+	defaultCfg := createDefaultConfig().(*Config)
+	if config.ExporterNames.Traces != defaultCfg.ExporterNames.Traces {
+		t.Errorf("ExporterNames.Traces = %v, want %v", config.ExporterNames.Traces, defaultCfg.ExporterNames.Traces)
+	}
+	if config.ExporterNames.Logs != defaultCfg.ExporterNames.Logs {
+		t.Errorf("ExporterNames.Logs = %v, want %v", config.ExporterNames.Logs, defaultCfg.ExporterNames.Logs)
+	}
+}
+
+func TestSignalNames_GetNameForSignal(t *testing.T) {
+	names := SignalNames{
+		Metrics: "test/metrics",
+		Traces:  "test/traces",
+		Logs:    "test/logs",
+	}
+
+	tests := []struct {
+		name      string
+		signal    string
+		wantName  string
+		wantError bool
+	}{
+		{
+			name:      "get metrics name",
+			signal:    "metrics",
+			wantName:  "test/metrics",
+			wantError: false,
+		},
+		{
+			name:      "get traces name",
+			signal:    "traces",
+			wantName:  "test/traces",
+			wantError: false,
+		},
+		{
+			name:      "get logs name",
+			signal:    "logs",
+			wantName:  "test/logs",
+			wantError: false,
+		},
+		{
+			name:      "invalid signal type",
+			signal:    "invalid",
+			wantName:  "",
+			wantError: true,
+		},
+		{
+			name:      "empty signal type",
+			signal:    "",
+			wantName:  "",
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			name, err := names.GetNameForSignal(tt.signal)
+			if (err != nil) != tt.wantError {
+				t.Errorf("GetNameForSignal() error = %v, wantError %v", err, tt.wantError)
+				return
+			}
+			if name != tt.wantName {
+				t.Errorf("GetNameForSignal() = %v, want %v", name, tt.wantName)
+			}
+		})
+	}
+}
+
+func TestSignalNames_IsSignalNameSet(t *testing.T) {
+	names := SignalNames{
+		Metrics: "test/metrics",
+		Traces:  "",
+		Logs:    "test/logs",
+	}
+
+	tests := []struct {
+		name   string
+		signal string
+		want   bool
+	}{
+		{
+			name:   "metrics is set",
+			signal: "metrics",
+			want:   true,
+		},
+		{
+			name:   "traces is not set",
+			signal: "traces",
+			want:   false,
+		},
+		{
+			name:   "logs is set",
+			signal: "logs",
+			want:   true,
+		},
+		{
+			name:   "invalid signal returns false",
+			signal: "invalid",
+			want:   false,
+		},
+		{
+			name:   "empty signal returns false",
+			signal: "",
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := names.IsSignalNameSet(tt.signal); got != tt.want {
+				t.Errorf("IsSignalNameSet() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestConfig_Validate_PartialChannelNames(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  *Config
+		wantErr bool
+	}{
+		{
+			name: "channel with only metrics name",
+			config: &Config{
+				SharedSecret: "test-secret",
+				Channels: []ChannelsConfig{
+					{
+						ChannelNames: SignalNames{
+							Metrics: "test/metrics-channel",
+						},
+						Participants: []string{"test/participant"},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "channel with only traces name",
+			config: &Config{
+				SharedSecret: "test-secret",
+				Channels: []ChannelsConfig{
+					{
+						ChannelNames: SignalNames{
+							Traces: "test/traces-channel",
+						},
+						Participants: []string{"test/participant"},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "channel with only logs name",
+			config: &Config{
+				SharedSecret: "test-secret",
+				Channels: []ChannelsConfig{
+					{
+						ChannelNames: SignalNames{
+							Logs: "test/logs-channel",
+						},
+						Participants: []string{"test/participant"},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "channel with metrics and traces only",
+			config: &Config{
+				SharedSecret: "test-secret",
+				Channels: []ChannelsConfig{
+					{
+						ChannelNames: SignalNames{
+							Metrics: "test/metrics-channel",
+							Traces:  "test/traces-channel",
+						},
+						Participants: []string{"test/participant"},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "channel with traces and logs only",
+			config: &Config{
+				SharedSecret: "test-secret",
+				Channels: []ChannelsConfig{
+					{
+						ChannelNames: SignalNames{
+							Traces: "test/traces-channel",
+							Logs:   "test/logs-channel",
+						},
+						Participants: []string{"test/participant"},
+					},
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.config.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Config.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }

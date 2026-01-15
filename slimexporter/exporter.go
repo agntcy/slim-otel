@@ -3,7 +3,7 @@ package slimexporter
 import (
 	"context"
 	"fmt"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"go.opentelemetry.io/collector/component"
@@ -24,10 +24,12 @@ const (
 )
 
 var (
+	// connection must be established only once
+	mutex sync.Mutex
 	// true if connection is already established
-	connected atomic.Bool
+	connected bool
 	// the connection id is the same for all the applicaions
-	connID atomic.Uint64
+	connID uint64
 )
 
 // slimExporter implements the exporter for traces, metrics, and logs
@@ -41,15 +43,16 @@ type slimExporter struct {
 	shutdownChan chan struct{}
 }
 
-// createApp creates a new slim application and connects to the SLIM server
-// if not done yet. Returns the app instance and connection ID.
-func CreateApp(
+// initConnection initializes the connection to the SLIM server if not done yet
+func initConnection(
 	cfg *Config,
 	logger *zap.Logger,
-	signalType common.SignalType,
-) (*slim.BindingsAdapter, uint64, error) {
-	// TODO: here it can happen that we try to connect multiple times, remove the atmomic and use a mutex
-	if !connected.Load() {
+	signalType common.SignalType) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	// Initialize only once
+	if !connected {
 		// Initialize crypto subsystem (idempotent, safe to call multiple times)
 		slim.InitializeWithDefaults()
 
@@ -57,26 +60,31 @@ func CreateApp(
 		config := slim.NewInsecureClientConfig(cfg.SlimEndpoint)
 		connIDValue, err := slim.Connect(config)
 		if err != nil {
-			connected.Store(false)
-			return nil, 0, fmt.Errorf("failed to connect to SLIM server: %w", err)
+			return fmt.Errorf("failed to connect to SLIM server: %w", err)
 		}
 
-		connected.Store(true)
-		connID.Store(connIDValue)
+		connected = true
+		connID = connIDValue
 		logger.Info("Connected to SLIM server", zap.String("endpoint", cfg.SlimEndpoint), zap.Uint64("connection_id", connIDValue))
 	}
+	return nil
+}
 
-	// Parse the app identity string based on signal type
-	var exporterName string
-	switch signalType {
-	case common.SignalTraces:
-		exporterName = cfg.ExporterNames.Traces
-	case common.SignalMetrics:
-		exporterName = cfg.ExporterNames.Metrics
-	case common.SignalLogs:
-		exporterName = cfg.ExporterNames.Logs
-	default:
-		return nil, 0, fmt.Errorf("unknown signal type: %s", signalType)
+// createApp creates a new slim application and connects to the SLIM server
+// if not done yet. Returns the app instance and connection ID.
+func CreateApp(
+	cfg *Config,
+	logger *zap.Logger,
+	signalType common.SignalType,
+) (*slim.BindingsAdapter, uint64, error) {
+	err := initConnection(cfg, logger, signalType)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	exporterName, err := cfg.ExporterNames.GetNameForSignal(string(signalType))
+	if err != nil {
+		return nil, 0, err
 	}
 
 	appName, err := common.SplitID(exporterName)
@@ -88,7 +96,7 @@ func CreateApp(
 		return nil, 0, fmt.Errorf("create app failed: %w", err)
 	}
 
-	return app, connID.Load(), nil
+	return app, connID, nil
 }
 
 // createSessionAndInvite creates a session for the given channel and signal,
@@ -98,24 +106,18 @@ func createSessionsAndInvite(
 ) error {
 	signalType := string(e.signalType)
 	for _, config := range e.config.Channels {
-		// if signal is not in config.Signals, skip this channel
-		found := false
-		for _, s := range config.Signals {
-			if s == signalType {
-				found = true
-				break
-			}
-		}
-		if !found {
-			// signal not found in this channel, skip
+		// if signal is not set skip the channel
+		if !config.ChannelNames.IsSignalNameSet(signalType) {
 			continue
 		}
 
-		channel := config.ChannelName
-		if len(config.Signals) > 1 {
-			// if multiple signals are specified, suffix the channel name with the signal type
-			channel = fmt.Sprintf("%s-%s", channel, signalType)
+		channel, err := config.ChannelNames.GetNameForSignal(signalType)
+		if err != nil {
+			// this should not happen as we checked before
+			e.logger.Warn("failed to get channel name for signal", zap.String("signal", signalType), zap.Error(err))
+			continue
 		}
+
 		name, err := common.SplitID(channel)
 		if err != nil {
 			return fmt.Errorf("failed to parse channel name: %w", err)
@@ -136,7 +138,6 @@ func createSessionsAndInvite(
 			return fmt.Errorf("failed to create the session: %w", err)
 		}
 
-		// TODO update to the latest bindings version
 		for _, participant := range config.Participants {
 			participantName, err := common.SplitID(participant)
 			if err != nil {

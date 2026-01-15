@@ -36,16 +36,13 @@ exporters:
     # if no channel is defiend the exporter will listen for invitation
     # to join channels sent from other participants
     channels: 
-        # name of the SLIM channel to create. 
-      - channel-name: "agntcy/otel/telemetry-1"
-        # signals types to export on this channel
-        # by default, each channel exports only one signal type,
-        # if multiple signals are specified, multiple channels will
-        # be created, one for each signal. The channel name
-        # will be suffixed with the signal type to avoid name conflicts.
-        signals: 
-          - metrics
-          - logs
+        # names of the SLIM channels to create. Each signal is sent on a separate channel.
+        # if a singal type is not listed, the channel for that signal will not be created
+        # and so no data of that signal type will be exported.
+      - channel-names: 
+          - metrics: "agntcy/otel/metrics-channel"
+          - traces: "agntcy/otel/traces-channel"
+          - logs: "agntcy/otel/logs-channel"
         # list of participants to invite to this channel
         participants:
           - "agntcy/otel/receiver-app"

@@ -11,7 +11,7 @@ type Config struct {
 	SlimEndpoint string `mapstructure:"endpoint"`
 
 	// exporter names
-	ExporterNames ExporterNames `mapstructure:"exporter-names"`
+	ExporterNames SignalNames `mapstructure:"exporter-names"`
 
 	// Shared Secret
 	SharedSecret string `mapstructure:"shared-secret"`
@@ -20,33 +20,54 @@ type Config struct {
 	Channels []ChannelsConfig `mapstructure:"channels"`
 }
 
-// ExporterNames holds the names of the exporters for each signal type
-type ExporterNames struct {
-	// exporter name for metrics in the SLIM format
-	Metrics string `mapstructure:"metrics"`
-
-	// exporter name for traces in the SLIM format
-	Traces string `mapstructure:"traces"`
-
-	// exporter name for logs in the SLIM format
-	Logs string `mapstructure:"logs"`
-}
-
 // ChannelsConfig defines configuration for SLIM channels
 type ChannelsConfig struct {
-	// Channel name in the SLIM format
-	// if multiple signals are specified, this name is
-	// suffixed with the signal type
-	ChannelName string `mapstructure:"channel-name"`
-
-	// Signals to export on these channels (traces, metrics, logs)
-	Signals []string `mapstructure:"signals"`
+	// Channel names in the SLIM format
+	ChannelNames SignalNames `mapstructure:"channel-names"`
 
 	// List of participants to invite to the channels
 	Participants []string `mapstructure:"participants"`
 
 	// Flag to enable or disable MLS for these sessions
 	MlsEnabled bool `mapstructure:"mls-enabled"`
+}
+
+// SignalNames holds the names of the exporter or channels for each signal type
+type SignalNames struct {
+	// name for metrics in the SLIM format
+	Metrics string `mapstructure:"metrics"`
+
+	// name for traces in the SLIM format
+	Traces string `mapstructure:"traces"`
+
+	// name for logs in the SLIM format
+	Logs string `mapstructure:"logs"`
+}
+
+func (nps *SignalNames) GetNameForSignal(signal string) (string, error) {
+	switch signal {
+	case "metrics":
+		return nps.Metrics, nil
+	case "traces":
+		return nps.Traces, nil
+	case "logs":
+		return nps.Logs, nil
+	default:
+		return "", fmt.Errorf("unknown signal type: %s", signal)
+	}
+}
+
+func (nps *SignalNames) IsSignalNameSet(signal string) bool {
+	switch signal {
+	case "metrics":
+		return nps.Metrics != ""
+	case "traces":
+		return nps.Traces != ""
+	case "logs":
+		return nps.Logs != ""
+	default:
+		return false
+	}
 }
 
 // Validate checks if the exporter configuration is valid
@@ -73,22 +94,16 @@ func (cfg *Config) Validate() error {
 
 	// Validate each channel (the list can be empty)
 	for i, channel := range cfg.Channels {
-		if channel.ChannelName == "" {
-			return fmt.Errorf("channel-name is required for channel %d", i)
+		// At list one name must be provided
+		if channel.ChannelNames.Metrics == "" &&
+			channel.ChannelNames.Traces == "" &&
+			channel.ChannelNames.Logs == "" {
+			return fmt.Errorf("at lest one name is required for channel %d", i)
 		}
-		if len(channel.Signals) == 0 {
-			return fmt.Errorf("at least one signal must be specified for channel '%s'", channel.ChannelName)
-		}
-		// Validate signal types
-		for _, signal := range channel.Signals {
-			if signal != "traces" && signal != "metrics" && signal != "logs" {
-				return fmt.Errorf(
-					"invalid signal type '%s' for channel '%s' (must be traces, metrics, or logs)",
-					signal, channel.ChannelName)
-			}
-		}
+
+		// At least one participant must be specified
 		if len(channel.Participants) == 0 {
-			return fmt.Errorf("at least one participant must be specified for channel '%s'", channel.ChannelName)
+			return fmt.Errorf("at least one participant must be specified for channel '%d'", i)
 		}
 	}
 
