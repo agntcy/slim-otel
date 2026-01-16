@@ -8,7 +8,7 @@ import (
 	"go.opentelemetry.io/collector/exporter"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
 
-	common "github.com/agntcy/slim/otel"
+	common "github.com/agntcy/slim/otel/internal/common"
 )
 
 const (
@@ -34,7 +34,7 @@ func NewFactory() exporter.Factory {
 func createDefaultConfig() component.Config {
 	return &Config{
 		SlimEndpoint: "http://127.0.0.1:46357",
-		ExporterNames: SignalNames{
+		ExporterNames: common.SignalNames{
 			Metrics: "agntcy/otel/exporter-metrics",
 			Traces:  "agntcy/otel/exporter-traces",
 			Logs:    "agntcy/otel/exporter-logs",

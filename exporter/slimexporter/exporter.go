@@ -13,11 +13,10 @@ import (
 	"go.uber.org/zap"
 
 	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
-	common "github.com/agntcy/slim/otel"
+	common "github.com/agntcy/slim/otel/internal/common"
 )
 
 const (
-	inviteDelayMs     = 1000
 	sessionTimeoutMs  = 1000
 	defaultMaxRetries = 10
 	defaultIntervalMs = 1000
@@ -39,7 +38,7 @@ type slimExporter struct {
 	signalType   common.SignalType
 	app          *slim.App
 	connID       uint64
-	sessions     *SessionsList
+	sessions     *common.SessionsList
 	shutdownChan chan struct{}
 }
 
@@ -229,7 +228,7 @@ func newSlimExporter(cfg *Config, logger *zap.Logger, signalType common.SignalTy
 		signalType:   signalType,
 		app:          app,
 		connID:       connID,
-		sessions:     &SessionsList{logger: logger, signalType: signalType},
+		sessions:     common.NewSessionsList(logger, signalType),
 		shutdownChan: make(chan struct{}),
 	}
 

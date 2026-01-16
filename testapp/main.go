@@ -19,7 +19,7 @@ import (
 	"go.uber.org/zap"
 
 	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
-	common "github.com/agntcy/slim/otel"
+	common "github.com/agntcy/slim/otel/internal/common"
 )
 
 // detectSignalType attempts to determine the signal type of an OTLP payload

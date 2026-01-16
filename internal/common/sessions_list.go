@@ -1,4 +1,4 @@
-package slimexporter
+package common
 
 import (
 	"fmt"
@@ -9,16 +9,24 @@ import (
 	"go.uber.org/zap"
 
 	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
-	common "github.com/agntcy/slim/otel"
 )
 
 // SessionsList holds sessions related to a specific signal type
 type SessionsList struct {
 	mutex      sync.RWMutex
 	logger     *zap.Logger
-	signalType common.SignalType
+	signalType SignalType
 	// map of session ID to Session
 	sessions map[uint32]*slim.Session
+}
+
+// NewSessionsList creates a new SessionsList instance
+func NewSessionsList(logger *zap.Logger, signalType SignalType) *SessionsList {
+	return &SessionsList{
+		logger:     logger,
+		signalType: signalType,
+		sessions:   make(map[uint32]*slim.Session),
+	}
 }
 
 func (s *SessionsList) AddSession(session *slim.Session) error {

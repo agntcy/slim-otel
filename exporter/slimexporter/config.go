@@ -3,6 +3,8 @@ package slimexporter
 import (
 	"errors"
 	"fmt"
+
+	common "github.com/agntcy/slim/otel/internal/common"
 )
 
 // Config defines configuration for the Slim exporter
@@ -11,7 +13,7 @@ type Config struct {
 	SlimEndpoint string `mapstructure:"endpoint"`
 
 	// exporter names
-	ExporterNames SignalNames `mapstructure:"exporter-names"`
+	ExporterNames common.SignalNames `mapstructure:"exporter-names"`
 
 	// Shared Secret
 	SharedSecret string `mapstructure:"shared-secret"`
@@ -23,51 +25,13 @@ type Config struct {
 // ChannelsConfig defines configuration for SLIM channels
 type ChannelsConfig struct {
 	// Channel names in the SLIM format
-	ChannelNames SignalNames `mapstructure:"channel-names"`
+	ChannelNames common.SignalNames `mapstructure:"channel-names"`
 
 	// List of participants to invite to the channels
 	Participants []string `mapstructure:"participants"`
 
 	// Flag to enable or disable MLS for these sessions
 	MlsEnabled bool `mapstructure:"mls-enabled"`
-}
-
-// SignalNames holds the names of the exporter or channels for each signal type
-type SignalNames struct {
-	// name for metrics in the SLIM format
-	Metrics string `mapstructure:"metrics"`
-
-	// name for traces in the SLIM format
-	Traces string `mapstructure:"traces"`
-
-	// name for logs in the SLIM format
-	Logs string `mapstructure:"logs"`
-}
-
-func (nps *SignalNames) GetNameForSignal(signal string) (string, error) {
-	switch signal {
-	case "metrics":
-		return nps.Metrics, nil
-	case "traces":
-		return nps.Traces, nil
-	case "logs":
-		return nps.Logs, nil
-	default:
-		return "", fmt.Errorf("unknown signal type: %s", signal)
-	}
-}
-
-func (nps *SignalNames) IsSignalNameSet(signal string) bool {
-	switch signal {
-	case "metrics":
-		return nps.Metrics != ""
-	case "traces":
-		return nps.Traces != ""
-	case "logs":
-		return nps.Logs != ""
-	default:
-		return false
-	}
 }
 
 // Validate checks if the exporter configuration is valid

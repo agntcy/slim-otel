@@ -1,4 +1,4 @@
-package slimexporter
+package common
 
 import (
 	"sync"
