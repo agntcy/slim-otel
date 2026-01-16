@@ -7,10 +7,13 @@ dist:
 replaces:
   - github.com/agntcy/slim/otel => ..
   - github.com/agntcy/slim/otel/slimexporter => ../exporter/slimexporter
+  - github.com/agntcy/slim/otel/slimreceiver => ../receiver/slimreceiver
   - github.com/agntcy/slim/bindings/generated => /Users/micpapal/Documents/code/agntcy/slim/data-plane/bindings/go/generated
 
 exporters:
   - gomod: github.com/agntcy/slim/otel/slimexporter v0.0.1
+  - gomod:
+      go.opentelemetry.io/collector/exporter/debugexporter v0.143.0
   - gomod:
       go.opentelemetry.io/collector/exporter/otlpexporter v0.143.0
 
@@ -19,6 +22,7 @@ processors:
       go.opentelemetry.io/collector/processor/batchprocessor v0.143.0
 
 receivers:
+  - gomod: github.com/agntcy/slim/otel/slimreceiver v0.0.1
   - gomod:
       go.opentelemetry.io/collector/receiver/otlpreceiver v0.143.0
 

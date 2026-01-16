@@ -71,7 +71,7 @@ func (s *SessionsList) RemoveSession(id uint32) error {
 
 func (s *SessionsList) DeleteAll(app *slim.App) {
 	if app == nil {
-		s.logger.Warn("Cannot delete sessions, app is nil", zap.String("signal_type", string(s.signalType)))
+		s.logger.Debug("Cannot delete sessions, app is nil", zap.String("signal_type", string(s.signalType)))
 		return
 	}
 
@@ -85,7 +85,7 @@ func (s *SessionsList) DeleteAll(app *slim.App) {
 	for id, session := range s.sessions {
 		if err := app.DeleteSessionAndWait(session); err != nil {
 			// log and continue
-			s.logger.Warn("failed to delete session",
+			s.logger.Debug("failed to delete session",
 				zap.Uint32("session_id", id),
 				zap.Error(err))
 		}

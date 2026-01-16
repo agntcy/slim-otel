@@ -135,7 +135,7 @@ tasks:
       - test -f ocb
 
   collector:build:
-    desc: Build the SLIM OpenTelemetry Collector
+    desc: Build the SLIM OpenTelemetry Collector including both slimexporter and slimreceiver
     deps:
       - download-ocb
       #- fetch-and-run
@@ -153,11 +153,17 @@ tasks:
       - rm -rf {{.COLLECTOR_OUTPUT}}
       - echo "Collector build directory cleaned"
 
-  collector:run:
-    desc: Run the SLIM OpenTelemetry Collector
+  collector:run:expoter:
+    desc: Run the SLIM OpenTelemetry Collector Exporter
     cmds:
-      - echo "Running SLIM OpenTelemetry Collector..."
-      - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/collector-config.yaml"
+      - echo "Running SLIM OpenTelemetry Collector Exporter..."
+      - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/collector-exporter-config.yaml"
+
+  collector:run:receiver:
+    desc: Run the SLIM OpenTelemetry Collector Receiver
+    cmds:
+      - echo "Running SLIM OpenTelemetry Collector Receiver..."
+      - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/collector-receiver-config.yaml"
 
   collector:test:
     desc: Run tests for the SLIM exporter

@@ -269,17 +269,9 @@ func handleSession(
 	r.logger.Info("Handling new session", zap.Uint32("sessionID", id))
 
 	defer func() {
-		if err := r.sessions.RemoveSession(id); err != nil {
-			r.logger.Warn("failed to remove session",
-				zap.Uint32("sessionID", id),
-				zap.Error(err))
-		}
-
-		if err := r.app.DeleteSessionAndWait(session); err != nil {
-			r.logger.Warn("failed to delete session",
-				zap.Uint32("sessionID", id),
-				zap.Error(err))
-		}
+		// the session may be already removed from sessions.DeleteAll in Shutdown
+		_ = r.sessions.RemoveSession(id)
+		_ = r.app.DeleteSessionAndWait(session)
 		r.logger.Info("Session closed", zap.Uint32("sessionID", id))
 	}()
 
@@ -300,12 +292,6 @@ func handleSession(
 				errMsg := err.Error()
 				switch {
 				case strings.Contains(errMsg, "session closed"):
-					r.logger.Info("Session closed by peer", zap.Uint32("sessionID", id), zap.Error(err))
-					if err := r.sessions.RemoveSession(id); err != nil {
-						r.logger.Warn("failed to remove session",
-							zap.Uint32("sessionID", id),
-							zap.Error(err))
-					}
 					return
 				case strings.Contains(errMsg, "receive timeout waiting for message"):
 					// Normal timeout, continue
