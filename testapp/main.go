@@ -316,7 +316,7 @@ func handleSession(
 			return
 		default:
 			// Wait for message with timeout
-			timeout := uint32(1000) // 1 sec
+			timeout := time.Millisecond * 1000 // 1 sec
 			msg, err := session.GetMessage(&timeout)
 			if err != nil {
 				errMsg := err.Error()

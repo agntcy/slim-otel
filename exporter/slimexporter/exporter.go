@@ -59,7 +59,7 @@ func initConnection(
 
 		// Connect to SLIM server (returns connection ID)
 		config := slim.NewInsecureClientConfig(cfg.SlimEndpoint)
-		connIDValue, err := slim.Connect(config)
+		connIDValue, err := slim.GetGlobalService().Connect(config)
 		if err != nil {
 			return fmt.Errorf("failed to connect to SLIM server: %w", err)
 		}
@@ -96,7 +96,7 @@ func CreateApp(
 	if err != nil {
 		return nil, 0, fmt.Errorf("invalid local ID: %w", err)
 	}
-	app, err := slim.CreateAppWithSecret(appName, cfg.SharedSecret)
+	app, err := slim.GetGlobalService().CreateAppWithSecret(appName, cfg.SharedSecret)
 	if err != nil {
 		return nil, 0, fmt.Errorf("create app failed: %w", err)
 	}

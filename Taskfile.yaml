@@ -149,6 +149,7 @@ tasks:
   collector:clean:
     desc: Clean the generated collector directory
     cmds:
+      - go clean -cache -modcache
       - rm -rf {{.COLLECTOR_OUTPUT}}
       - echo "Collector build directory cleaned"
 
