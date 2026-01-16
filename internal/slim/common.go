@@ -1,14 +1,14 @@
 // Copyright AGNTCY Contributors (https://github.com/agntcy)
 // SPDX-License-Identifier: Apache-2.0
 
-// Package common provides shared helper utilities for SLIM OpenTelemetry components.
+// Package slimcommon provides shared helper utilities for SLIM OpenTelemetry components.
 //
 // This package provides:
 //   - Identity string parsing (org/namespace/app)
 //   - App creation and connection helper
 //   - Default configuration values
 //   - Signal name mappings
-package common
+package slimcommon
 
 import (
 	"fmt"
@@ -24,6 +24,7 @@ const (
 	SignalTraces  SignalType = "traces"
 	SignalMetrics SignalType = "metrics"
 	SignalLogs    SignalType = "logs"
+	SignalUnknown SignalType = "unknown"
 )
 
 // SignalNames holds the SLIM names of an app or channel for each signal type

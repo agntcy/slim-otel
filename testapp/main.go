@@ -19,7 +19,7 @@ import (
 	"go.uber.org/zap"
 
 	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
-	common "github.com/agntcy/slim/otel/internal/common"
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
 // detectSignalType attempts to determine the signal type of an OTLP payload
@@ -95,7 +95,7 @@ func main() {
 	)
 
 	// Create and connect app
-	app, connID, err := common.CreateAndConnectApp(*appNameStr, *serverAddr, *sharedSecret)
+	app, connID, err := slimcommon.CreateAndConnectApp(*appNameStr, *serverAddr, *sharedSecret)
 	if err != nil {
 		logger.Fatal("Failed to create/connect app", zap.Error(err))
 	}
@@ -164,15 +164,15 @@ func initiateSessions(
 	// create traces, metrics, and logs sessions as needed
 	if channelNameMetricsStr != nil && *channelNameMetricsStr != "" {
 		go createAndHandleSession(ctx, wg, logger, app,
-			exporterNameMetricsStr, channelNameMetricsStr, common.SignalMetrics, connID, mlsEnabled)
+			exporterNameMetricsStr, channelNameMetricsStr, slimcommon.SignalMetrics, connID, mlsEnabled)
 	}
 	if channelNameTracesStr != nil && *channelNameTracesStr != "" {
 		go createAndHandleSession(ctx, wg, logger, app,
-			exporterNameTracesStr, channelNameTracesStr, common.SignalTraces, connID, mlsEnabled)
+			exporterNameTracesStr, channelNameTracesStr, slimcommon.SignalTraces, connID, mlsEnabled)
 	}
 	if channelNameLogsStr != nil && *channelNameLogsStr != "" {
 		go createAndHandleSession(ctx, wg, logger, app,
-			exporterNameLogsStr, channelNameLogsStr, common.SignalLogs, connID, mlsEnabled)
+			exporterNameLogsStr, channelNameLogsStr, slimcommon.SignalLogs, connID, mlsEnabled)
 	}
 }
 
@@ -183,15 +183,15 @@ func createAndHandleSession(
 	app *slim.App,
 	exporterNameStr *string,
 	channelNameStr *string,
-	signalType common.SignalType,
+	signalType slimcommon.SignalType,
 	connID uint64,
 	mlsEnabled bool,
 ) {
-	exporterName, err := common.SplitID(*exporterNameStr)
+	exporterName, err := slimcommon.SplitID(*exporterNameStr)
 	if err != nil {
 		logger.Fatal("Invalid exporter application name", zap.String("exporterName", *exporterNameStr), zap.Error(err))
 	}
-	channelName, err := common.SplitID(*channelNameStr)
+	channelName, err := slimcommon.SplitID(*channelNameStr)
 	if err != nil {
 		logger.Fatal("Invalid channel name", zap.String("channelName", *channelNameStr), zap.Error(err))
 	}

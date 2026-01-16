@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	common "github.com/agntcy/slim/otel/internal/common"
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
 // Config defines configuration for the Slim exporter
@@ -13,7 +13,7 @@ type Config struct {
 	SlimEndpoint string `mapstructure:"endpoint"`
 
 	// exporter names
-	ExporterNames common.SignalNames `mapstructure:"exporter-names"`
+	ExporterNames slimcommon.SignalNames `mapstructure:"exporter-names"`
 
 	// Shared Secret
 	SharedSecret string `mapstructure:"shared-secret"`
@@ -25,7 +25,7 @@ type Config struct {
 // ChannelsConfig defines configuration for SLIM channels
 type ChannelsConfig struct {
 	// Channel names in the SLIM format
-	ChannelNames common.SignalNames `mapstructure:"channel-names"`
+	ChannelNames slimcommon.SignalNames `mapstructure:"channel-names"`
 
 	// List of participants to invite to the channels
 	Participants []string `mapstructure:"participants"`

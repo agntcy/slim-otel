@@ -1,0 +1,40 @@
+receivers:
+# Slim receiver config
+  slim:
+    endpoint: "http://127.0.0.1:46357"
+    # name for the receiver to be used in SLIM channels
+    receiver-name: "agntcy/otel/receiver"
+
+    shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+exporters:
+  debug:
+    verbosity: detailed
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+service:
+  telemetry:
+    metrics:
+      level: none
+
+  pipelines:
+    traces:
+      receivers: [slim]
+      processors: [batch]
+      exporters: [debug]
+    
+    metrics:
+      receivers: [slim]
+      processors: [batch]
+      exporters: [debug]
+    
+    logs:
+      receivers: [slim]
+      processors: [batch]
+      exporters: [debug]

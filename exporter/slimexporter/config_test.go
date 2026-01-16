@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	common "github.com/agntcy/slim/otel/internal/common"
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
 func TestConfig_Validate(t *testing.T) {
@@ -18,7 +18,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "valid config with all fields",
 			config: &Config{
 				SlimEndpoint: "http://localhost:46357",
-				ExporterNames: common.SignalNames{
+				ExporterNames: slimcommon.SignalNames{
 					Metrics: "agntcy/test/exporter-metrics",
 					Traces:  "agntcy/test/exporter-traces",
 					Logs:    "agntcy/test/exporter-logs",
@@ -26,7 +26,7 @@ func TestConfig_Validate(t *testing.T) {
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelNames: common.SignalNames{
+						ChannelNames: slimcommon.SignalNames{
 							Metrics: "agntcy/test/channel",
 							Traces:  "agntcy/test/channel",
 							Logs:    "agntcy/test/channel",
@@ -44,7 +44,7 @@ func TestConfig_Validate(t *testing.T) {
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelNames: common.SignalNames{
+						ChannelNames: slimcommon.SignalNames{
 							Traces:  "agntcy/test/channel",
 							Metrics: "agntcy/test/channel",
 							Logs:    "agntcy/test/channel",
@@ -59,7 +59,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "valid config with empty channels",
 			config: &Config{
 				SlimEndpoint: "http://localhost:46357",
-				ExporterNames: common.SignalNames{
+				ExporterNames: slimcommon.SignalNames{
 					Metrics: "agntcy/test/exporter-metrics",
 					Traces:  "agntcy/test/exporter-traces",
 					Logs:    "agntcy/test/exporter-logs",
@@ -73,12 +73,12 @@ func TestConfig_Validate(t *testing.T) {
 			name: "missing shared secret",
 			config: &Config{
 				SlimEndpoint: "http://localhost:46357",
-				ExporterNames: common.SignalNames{
+				ExporterNames: slimcommon.SignalNames{
 					Metrics: "agntcy/test/exporter-metrics",
 				},
 				Channels: []ChannelsConfig{
 					{
-						ChannelNames: common.SignalNames{
+						ChannelNames: slimcommon.SignalNames{
 							Traces: "agntcy/test/channel",
 						},
 						Participants: []string{"agntcy/test/participant1"},
@@ -94,7 +94,7 @@ func TestConfig_Validate(t *testing.T) {
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelNames: common.SignalNames{},
+						ChannelNames: slimcommon.SignalNames{},
 						Participants: []string{"agntcy/test/participant1"},
 					},
 				},
@@ -108,7 +108,7 @@ func TestConfig_Validate(t *testing.T) {
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelNames: common.SignalNames{
+						ChannelNames: slimcommon.SignalNames{
 							Traces: "agntcy/test/channel",
 						},
 						Participants: []string{},
@@ -124,14 +124,14 @@ func TestConfig_Validate(t *testing.T) {
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelNames: common.SignalNames{
+						ChannelNames: slimcommon.SignalNames{
 							Traces: "agntcy/test/channel1",
 						},
 						Participants: []string{"agntcy/test/participant1"},
 						MlsEnabled:   true,
 					},
 					{
-						ChannelNames: common.SignalNames{
+						ChannelNames: slimcommon.SignalNames{
 							Metrics: "agntcy/test/channel2",
 							Logs:    "agntcy/test/channel2",
 						},
@@ -148,7 +148,7 @@ func TestConfig_Validate(t *testing.T) {
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelNames: common.SignalNames{
+						ChannelNames: slimcommon.SignalNames{
 							Traces:  "agntcy/test/channel",
 							Metrics: "agntcy/test/channel",
 							Logs:    "agntcy/test/channel",
@@ -207,7 +207,7 @@ func TestConfig_Validate_DefaultValues(t *testing.T) {
 func TestConfig_Validate_PartialDefaults(t *testing.T) {
 	config := &Config{
 		SlimEndpoint: "http://custom:8080",
-		ExporterNames: common.SignalNames{
+		ExporterNames: slimcommon.SignalNames{
 			Metrics: "custom/metrics",
 			// Traces and Logs should be filled with defaults
 		},
@@ -251,13 +251,13 @@ func TestConfig_Validate_MultipleChannelsWithError(t *testing.T) {
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelNames: common.SignalNames{
+						ChannelNames: slimcommon.SignalNames{
 							Traces: "test/channel1",
 						},
 						Participants: []string{"test/participant1"},
 					},
 					{
-						ChannelNames: common.SignalNames{},
+						ChannelNames: slimcommon.SignalNames{},
 						Participants: []string{"test/participant2"},
 					},
 				},
@@ -271,19 +271,19 @@ func TestConfig_Validate_MultipleChannelsWithError(t *testing.T) {
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelNames: common.SignalNames{
+						ChannelNames: slimcommon.SignalNames{
 							Traces: "test/channel1",
 						},
 						Participants: []string{"test/participant1"},
 					},
 					{
-						ChannelNames: common.SignalNames{
+						ChannelNames: slimcommon.SignalNames{
 							Metrics: "test/channel2",
 						},
 						Participants: []string{"test/participant2"},
 					},
 					{
-						ChannelNames: common.SignalNames{
+						ChannelNames: slimcommon.SignalNames{
 							Logs: "test/channel3",
 						},
 						Participants: []string{},

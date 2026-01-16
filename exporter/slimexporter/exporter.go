@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
-	common "github.com/agntcy/slim/otel/internal/common"
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
 const (
@@ -35,10 +35,10 @@ var (
 type slimExporter struct {
 	config       *Config
 	logger       *zap.Logger
-	signalType   common.SignalType
+	signalType   slimcommon.SignalType
 	app          *slim.App
 	connID       uint64
-	sessions     *common.SessionsList
+	sessions     *slimcommon.SessionsList
 	shutdownChan chan struct{}
 }
 
@@ -46,7 +46,7 @@ type slimExporter struct {
 func initConnection(
 	cfg *Config,
 	logger *zap.Logger,
-	_ common.SignalType,
+	_ slimcommon.SignalType,
 ) error {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -79,7 +79,7 @@ func initConnection(
 func CreateApp(
 	cfg *Config,
 	logger *zap.Logger,
-	signalType common.SignalType,
+	signalType slimcommon.SignalType,
 ) (*slim.App, uint64, error) {
 	err := initConnection(cfg, logger, signalType)
 	if err != nil {
@@ -91,7 +91,7 @@ func CreateApp(
 		return nil, 0, err
 	}
 
-	appName, err := common.SplitID(exporterName)
+	appName, err := slimcommon.SplitID(exporterName)
 	if err != nil {
 		return nil, 0, fmt.Errorf("invalid local ID: %w", err)
 	}
@@ -128,7 +128,7 @@ func createSessionsAndInvite(
 			continue
 		}
 
-		name, err := common.SplitID(channel)
+		name, err := slimcommon.SplitID(channel)
 		if err != nil {
 			return fmt.Errorf("failed to parse channel name: %w", err)
 		}
@@ -153,7 +153,7 @@ func createSessionsAndInvite(
 			zap.String("channel", channel))
 
 		for _, participant := range config.Participants {
-			participantName, parseErr := common.SplitID(participant)
+			participantName, parseErr := slimcommon.SplitID(participant)
 			if parseErr != nil {
 				return fmt.Errorf("failed to parse participant name %s for channel %s: %w", participant, channel, parseErr)
 			}
@@ -216,7 +216,7 @@ func listenForSessions(ctx context.Context, e *slimExporter) {
 }
 
 // newSlimExporter creates a new instance of the slim exporter
-func newSlimExporter(cfg *Config, logger *zap.Logger, signalType common.SignalType) (*slimExporter, error) {
+func newSlimExporter(cfg *Config, logger *zap.Logger, signalType slimcommon.SignalType) (*slimExporter, error) {
 	app, connID, err := CreateApp(cfg, logger, signalType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create/connect app: %w", err)
@@ -228,7 +228,7 @@ func newSlimExporter(cfg *Config, logger *zap.Logger, signalType common.SignalTy
 		signalType:   signalType,
 		app:          app,
 		connID:       connID,
-		sessions:     common.NewSessionsList(logger, signalType),
+		sessions:     slimcommon.NewSessionsList(logger, signalType),
 		shutdownChan: make(chan struct{}),
 	}
 

@@ -1,7 +1,6 @@
 package slimexporter
 
 import (
-	"context"
 	"testing"
 
 	"go.opentelemetry.io/collector/pdata/plog"
@@ -9,7 +8,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
 
-	common "github.com/agntcy/slim/otel/internal/common"
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
 // TestSlimExporter_PublishData tests the publishData method
@@ -22,8 +21,8 @@ func TestSlimExporter_PublishData(t *testing.T) {
 				SlimEndpoint: "test-endpoint",
 			},
 			logger:     logger,
-			signalType: common.SignalTraces,
-			sessions:   common.NewSessionsList(logger, common.SignalTraces),
+			signalType: slimcommon.SignalTraces,
+			sessions:   slimcommon.NewSessionsList(logger, slimcommon.SignalTraces),
 		}
 
 		data := []byte("test trace data")
@@ -40,8 +39,8 @@ func TestSlimExporter_PublishData(t *testing.T) {
 				SlimEndpoint: "test-endpoint",
 			},
 			logger:     logger,
-			signalType: common.SignalTraces,
-			sessions:   common.NewSessionsList(logger, common.SignalTraces),
+			signalType: slimcommon.SignalTraces,
+			sessions:   slimcommon.NewSessionsList(logger, slimcommon.SignalTraces),
 		}
 
 		err := exporter.publishData(nil)
@@ -63,12 +62,12 @@ func TestSlimExporter_PushTraces(t *testing.T) {
 				SlimEndpoint: "test-endpoint",
 			},
 			logger:     logger,
-			signalType: common.SignalTraces,
-			sessions:   common.NewSessionsList(logger, common.SignalTraces),
+			signalType: slimcommon.SignalTraces,
+			sessions:   slimcommon.NewSessionsList(logger, slimcommon.SignalTraces),
 		}
 
 		td := ptrace.NewTraces()
-		err := exporter.pushTraces(context.Background(), td)
+		err := exporter.pushTraces(t.Context(), td)
 
 		// Empty traces should not cause error
 		if err != nil {
@@ -82,8 +81,8 @@ func TestSlimExporter_PushTraces(t *testing.T) {
 				SlimEndpoint: "test-endpoint",
 			},
 			logger:     logger,
-			signalType: common.SignalTraces,
-			sessions:   common.NewSessionsList(logger, common.SignalTraces),
+			signalType: slimcommon.SignalTraces,
+			sessions:   slimcommon.NewSessionsList(logger, slimcommon.SignalTraces),
 		}
 
 		td := ptrace.NewTraces()
@@ -91,7 +90,7 @@ func TestSlimExporter_PushTraces(t *testing.T) {
 		span := spans.AppendEmpty()
 		span.SetName("test-span")
 
-		err := exporter.pushTraces(context.Background(), td)
+		err := exporter.pushTraces(t.Context(), td)
 
 		// Should successfully publish data
 		if err != nil {
@@ -110,12 +109,12 @@ func TestSlimExporter_PushMetrics(t *testing.T) {
 				SlimEndpoint: "test-endpoint",
 			},
 			logger:     logger,
-			signalType: common.SignalMetrics,
-			sessions:   common.NewSessionsList(logger, common.SignalMetrics),
+			signalType: slimcommon.SignalMetrics,
+			sessions:   slimcommon.NewSessionsList(logger, slimcommon.SignalMetrics),
 		}
 
 		md := pmetric.NewMetrics()
-		err := exporter.pushMetrics(context.Background(), md)
+		err := exporter.pushMetrics(t.Context(), md)
 
 		// Empty metrics should not cause error
 		if err != nil {
@@ -134,12 +133,12 @@ func TestSlimExporter_PushLogs(t *testing.T) {
 				SlimEndpoint: "test-endpoint",
 			},
 			logger:     logger,
-			signalType: common.SignalLogs,
-			sessions:   common.NewSessionsList(logger, common.SignalLogs),
+			signalType: slimcommon.SignalLogs,
+			sessions:   slimcommon.NewSessionsList(logger, slimcommon.SignalLogs),
 		}
 
 		ld := plog.NewLogs()
-		err := exporter.pushLogs(context.Background(), ld)
+		err := exporter.pushLogs(t.Context(), ld)
 
 		// Empty logs should not cause error
 		if err != nil {

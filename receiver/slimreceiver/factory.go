@@ -8,7 +8,7 @@ import (
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/receiver"
 
-	common "github.com/agntcy/slim/otel/internal/common"
+	sharedcomponent "github.com/agntcy/slim/otel/internal/sharedcomponent"
 )
 
 const (
@@ -34,17 +34,13 @@ func NewFactory() receiver.Factory {
 func createDefaultConfig() component.Config {
 	return &Config{
 		SlimEndpoint: "http://127.0.0.1:46357",
-		ReceiverNames: common.SignalNames{
-			Metrics: "agntcy/otel/receiver-metrics",
-			Traces:  "agntcy/otel/receiver-traces",
-			Logs:    "agntcy/otel/receiver-logs",
-		},
+		ReceiverName: "agntcy/otel/receiver",
 	}
 }
 
 // createTracesReceiver creates a trace receiver based on the config
 func createTracesReceiver(
-	ctx context.Context,
+	_ context.Context,
 	set receiver.Settings,
 	cfg component.Config,
 	nextConsumer consumer.Traces,
@@ -55,17 +51,21 @@ func createTracesReceiver(
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	receiver, err := newSlimReceiver(receiverConfig, set.Logger, common.SignalTraces, nextConsumer, nil, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create receiver: %w", err)
-	}
+	r := receivers.GetOrAdd(
+		receiverConfig,
+		func() component.Component {
+			rec, _ := newSlimReceiver(receiverConfig, &set)
+			return rec
+		},
+	)
 
-	return receiver, nil
+	r.Unwrap().(*slimReceiver).tracesConsumer = nextConsumer
+	return r.Unwrap().(receiver.Traces), nil
 }
 
 // createMetricsReceiver creates a metrics receiver based on the config
 func createMetricsReceiver(
-	ctx context.Context,
+	_ context.Context,
 	set receiver.Settings,
 	cfg component.Config,
 	nextConsumer consumer.Metrics,
@@ -76,17 +76,21 @@ func createMetricsReceiver(
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	receiver, err := newSlimReceiver(receiverConfig, set.Logger, common.SignalMetrics, nil, nextConsumer, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create receiver: %w", err)
-	}
+	r := receivers.GetOrAdd(
+		receiverConfig,
+		func() component.Component {
+			rec, _ := newSlimReceiver(receiverConfig, &set)
+			return rec
+		},
+	)
 
-	return receiver, nil
+	r.Unwrap().(*slimReceiver).metricsConsumer = nextConsumer
+	return r.Unwrap().(receiver.Metrics), nil
 }
 
 // createLogsReceiver creates a logs receiver based on the config
 func createLogsReceiver(
-	ctx context.Context,
+	_ context.Context,
 	set receiver.Settings,
 	cfg component.Config,
 	nextConsumer consumer.Logs,
@@ -97,10 +101,17 @@ func createLogsReceiver(
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	receiver, err := newSlimReceiver(receiverConfig, set.Logger, common.SignalLogs, nil, nil, nextConsumer)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create receiver: %w", err)
-	}
+	r := receivers.GetOrAdd(
+		receiverConfig,
+		func() component.Component {
+			rec, _ := newSlimReceiver(receiverConfig, &set)
+			return rec
+		},
+	)
 
-	return receiver, nil
+	r.Unwrap().(*slimReceiver).logsConsumer = nextConsumer
+	return r.Unwrap().(receiver.Logs), nil
 }
+
+// receivers is a shared component to manage Slim receivers
+var receivers = sharedcomponent.NewSharedComponents()

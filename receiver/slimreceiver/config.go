@@ -2,8 +2,6 @@ package slimreceiver
 
 import (
 	"errors"
-
-	common "github.com/agntcy/slim/otel/internal/common"
 )
 
 // Config represents the receiver config settings in the Collector config.yaml
@@ -11,8 +9,8 @@ type Config struct {
 	// Slim endpoint where to connect
 	SlimEndpoint string `mapstructure:"endpoint"`
 
-	// Receiver names for different signals
-	ReceiverNames common.SignalNames `mapstructure:"receiver-names"`
+	// Receiver name for different signals
+	ReceiverName string `mapstructure:"receiver-name"`
 
 	// Shared Secret
 	SharedSecret string `mapstructure:"shared-secret"`
@@ -25,15 +23,9 @@ func (cfg *Config) Validate() error {
 		cfg.SlimEndpoint = defaultCfg.SlimEndpoint
 	}
 
-	// Set default receiver names if not provided
-	if cfg.ReceiverNames.Metrics == "" {
-		cfg.ReceiverNames.Metrics = defaultCfg.ReceiverNames.Metrics
-	}
-	if cfg.ReceiverNames.Traces == "" {
-		cfg.ReceiverNames.Traces = defaultCfg.ReceiverNames.Traces
-	}
-	if cfg.ReceiverNames.Logs == "" {
-		cfg.ReceiverNames.Logs = defaultCfg.ReceiverNames.Logs
+	// Set default receiver name if not provided
+	if cfg.ReceiverName == "" {
+		cfg.ReceiverName = defaultCfg.ReceiverName
 	}
 
 	if cfg.SharedSecret == "" {
