@@ -2,7 +2,7 @@ module github.com/agntcy/slim/otel/slimexporter
 
 go 1.25.5
 
-replace github.com/agntcy/slim/otel => ../
+replace github.com/agntcy/slim/otel => ../../
 
 replace github.com/agntcy/slim/bindings/generated => /Users/micpapal/Documents/code/agntcy/slim/data-plane/bindings/go/generated
 

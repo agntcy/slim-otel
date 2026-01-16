@@ -100,4 +100,4 @@ In both cases, telemetry data will flow through the SLIM collector over secure S
 
 ## Configuration
 
-The SLIM collector can be configured using the `collector-config.yaml` file. Check the README.md in `./slimexporter` for a complete description of the configuration options.
+The SLIM collector can be configured using the `collector-config.yaml` file. Check the README.md in `./exporter/slimexporter` for a complete description of the configuration options.

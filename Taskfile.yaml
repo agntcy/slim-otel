@@ -160,9 +160,9 @@ tasks:
 
   collector:test:
     desc: Run tests for the SLIM exporter
-    dir: slimexporter
-    deps:
-      - fetch-and-run
+    dir: exporter/slimexporter
+    #deps:
+    #  - fetch-and-run
     cmds:
       - echo "Running slimexporter tests..."
       - go test -v
