@@ -1,0 +1,22 @@
+# Copyright AGNTCY Contributors (https://github.com/agntcy)
+# SPDX-License-Identifier: Apache-2.0
+
+managers:
+  # address of the SLIM node where to connect
+  endpoint: "http://127.0.0.1:46357"
+  # grpc service to get commands
+  address: "http://127.0.0.1:46358"
+  # name of the channel manager to be used in SLIM channels
+  local-name: "agntcy/otel/channel-manager"
+  # shared secret used for MLS and identity provider
+  shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
+
+# channels to create
+channels:
+  name: "agntcy/otel/channel-1"
+  participants:
+    - "agntcy/otel/exporter-metrics"
+    - "agntcy/otel/exporter-traces"
+    - "agntcy/otel/exporter-logs"
+    - "agntcy/otel/receiver"
+  mls-enabled: true
