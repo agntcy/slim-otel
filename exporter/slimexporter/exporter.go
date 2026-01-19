@@ -12,7 +12,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
 
-	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
+	slim "github.com/agntcy/slim-bindings-go"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
@@ -198,7 +198,7 @@ func listenForSessions(ctx context.Context, e *slimExporter) {
 			timeout := time.Millisecond * sessionTimeoutMs
 			session, err := e.app.ListenForSession(&timeout)
 			if err != nil {
-				logger.Debug("Timeout waiting for session, retrying...")
+				// no error, this is just the timeout
 				continue
 			}
 

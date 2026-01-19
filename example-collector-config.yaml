@@ -37,14 +37,19 @@ exporters:
     # to join channels sent from other participants
     channels: 
         # names of the SLIM channels to create.
-      - channel-name: "agntcy/otel/channel"
+      - channel-name: "agntcy/otel/channel-metrics"
         # sigal type for this channel: metrics, traces, or logs
         signal: metrics
         # list of participants to invite to this channel
         participants:
           - "agntcy/otel/receiver-app"
         # flag to enable or disable MLS for this session
-        mls-enabled: false
+        mls-enabled: true
+      - channel-name: "agntcy/otel/channel-traces"
+        signal: traces
+        participants:
+          - "agntcy/otel/receiver-app"
+        mls-enabled: true
   # Standard OTLP exporter
   otlp:
     endpoint: localhost:4317
@@ -52,6 +57,9 @@ exporters:
       insecure: true
 
 service:
+  telemetry:
+    logs:
+      level: info
   pipelines:
     traces:
       receivers: [otlp]
