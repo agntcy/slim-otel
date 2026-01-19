@@ -108,7 +108,7 @@ tasks:
     desc: Check test coverage
     deps:
       - tools
-      # - fetch-and-run
+      - fetch-and-run
     cmds:
       - task: foreach-module
         vars:
@@ -138,7 +138,7 @@ tasks:
     desc: Build the SLIM OpenTelemetry Collector including both slimexporter and slimreceiver
     deps:
       - download-ocb
-      #- fetch-and-run
+      - fetch-and-run
     cmds:
       - echo "Generating collector sources..."
       - ./ocb --config builder-config.yaml --skip-compilation
@@ -168,8 +168,8 @@ tasks:
   collector:test:
     desc: Run tests for the SLIM exporter
     dir: exporter/slimexporter
-    #deps:
-    #  - fetch-and-run
+    deps:
+      - fetch-and-run
     cmds:
       - echo "Running slimexporter tests..."
       - go test -v

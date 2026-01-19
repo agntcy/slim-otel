@@ -36,17 +36,19 @@ exporters:
     # if no channel is defiend the exporter will listen for invitation
     # to join channels sent from other participants
     channels: 
-        # names of the SLIM channels to create. Each signal is sent on a separate channel.
-        # if a singal type is not listed, the channel for that signal will not be created
-        # and so no data of that signal type will be exported.
-      - channel-names: 
-          metrics: "agntcy/otel/metrics-channel"
-          traces: "agntcy/otel/traces-channel"
-          logs: "agntcy/otel/logs-channel"
+        # names of the SLIM channels to create.
+      - channel-name: "agntcy/otel/channel-metrics"
+        # sigal type for this channel: metrics, traces, or logs
+        signal: metrics
         # list of participants to invite to this channel
         participants:
           - "agntcy/otel/receiver"
         # flag to enable or disable MLS for this session
+        mls-enabled: true
+      - channel-name: "agntcy/otel/channel-traces"
+        signal: traces
+        participants:
+          - "agntcy/otel/receiver-app"
         mls-enabled: true
   # Standard OTLP exporter
   otlp:
@@ -56,9 +58,8 @@ exporters:
 
 service:
   telemetry:
-    metrics:
-      level: none
-
+    logs:
+      level: info
   pipelines:
     traces:
       receivers: [otlp]

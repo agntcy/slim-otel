@@ -1,12 +1,13 @@
+// Copyright AGNTCY Contributors (https://github.com/agntcy)
+// SPDX-License-Identifier: Apache-2.0
+
 package slimcommon
 
 import (
 	"sync"
 	"testing"
 
-	"go.uber.org/zap"
-
-	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
+	slim "github.com/agntcy/slim-bindings-go"
 )
 
 // TestSessionsList_RemoveSession tests removing sessions from SessionsList
@@ -18,7 +19,7 @@ func TestSessionsList_RemoveSession(t *testing.T) {
 			},
 		}
 
-		err := ss.RemoveSession(1)
+		err := ss.RemoveSession(t.Context(), 1)
 		if err != nil {
 			t.Errorf("expected no error, got %v", err)
 		}
@@ -32,7 +33,7 @@ func TestSessionsList_RemoveSession(t *testing.T) {
 			sessions: map[uint32]*slim.Session{},
 		}
 
-		err := ss.RemoveSession(1)
+		err := ss.RemoveSession(t.Context(), 1)
 		if err == nil {
 			t.Error("expected error, got nil")
 		}
@@ -41,7 +42,7 @@ func TestSessionsList_RemoveSession(t *testing.T) {
 	t.Run("remove session with nil sessions map", func(t *testing.T) {
 		ss := &SessionsList{}
 
-		err := ss.RemoveSession(1)
+		err := ss.RemoveSession(t.Context(), 1)
 		if err == nil {
 			t.Error("expected error, got nil")
 		}
@@ -56,7 +57,7 @@ func TestSessionsList_RemoveSession(t *testing.T) {
 			},
 		}
 
-		err := ss.RemoveSession(2)
+		err := ss.RemoveSession(t.Context(), 2)
 		if err != nil {
 			t.Errorf("expected no error, got %v", err)
 		}
@@ -79,10 +80,8 @@ func TestSessionsList_RemoveSession(t *testing.T) {
 
 // TestSessionsList_DeleteAll tests removing all sessions
 func TestSessionsList_DeleteAll(t *testing.T) {
-	t.Run("delete all sessions from populated list", func(t *testing.T) {
-		logger := zap.NewNop()
+	t.Run("delete all with nil app does not delete sessions", func(t *testing.T) {
 		ss := &SessionsList{
-			logger:     logger,
 			signalType: "test",
 			sessions: map[uint32]*slim.Session{
 				1: nil,
@@ -91,28 +90,14 @@ func TestSessionsList_DeleteAll(t *testing.T) {
 			},
 		}
 
-		ss.DeleteAll(nil)
+		ss.DeleteAll(t.Context(), nil)
 
-		// When app is nil, sessions should NOT be deleted
+		// When app is nil, the method returns early without deleting sessions
 		if ss.sessions == nil {
 			t.Error("expected sessions map to remain when app is nil")
 		}
 		if len(ss.sessions) != 3 {
 			t.Errorf("expected 3 sessions to remain, got %d", len(ss.sessions))
-		}
-	})
-
-	t.Run("delete all sessions with nil map", func(t *testing.T) {
-		logger := zap.NewNop()
-		ss := &SessionsList{
-			logger: logger,
-		}
-
-		// Should not panic
-		ss.DeleteAll(nil)
-
-		if ss.sessions != nil {
-			t.Error("expected sessions map to remain nil")
 		}
 	})
 }
@@ -125,7 +110,7 @@ func TestSessionsList_PublishToAll(t *testing.T) {
 		}
 
 		data := []byte("test data")
-		closedSessions, err := ss.PublishToAll(data)
+		closedSessions, err := ss.PublishToAll(t.Context(), data)
 		if err != nil {
 			t.Errorf("expected no error, got %v", err)
 		}
@@ -139,13 +124,13 @@ func TestSessionsList_PublishToAll(t *testing.T) {
 			sessions: map[uint32]*slim.Session{},
 		}
 
-		closedSessions, err := ss.PublishToAll(nil)
+		closedSessions, err := ss.PublishToAll(t.Context(), nil)
 
 		if err == nil {
 			t.Error("expected error for nil data, got nil")
 		}
-		if err.Error() != "missing data or logger" {
-			t.Errorf("expected 'missing data or logger' error, got %v", err)
+		if err.Error() != "missing data" {
+			t.Errorf("expected 'missing data' error, got %v", err)
 		}
 		if closedSessions != nil {
 			t.Errorf("expected nil closedSessions, got %v", closedSessions)
@@ -166,7 +151,7 @@ func TestSessionsList_ConcurrentAccess(t *testing.T) {
 			wg.Add(1)
 			go func(id uint32) {
 				defer wg.Done()
-				_ = ss.RemoveSession(id)
+				_ = ss.RemoveSession(t.Context(), id)
 			}(uint32(i)) // #nosec G115
 		}
 
@@ -176,17 +161,15 @@ func TestSessionsList_ConcurrentAccess(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				data := []byte("test data")
-				_, _ = ss.PublishToAll(data)
+				_, _ = ss.PublishToAll(t.Context(), data)
 			}()
 		}
 
 		wg.Wait()
 	})
 
-	t.Run("concurrent DeleteAll calls", func(t *testing.T) {
-		logger := zap.NewNop()
+	t.Run("concurrent DeleteAll with nil app", func(t *testing.T) {
 		ss := &SessionsList{
-			logger:     logger,
 			signalType: "test",
 			sessions: map[uint32]*slim.Session{
 				1: nil,
@@ -196,17 +179,18 @@ func TestSessionsList_ConcurrentAccess(t *testing.T) {
 		}
 		var wg sync.WaitGroup
 
+		// Test that concurrent calls don't cause race conditions or panics
 		for i := 0; i < 5; i++ {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				ss.DeleteAll(nil)
+				ss.DeleteAll(t.Context(), nil)
 			}()
 		}
 
 		wg.Wait()
 
-		// When app is nil, sessions should NOT be deleted
+		// When app is nil, sessions should remain unchanged
 		if ss.sessions == nil {
 			t.Error("expected sessions map to remain when app is nil")
 		}

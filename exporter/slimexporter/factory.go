@@ -34,7 +34,7 @@ func NewFactory() exporter.Factory {
 func createDefaultConfig() component.Config {
 	return &Config{
 		SlimEndpoint: "http://127.0.0.1:46357",
-		ExporterNames: slimcommon.SignalNames{
+		ExporterNames: SignalNames{
 			Metrics: "agntcy/otel/exporter-metrics",
 			Traces:  "agntcy/otel/exporter-traces",
 			Logs:    "agntcy/otel/exporter-logs",
@@ -54,7 +54,8 @@ func createTracesExporter(
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	exp, err := newSlimExporter(exporterConfig, set.Logger, slimcommon.SignalTraces)
+	ctx = slimcommon.InitContextWithLogger(ctx, set.Logger)
+	exp, err := newSlimExporter(ctx, exporterConfig, slimcommon.SignalTraces)
 	if err != nil {
 		return nil, fmt.Errorf("error creating the exporter: %w", err)
 	}
@@ -81,7 +82,8 @@ func createMetricsExporter(
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	exp, err := newSlimExporter(exporterConfig, set.Logger, slimcommon.SignalMetrics)
+	ctx = slimcommon.InitContextWithLogger(ctx, set.Logger)
+	exp, err := newSlimExporter(ctx, exporterConfig, slimcommon.SignalMetrics)
 	if err != nil {
 		return nil, fmt.Errorf("error creating the exporter: %w", err)
 	}
@@ -108,7 +110,8 @@ func createLogsExporter(
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	exp, err := newSlimExporter(exporterConfig, set.Logger, slimcommon.SignalLogs)
+	ctx = slimcommon.InitContextWithLogger(ctx, set.Logger)
+	exp, err := newSlimExporter(ctx, exporterConfig, slimcommon.SignalLogs)
 	if err != nil {
 		return nil, fmt.Errorf("error creating the exporter: %w", err)
 	}
