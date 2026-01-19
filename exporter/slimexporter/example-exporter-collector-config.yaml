@@ -42,7 +42,7 @@ exporters:
         signal: metrics
         # list of participants to invite to this channel
         participants:
-          - "agntcy/otel/receiver"
+          - "agntcy/otel/receiver-app"
         # flag to enable or disable MLS for this session
         mls-enabled: true
       - channel-name: "agntcy/otel/channel-traces"

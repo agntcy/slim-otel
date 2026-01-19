@@ -122,7 +122,7 @@ tasks:
     cmds:
       - echo find . -name '*coverage.out' -execdir go tool cover -html=./{} \;
 
-  # expoter related tasks
+  # collector related tasks
   download-ocb:
     internal: true
     desc: Download OpenTelemetry Collector Builder for current architecture
@@ -153,17 +153,17 @@ tasks:
       - rm -rf {{.COLLECTOR_OUTPUT}}
       - echo "Collector build directory cleaned"
 
-  collector:run:expoter:
+  collector:run:exporter:
     desc: Run the SLIM OpenTelemetry Collector Exporter
     cmds:
       - echo "Running SLIM OpenTelemetry Collector Exporter..."
-      - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/collector-exporter-config.yaml"
+      - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/exporter/slimexporter/example-exporter-collector-config.yaml"
 
   collector:run:receiver:
     desc: Run the SLIM OpenTelemetry Collector Receiver
     cmds:
       - echo "Running SLIM OpenTelemetry Collector Receiver..."
-      - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/collector-receiver-config.yaml"
+      - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/receiver/slimreceiver/example-receiver-collector-config.yaml"
 
   collector:test:
     desc: Run tests for the SLIM exporter
