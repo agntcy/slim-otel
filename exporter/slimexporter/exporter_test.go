@@ -6,32 +6,27 @@ import (
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/pdata/ptrace"
-	"go.uber.org/zap"
 
 	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
-	common "github.com/agntcy/slim/otel"
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
 // TestSlimExporter_PublishData tests the publishData method
 func TestSlimExporter_PublishData(t *testing.T) {
-	logger := zap.NewNop()
-
 	t.Run("publish data with empty sessions list", func(t *testing.T) {
 		exporter := &slimExporter{
 			config: &Config{
 				SlimEndpoint: "test-endpoint",
 			},
-			logger:     logger,
-			signalType: common.SignalTraces,
+			signalType: slimcommon.SignalTraces,
 			sessions: &SessionsList{
-				logger:     logger,
-				signalType: common.SignalTraces,
+				signalType: slimcommon.SignalTraces,
 				sessions:   map[uint32]*slim.Session{},
 			},
 		}
 
 		data := []byte("test trace data")
-		err := exporter.publishData(data)
+		err := exporter.publishData(t.Context(), data)
 
 		if err != nil {
 			t.Errorf("expected no error, got %v", err)
@@ -43,16 +38,14 @@ func TestSlimExporter_PublishData(t *testing.T) {
 			config: &Config{
 				SlimEndpoint: "test-endpoint",
 			},
-			logger:     logger,
-			signalType: common.SignalTraces,
+			signalType: slimcommon.SignalTraces,
 			sessions: &SessionsList{
-				logger:     logger,
-				signalType: common.SignalTraces,
+				signalType: slimcommon.SignalTraces,
 				sessions:   map[uint32]*slim.Session{},
 			},
 		}
 
-		err := exporter.publishData(nil)
+		err := exporter.publishData(t.Context(), nil)
 
 		// Should return error for nil data
 		if err == nil {
@@ -63,18 +56,14 @@ func TestSlimExporter_PublishData(t *testing.T) {
 
 // TestSlimExporter_PushTraces tests the pushTraces method
 func TestSlimExporter_PushTraces(t *testing.T) {
-	logger := zap.NewNop()
-
 	t.Run("push empty traces without panic", func(t *testing.T) {
 		exporter := &slimExporter{
 			config: &Config{
 				SlimEndpoint: "test-endpoint",
 			},
-			logger:     logger,
-			signalType: common.SignalTraces,
+			signalType: slimcommon.SignalTraces,
 			sessions: &SessionsList{
-				logger:     logger,
-				signalType: common.SignalTraces,
+				signalType: slimcommon.SignalTraces,
 				sessions:   map[uint32]*slim.Session{},
 			},
 		}
@@ -93,11 +82,9 @@ func TestSlimExporter_PushTraces(t *testing.T) {
 			config: &Config{
 				SlimEndpoint: "test-endpoint",
 			},
-			logger:     logger,
-			signalType: common.SignalTraces,
+			signalType: slimcommon.SignalTraces,
 			sessions: &SessionsList{
-				logger:     logger,
-				signalType: common.SignalTraces,
+				signalType: slimcommon.SignalTraces,
 				sessions:   map[uint32]*slim.Session{},
 			},
 		}
@@ -118,18 +105,14 @@ func TestSlimExporter_PushTraces(t *testing.T) {
 
 // TestSlimExporter_PushMetrics tests the pushMetrics method
 func TestSlimExporter_PushMetrics(t *testing.T) {
-	logger := zap.NewNop()
-
 	t.Run("push empty metrics without panic", func(t *testing.T) {
 		exporter := &slimExporter{
 			config: &Config{
 				SlimEndpoint: "test-endpoint",
 			},
-			logger:     logger,
-			signalType: common.SignalMetrics,
+			signalType: slimcommon.SignalMetrics,
 			sessions: &SessionsList{
-				logger:     logger,
-				signalType: common.SignalMetrics,
+				signalType: slimcommon.SignalMetrics,
 				sessions:   map[uint32]*slim.Session{},
 			},
 		}
@@ -146,18 +129,14 @@ func TestSlimExporter_PushMetrics(t *testing.T) {
 
 // TestSlimExporter_PushLogs tests the pushLogs method
 func TestSlimExporter_PushLogs(t *testing.T) {
-	logger := zap.NewNop()
-
 	t.Run("push empty logs without panic", func(t *testing.T) {
 		exporter := &slimExporter{
 			config: &Config{
 				SlimEndpoint: "test-endpoint",
 			},
-			logger:     logger,
-			signalType: common.SignalLogs,
+			signalType: slimcommon.SignalLogs,
 			sessions: &SessionsList{
-				logger:     logger,
-				signalType: common.SignalLogs,
+				signalType: slimcommon.SignalLogs,
 				sessions:   map[uint32]*slim.Session{},
 			},
 		}

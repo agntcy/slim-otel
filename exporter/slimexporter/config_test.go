@@ -24,11 +24,8 @@ func TestConfig_Validate(t *testing.T) {
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelNames: SignalNames{
-							Metrics: "agntcy/test/channel",
-							Traces:  "agntcy/test/channel",
-							Logs:    "agntcy/test/channel",
-						},
+						ChannelName:  "agntcy/test/channel",
+						Signal:       "traces",
 						Participants: []string{"agntcy/test/participant1", "agntcy/test/participant2"},
 						MlsEnabled:   true,
 					},
@@ -42,11 +39,8 @@ func TestConfig_Validate(t *testing.T) {
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelNames: SignalNames{
-							Traces:  "agntcy/test/channel",
-							Metrics: "agntcy/test/channel",
-							Logs:    "agntcy/test/channel",
-						},
+						ChannelName:  "agntcy/test/channel",
+						Signal:       "traces",
 						Participants: []string{"agntcy/test/participant1"},
 					},
 				},
@@ -76,9 +70,8 @@ func TestConfig_Validate(t *testing.T) {
 				},
 				Channels: []ChannelsConfig{
 					{
-						ChannelNames: SignalNames{
-							Traces: "agntcy/test/channel",
-						},
+						ChannelName:  "agntcy/test/channel",
+						Signal:       "traces",
 						Participants: []string{"agntcy/test/participant1"},
 					},
 				},
@@ -87,18 +80,34 @@ func TestConfig_Validate(t *testing.T) {
 			errMsg:  "missing shared secret",
 		},
 		{
-			name: "channel with missing channel names",
+			name: "channel with missing channel name",
 			config: &Config{
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelNames: SignalNames{},
+						ChannelName:  "",
+						Signal:       "traces",
 						Participants: []string{"agntcy/test/participant1"},
 					},
 				},
 			},
 			wantErr: true,
-			errMsg:  "at least one name is required",
+			errMsg:  "channel name is required",
+		},
+		{
+			name: "channel with missing signal",
+			config: &Config{
+				SharedSecret: "test-secret",
+				Channels: []ChannelsConfig{
+					{
+						ChannelName:  "agntcy/test/channel",
+						Signal:       "",
+						Participants: []string{"agntcy/test/participant1"},
+					},
+				},
+			},
+			wantErr: true,
+			errMsg:  "signal type is required",
 		},
 		{
 			name: "channel with empty participants",
@@ -106,9 +115,8 @@ func TestConfig_Validate(t *testing.T) {
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelNames: SignalNames{
-							Traces: "agntcy/test/channel",
-						},
+						ChannelName:  "agntcy/test/channel",
+						Signal:       "traces",
 						Participants: []string{},
 					},
 				},
@@ -122,18 +130,21 @@ func TestConfig_Validate(t *testing.T) {
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelNames: SignalNames{
-							Traces: "agntcy/test/channel1",
-						},
+						ChannelName:  "agntcy/test/channel1",
+						Signal:       "traces",
 						Participants: []string{"agntcy/test/participant1"},
 						MlsEnabled:   true,
 					},
 					{
-						ChannelNames: SignalNames{
-							Metrics: "agntcy/test/channel2",
-							Logs:    "agntcy/test/channel2",
-						},
+						ChannelName:  "agntcy/test/channel2",
+						Signal:       "metrics",
 						Participants: []string{"agntcy/test/participant2", "agntcy/test/participant3"},
+						MlsEnabled:   false,
+					},
+					{
+						ChannelName:  "agntcy/test/channel3",
+						Signal:       "logs",
+						Participants: []string{"agntcy/test/participant2"},
 						MlsEnabled:   false,
 					},
 				},
@@ -141,21 +152,33 @@ func TestConfig_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "valid config with all signal types",
+			name: "valid config with traces signal",
 			config: &Config{
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelNames: SignalNames{
-							Traces:  "agntcy/test/channel",
-							Metrics: "agntcy/test/channel",
-							Logs:    "agntcy/test/channel",
-						},
+						ChannelName:  "agntcy/test/channel",
+						Signal:       "traces",
 						Participants: []string{"agntcy/test/participant1"},
 					},
 				},
 			},
 			wantErr: false,
+		},
+		{
+			name: "invalid signal type",
+			config: &Config{
+				SharedSecret: "test-secret",
+				Channels: []ChannelsConfig{
+					{
+						ChannelName:  "agntcy/test/channel",
+						Signal:       "invalid",
+						Participants: []string{"agntcy/test/participant1"},
+					},
+				},
+			},
+			wantErr: true,
+			errMsg:  "invalid signal type",
 		},
 	}
 
@@ -398,18 +421,38 @@ func TestConfig_Validate_MultipleChannelsWithError(t *testing.T) {
 		errMsg  string
 	}{
 		{
-			name: "second channel has no channel names",
+			name: "second channel has no channel name",
 			config: &Config{
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelNames: SignalNames{
-							Traces: "test/channel1",
-						},
+						ChannelName:  "agntcy/test/channel1",
+						Signal:       "traces",
 						Participants: []string{"test/participant1"},
 					},
 					{
-						ChannelNames: SignalNames{},
+						ChannelName:  "",
+						Signal:       "metrics",
+						Participants: []string{"test/participant2"},
+					},
+				},
+			},
+			wantErr: true,
+			errMsg:  "channel 1",
+		},
+		{
+			name: "second channel has no signal",
+			config: &Config{
+				SharedSecret: "test-secret",
+				Channels: []ChannelsConfig{
+					{
+						ChannelName:  "agntcy/test/channel1",
+						Signal:       "traces",
+						Participants: []string{"test/participant1"},
+					},
+					{
+						ChannelName:  "agntcy/test/channel2",
+						Signal:       "",
 						Participants: []string{"test/participant2"},
 					},
 				},
@@ -423,21 +466,18 @@ func TestConfig_Validate_MultipleChannelsWithError(t *testing.T) {
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
-						ChannelNames: SignalNames{
-							Traces: "test/channel1",
-						},
+						ChannelName:  "agntcy/test/channel1",
+						Signal:       "traces",
 						Participants: []string{"test/participant1"},
 					},
 					{
-						ChannelNames: SignalNames{
-							Metrics: "test/channel2",
-						},
+						ChannelName:  "agntcy/test/channel2",
+						Signal:       "metrics",
 						Participants: []string{"test/participant2"},
 					},
 					{
-						ChannelNames: SignalNames{
-							Logs: "test/channel3",
-						},
+						ChannelName:  "agntcy/test/channel3",
+						Signal:       "logs",
 						Participants: []string{},
 					},
 				},

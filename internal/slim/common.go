@@ -1,13 +1,7 @@
 // Copyright AGNTCY Contributors (https://github.com/agntcy)
 // SPDX-License-Identifier: Apache-2.0
 
-// Package common provides shared helper utilities for SLIM Go binding examples.
-//
-// This package provides:
-//   - Identity string parsing (org/namespace/app)
-//   - App creation and connection helper
-//   - Default configuration values
-package otel
+package slimcommon
 
 import (
 	"fmt"
@@ -23,6 +17,7 @@ const (
 	SignalTraces  SignalType = "traces"
 	SignalMetrics SignalType = "metrics"
 	SignalLogs    SignalType = "logs"
+	SignalUnknown SignalType = "unknown"
 )
 
 // SplitID splits an ID of form organization/namespace/application (or channel).
@@ -40,7 +35,7 @@ func SplitID(id string) (*slim.Name, error) {
 	if len(parts) != 3 {
 		return nil, fmt.Errorf("IDs must be in the format organization/namespace/app-or-stream, got: %s", id)
 	}
-	return slim.NewName(parts[0], parts[1], parts[2], nil), nil
+	return slim.NewName(parts[0], parts[1], parts[2]), nil
 }
 
 // CreateAndConnectApp creates a SLIM app with shared secret authentication
@@ -73,14 +68,14 @@ func CreateAndConnectApp(localID, serverAddr, secret string) (*slim.App, uint64,
 	}
 
 	// Create app with shared secret authentication
-	app, err := slim.CreateAppWithSecret(appName, secret)
+	app, err := slim.GetGlobalService().CreateAppWithSecret(appName, secret)
 	if err != nil {
 		return nil, 0, fmt.Errorf("create app failed: %w", err)
 	}
 
 	// Connect to SLIM server (returns connection ID)
 	config := slim.NewInsecureClientConfig(serverAddr)
-	connID, err := slim.Connect(config)
+	connID, err := slim.GetGlobalService().Connect(config)
 	if err != nil {
 		app.Destroy()
 		return nil, 0, fmt.Errorf("connect failed: %w", err)

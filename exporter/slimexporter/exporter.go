@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
-	common "github.com/agntcy/slim/otel"
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
 const (
@@ -35,8 +35,7 @@ var (
 // slimExporter implements the exporter for traces, metrics, and logs
 type slimExporter struct {
 	config       *Config
-	logger       *zap.Logger
-	signalType   common.SignalType
+	signalType   slimcommon.SignalType
 	app          *slim.App
 	connID       uint64
 	sessions     *SessionsList
@@ -45,9 +44,8 @@ type slimExporter struct {
 
 // initConnection initializes the connection to the SLIM server if not done yet
 func initConnection(
+	ctx context.Context,
 	cfg *Config,
-	logger *zap.Logger,
-	_ common.SignalType,
 ) error {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -59,13 +57,15 @@ func initConnection(
 
 		// Connect to SLIM server (returns connection ID)
 		config := slim.NewInsecureClientConfig(cfg.SlimEndpoint)
-		connIDValue, err := slim.Connect(config)
+		connIDValue, err := slim.GetGlobalService().Connect(config)
 		if err != nil {
 			return fmt.Errorf("failed to connect to SLIM server: %w", err)
 		}
 
 		connected = true
 		connID = connIDValue
+		logger := slimcommon.LoggerFromContextOrDefault(ctx)
+
 		logger.Info(
 			"Connected to SLIM server",
 			zap.String("endpoint", cfg.SlimEndpoint),
@@ -78,11 +78,11 @@ func initConnection(
 // createApp creates a new slim application and connects to the SLIM server
 // if not done yet. Returns the app instance and connection ID.
 func CreateApp(
+	ctx context.Context,
 	cfg *Config,
-	logger *zap.Logger,
-	signalType common.SignalType,
+	signalType slimcommon.SignalType,
 ) (*slim.App, uint64, error) {
-	err := initConnection(cfg, logger, signalType)
+	err := initConnection(ctx, cfg)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -92,11 +92,11 @@ func CreateApp(
 		return nil, 0, err
 	}
 
-	appName, err := common.SplitID(exporterName)
+	appName, err := slimcommon.SplitID(exporterName)
 	if err != nil {
 		return nil, 0, fmt.Errorf("invalid local ID: %w", err)
 	}
-	app, err := slim.CreateAppWithSecret(appName, cfg.SharedSecret)
+	app, err := slim.GetGlobalService().CreateAppWithSecret(appName, cfg.SharedSecret)
 	if err != nil {
 		return nil, 0, fmt.Errorf("create app failed: %w", err)
 	}
@@ -106,30 +106,28 @@ func CreateApp(
 		return nil, 0, fmt.Errorf("subscribe failed: %w", err)
 	}
 
-	logger.Info("created SLIM app", zap.String("app_name", exporterName), zap.String("signal", string(signalType)))
+	slimcommon.LoggerFromContextOrDefault(ctx).Info("created SLIM app",
+		zap.String("app_name", exporterName),
+		zap.String("signal", string(signalType)))
 	return app, connID, nil
 }
 
 // createSessionAndInvite creates a session for the given channel and signal,
 // and invites the participants specified in the config
 func createSessionsAndInvite(
+	ctx context.Context,
 	e *slimExporter,
 ) error {
 	signalType := string(e.signalType)
+	logger := slimcommon.LoggerFromContextOrDefault(ctx)
 	for _, config := range e.config.Channels {
-		// if signal is not set skip the channel
-		if !config.ChannelNames.IsSignalNameSet(signalType) {
+		// if the signal type is not the same as the exporter's one, skip it
+		if config.Signal != signalType {
 			continue
 		}
 
-		channel, err := config.ChannelNames.GetNameForSignal(signalType)
-		if err != nil {
-			// this should not happen as we checked before
-			e.logger.Warn("failed to get channel name", zap.String("signal", signalType), zap.Error(err))
-			continue
-		}
-
-		name, err := common.SplitID(channel)
+		channel := config.ChannelName
+		name, err := slimcommon.SplitID(channel)
 		if err != nil {
 			return fmt.Errorf("failed to parse channel name: %w", err)
 		}
@@ -149,12 +147,12 @@ func createSessionsAndInvite(
 			return fmt.Errorf("failed to create the session: %w", err)
 		}
 
-		e.logger.Info("Created session for channel",
+		logger.Info("Created session for channel",
 			zap.String("signal", string(e.signalType)),
 			zap.String("channel", channel))
 
 		for _, participant := range config.Participants {
-			participantName, parseErr := common.SplitID(participant)
+			participantName, parseErr := slimcommon.SplitID(participant)
 			if parseErr != nil {
 				return fmt.Errorf("failed to parse participant name %s for channel %s: %w", participant, channel, parseErr)
 			}
@@ -167,12 +165,12 @@ func createSessionsAndInvite(
 		}
 
 		// add session to the list
-		err = e.sessions.AddSession(session)
+		err = e.sessions.AddSession(ctx, session)
 		if err != nil {
 			return fmt.Errorf("failed to add session for channel %s: %w", channel, err)
 		}
 
-		e.logger.Info("Created session and invited participants",
+		logger.Info("Created session and invited participants",
 			zap.String("signal", string(e.signalType)),
 			zap.String("channel", channel),
 			zap.Strings("participants", config.Participants))
@@ -183,33 +181,34 @@ func createSessionsAndInvite(
 
 // listenForSessions listens for all incoming sessions
 func listenForSessions(ctx context.Context, e *slimExporter) {
-	e.logger.Info("Listener started, waiting for incoming sessions...")
+	logger := slimcommon.LoggerFromContextOrDefault(ctx)
+	logger.Info("Listener started, waiting for incoming sessions...")
 
 	for {
 		select {
 		case <-ctx.Done():
-			e.logger.Info("Shutting down listener...")
+			logger.Info("Shutting down listener...")
 			return
 
 		case <-e.shutdownChan:
-			e.logger.Info("All sessions closed, shutting down listener...")
+			logger.Info("All sessions closed, shutting down listener...")
 			return
 
 		default:
 			timeout := time.Millisecond * sessionTimeoutMs
 			session, err := e.app.ListenForSession(&timeout)
 			if err != nil {
-				e.logger.Debug("Timeout waiting for session, retrying...")
+				logger.Debug("Timeout waiting for session, retrying...")
 				continue
 			}
 
-			e.logger.Info("New session received",
+			logger.Info("New session received",
 				zap.String("signal", string(e.signalType)))
 
 			// add session to the list
-			err = e.sessions.AddSession(session)
+			err = e.sessions.AddSession(ctx, session)
 			if err != nil {
-				e.logger.Error("Failed to add session", zap.String("signal", string(e.signalType)), zap.Error(err))
+				logger.Error("Failed to add session", zap.String("signal", string(e.signalType)), zap.Error(err))
 				continue
 			}
 		}
@@ -217,19 +216,18 @@ func listenForSessions(ctx context.Context, e *slimExporter) {
 }
 
 // newSlimExporter creates a new instance of the slim exporter
-func newSlimExporter(cfg *Config, logger *zap.Logger, signalType common.SignalType) (*slimExporter, error) {
-	app, connID, err := CreateApp(cfg, logger, signalType)
+func newSlimExporter(ctx context.Context, cfg *Config, signalType slimcommon.SignalType) (*slimExporter, error) {
+	app, connID, err := CreateApp(ctx, cfg, signalType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create/connect app: %w", err)
 	}
 
 	slim := &slimExporter{
 		config:       cfg,
-		logger:       logger,
 		signalType:   signalType,
 		app:          app,
 		connID:       connID,
-		sessions:     &SessionsList{logger: logger, signalType: signalType},
+		sessions:     &SessionsList{signalType: signalType},
 		shutdownChan: make(chan struct{}),
 	}
 
@@ -238,31 +236,33 @@ func newSlimExporter(cfg *Config, logger *zap.Logger, signalType common.SignalTy
 
 // start is invoked during service startup
 func (e *slimExporter) start(ctx context.Context, _ component.Host) error {
-	e.logger.Info("Starting Slim exporter",
+	logger := slimcommon.LoggerFromContextOrDefault(ctx)
+	logger.Info("Starting Slim exporter",
 		zap.String("signal", string(e.signalType)))
 
 	// create all sessions defined in the config
-	err := createSessionsAndInvite(e)
+	err := createSessionsAndInvite(ctx, e)
 	if err != nil {
 		return err
 	}
 
 	// start to listen for incoming sessions
-	e.logger.Info("Start to listen for new sessions", zap.String("signal", string(e.signalType)))
+	logger.Info("Start to listen for new sessions", zap.String("signal", string(e.signalType)))
 	go listenForSessions(ctx, e)
 
 	return nil
 }
 
 // shutdown is invoked during service shutdown
-func (e *slimExporter) shutdown(_ context.Context) error {
-	e.logger.Info("Shutting down Slim exporter", zap.String("signal", string(e.signalType)))
+func (e *slimExporter) shutdown(ctx context.Context) error {
+	logger := slimcommon.LoggerFromContextOrDefault(ctx)
+	logger.Info("Shutting down Slim exporter", zap.String("signal", string(e.signalType)))
 
 	// stop the receiver listener
 	close(e.shutdownChan)
 
 	// remove all sessions
-	e.sessions.DeleteAll(e.app)
+	e.sessions.DeleteAll(ctx, e.app)
 
 	// destroy the app
 	e.app.Destroy()
@@ -271,16 +271,16 @@ func (e *slimExporter) shutdown(_ context.Context) error {
 }
 
 // publishData sends data to all sessions and removes closed ones
-func (e *slimExporter) publishData(data []byte) error {
-	closedSessions, err := e.sessions.PublishToAll(data)
+func (e *slimExporter) publishData(ctx context.Context, data []byte) error {
+	closedSessions, err := e.sessions.PublishToAll(ctx, data)
 	if err != nil {
 		return err
 	}
 
 	// Remove closed sessions after iteration
 	for _, id := range closedSessions {
-		e.logger.Info("Removing closed session", zap.Uint32("session_id", id))
-		if err := e.sessions.RemoveSession(id); err != nil {
+		slimcommon.LoggerFromContextOrDefault(ctx).Info("Removing closed session", zap.Uint32("session_id", id))
+		if err := e.sessions.RemoveSession(ctx, id); err != nil {
 			return err
 		}
 	}
@@ -289,40 +289,43 @@ func (e *slimExporter) publishData(data []byte) error {
 }
 
 // pushTraces exports trace data
-func (e *slimExporter) pushTraces(_ context.Context, td ptrace.Traces) error {
+func (e *slimExporter) pushTraces(ctx context.Context, td ptrace.Traces) error {
+	logger := slimcommon.LoggerFromContextOrDefault(ctx)
 	marshaler := ptrace.ProtoMarshaler{}
 	message, err := marshaler.MarshalTraces(td)
 	if err != nil {
-		e.logger.Error("Failed to marshal traces to OTLP format", zap.Error(err))
+		logger.Error("Failed to marshal traces to OTLP format", zap.Error(err))
 		return err
 	}
 
-	e.logger.Info("Exporting Traces")
-	return e.publishData(message)
+	logger.Info("Exporting Traces")
+	return e.publishData(ctx, message)
 }
 
 // pushMetrics exports metrics data
-func (e *slimExporter) pushMetrics(_ context.Context, md pmetric.Metrics) error {
+func (e *slimExporter) pushMetrics(ctx context.Context, md pmetric.Metrics) error {
+	logger := slimcommon.LoggerFromContextOrDefault(ctx)
 	marshaler := pmetric.ProtoMarshaler{}
 	message, err := marshaler.MarshalMetrics(md)
 	if err != nil {
-		e.logger.Error("Failed to marshal metrics to OTLP format", zap.Error(err))
+		logger.Error("Failed to marshal metrics to OTLP format", zap.Error(err))
 		return err
 	}
 
-	e.logger.Info("Exporting Metrics")
-	return e.publishData(message)
+	logger.Info("Exporting Metrics")
+	return e.publishData(ctx, message)
 }
 
 // pushLogs exports logs data
-func (e *slimExporter) pushLogs(_ context.Context, ld plog.Logs) error {
+func (e *slimExporter) pushLogs(ctx context.Context, ld plog.Logs) error {
+	logger := slimcommon.LoggerFromContextOrDefault(ctx)
 	marshaler := plog.ProtoMarshaler{}
 	message, err := marshaler.MarshalLogs(ld)
 	if err != nil {
-		e.logger.Error("Failed to marshal logs to OTLP format", zap.Error(err))
+		logger.Error("Failed to marshal logs to OTLP format", zap.Error(err))
 		return err
 	}
 
-	e.logger.Info("Exporting Logs")
-	return e.publishData(message)
+	logger.Info("Exporting Logs")
+	return e.publishData(ctx, message)
 }
