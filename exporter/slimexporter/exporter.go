@@ -38,7 +38,7 @@ type slimExporter struct {
 	signalType   slimcommon.SignalType
 	app          *slim.App
 	connID       uint64
-	sessions     *SessionsList
+	sessions     *slimcommon.SessionsList
 	shutdownChan chan struct{}
 }
 
@@ -227,7 +227,7 @@ func newSlimExporter(ctx context.Context, cfg *Config, signalType slimcommon.Sig
 		signalType:   signalType,
 		app:          app,
 		connID:       connID,
-		sessions:     &SessionsList{signalType: signalType},
+		sessions:     slimcommon.NewSessionsList(signalType),
 		shutdownChan: make(chan struct{}),
 	}
 
