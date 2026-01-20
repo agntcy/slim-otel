@@ -1,6 +1,6 @@
 # SLIM OpenTelemetry Collector
 
-This directory contains the SLIM OpenTelemetry Collector, a custom distribution of the OpenTelemetry Collector that includes the SLIM exporter for secure communication channels.
+A custom distribution of the OpenTelemetry Collector with the SLIM exporter for sending observability data over secure, low-latency SLIM channels.
 
 ## Building the Collector
 
@@ -25,26 +25,7 @@ To run the SLIM OpenTelemetry Collector with the default configuration:
 task collector:run
 ```
 
-The collector will use the configuration defined in `collector-config.yaml`.
-
-### Run with Docker
-
-Build the Docker image:
-
-```bash
-task docker:build
-```
-
-Run the collector in a Docker container:
-
-```bash
-task docker:run
-```
-
-This will start the collector with:
-- OTLP gRPC receiver on port 4317
-- OTLP HTTP receiver on port 4318
-- Configuration mounted from `collector-config.yaml`
+The collector will use the configuration defined in `example-collector-config.yaml`.
 
 ## Testing
 
@@ -70,7 +51,7 @@ This runs a SLIM data plane node in a Docker container using the configuration f
 
 #### 2. Start the Collector
 
-In a separate terminal, start the SLIM OpenTelemetry Collector:
+In a separate terminal, start the SLIM OpenTelemetry Collector with the `example-collector-config.yaml` configuration:
 
 ```bash
 task collector:run
@@ -78,26 +59,38 @@ task collector:run
 
 #### 3. Run Test Applications
 
-The application can be run in two modes:
+The test application can be run in two modes:
 
-**Participant Mode**: The collector adds the participant to the channel specified in `collector-config.yaml`:
+**Participant Mode**: The collector invites the participant to the channels specified in `example-collector-config.yaml`:
 
 ```bash
 task test:app:participant
 ```
 
-The collector must have the participant configured in its session list in `collector-config.yaml`.
+The collector must have the participant configured in its channels list in `example-collector-config.yaml`.
 
-**Initiator Mode**: The test app invites the collector to join a channel:
+**Initiator Mode**: The test app creates channels and invites the collector to join:
 
 ```bash
-task test:app:initiator
+# Get all signals (traces, metrics, logs)
+task test:app:get-all-signals
+
+# Or get specific signals:
+task test:app:get-metrics
+task test:app:get-traces
 ```
 
-When using initiator mode, the collector's session list in `collector-config.yaml` can be set to `[]` since the app will invite the collector dynamically.
+When using initiator mode, the collector's channels list in `example-collector-config.yaml` can be set to `[]` since the app will invite the collector dynamically.
 
 In both cases, telemetry data will flow through the SLIM collector over secure SLIM channels and will be logged by the test application.
 
 ## Configuration
 
-The SLIM collector can be configured using the `collector-config.yaml` file. Check the README.md in `./exporter/slimexporter` for a complete description of the configuration options.
+The SLIM collector can be configured using the `example-collector-config.yaml` file. Key configuration options include:
+
+- `endpoint`: Address of the SLIM node (default: `http://127.0.0.1:46357`)
+- `exporter-names`: Separate names for metrics, traces, and logs exporters
+- `shared-secret`: Shared secret for MLS and identity provider authentication
+- `channels`: Array of channel configurations (can be empty for passive/listen-only mode)
+
+See `example-collector-config.yaml` for a complete example and the README.md in `./exporter/slimexporter` for detailed configuration options.
