@@ -7,48 +7,56 @@ The SLIM exporter sends OpenTelemetry traces, metrics, and logs to a [SLIM](http
 The following settings are required:
 
 - `endpoint` (default = `http://127.0.0.1:46357`): The address of the SLIM node to connect to.
-- `local-name` (default = `agntcy/otel/exporter`): The local name identifier for this exporter in the SLIM form `org/namespace/service`.
 - `shared-secret` (no default): The shared secret used for MLS and identity provider authentication.
 
 The following settings can be optionally configured:
 
-- `sessions` (default = `[]`): A list of session/channel configurations to create. When the list is empty, the exporter operates in passive mode, only listening for invitations from other participants. When sessions are configured, the exporter actively creates those sessions and invites participants, while also continuing to listen for incoming invitations from other participants.
+- `exporter-names`: Names for each signal type exporter. Each exporter name identifies this collector instance in SLIM channels.
+  - `metrics` (default = `agntcy/otel/exporter-metrics`): Name for the metrics exporter.
+  - `traces` (default = `agntcy/otel/exporter-traces`): Name for the traces exporter.
+  - `logs` (default = `agntcy/otel/exporter-logs`): Name for the logs exporter.
+- `channels` (default = `[]`): A list of channel configurations to create. When the list is empty, the exporter operates in passive mode, only listening for invitations from other participants. When channels are configured, the exporter actively creates those channels and invites participants, while also continuing to listen for incoming invitations from other participants.
 
-### Session Configuration
+### Channel Configuration
 
-Each session in the `sessions` array supports the following configuration:
+Each channel in the `channels` array supports the following configuration:
 
-- `channel-name` (required): The base name of the SLIM channel in the form `org/namespace/service`. The actual channel names will be suffixed with the signal type (e.g., `channel-name-traces`, `channel-name-metrics`, `channel-name-logs`).
-- `signals` (required): An array of signal types to export on this channel. Valid values are `traces`, `metrics`, and `logs`.
+- `channel-name` (required): The name of the SLIM channel in the form `org/namespace/service`.
+- `signal` (required): The signal type for this channel. Valid values are `traces`, `metrics`, or `logs`. Each channel handles one signal type.
 - `participants` (required): An array of participant identifiers to invite to the channel.
-- `mls-enabled` (default = `false`): Flag to enable or disable MLS (Message Layer Security) encryption for this session.
+- `mls-enabled` (default = `false`): Flag to enable or disable MLS (Message Layer Security) encryption for this channel.
 
 ### Example configuration
 
-Example configuration with multiple sessions:
+Example configuration with multiple channels:
 
 ```yaml
 exporters:
   slim:
     endpoint: "http://127.0.0.1:46357"
-    local-name: "agntcy/otel/exporter"
+    exporter-names:
+      metrics: "agntcy/otel/exporter-metrics"
+      traces: "agntcy/otel/exporter-traces"
+      logs: "agntcy/otel/exporter-logs"
     shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
-    sessions: 
-      - channel-name: "agntcy/otel/telemetry-1"
-        signals: 
-          - metrics
-          - logs
+    channels: 
+      - channel-name: "agntcy/otel/channel-metrics"
+        signal: metrics
         participants:
           - "agntcy/otel/receiver-app"
         mls-enabled: false
       
-      - channel-name: "agntcy/otel/telemetry-2"
-        signals: 
-          - metrics
+      - channel-name: "agntcy/otel/channel-traces"
+        signal: traces
         participants:
-          - "agntcy/otel/receiver-app-2"
-          - "agntcy/otel/receiver-app-3"
+          - "agntcy/otel/receiver-app"
         mls-enabled: true
+      
+      - channel-name: "agntcy/otel/channel-logs"
+        signal: logs
+        participants:
+          - "agntcy/otel/receiver-app"
+        mls-enabled: false
 ```
 
 Example configuration listening for invitations:
@@ -57,9 +65,12 @@ Example configuration listening for invitations:
 exporters:
   slim:
     endpoint: "http://127.0.0.1:46357"
-    local-name: "agntcy/otel/passive-exporter"
+    exporter-names:
+      metrics: "agntcy/otel/passive-exporter-metrics"
+      traces: "agntcy/otel/passive-exporter-traces"
+      logs: "agntcy/otel/passive-exporter-logs"
     shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
-    # No sessions defined - will listen for invitations
+    # No channels defined - will listen for invitations
 ```
 
 Complete pipeline configuration:
@@ -81,17 +92,29 @@ processors:
 exporters:
   slim:
     endpoint: "http://127.0.0.1:46357"
-    local-name: "agntcy/otel/exporter"
+    exporter-names:
+      metrics: "agntcy/otel/exporter-metrics"
+      traces: "agntcy/otel/exporter-traces"
+      logs: "agntcy/otel/exporter-logs"
     shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
-    sessions: 
-      - channel-name: "agntcy/otel/telemetry"
-        signals: 
-          - traces
-          - metrics
-          - logs
+    channels: 
+      - channel-name: "agntcy/otel/channel-traces"
+        signal: traces
         participants:
           - "agntcy/otel/receiver-app"
-        mls-enabled: false
+        mls-enabled: true
+      
+      - channel-name: "agntcy/otel/channel-metrics"
+        signal: metrics
+        participants:
+          - "agntcy/otel/receiver-app"
+        mls-enabled: true
+      
+      - channel-name: "agntcy/otel/channel-logs"
+        signal: logs
+        participants:
+          - "agntcy/otel/receiver-app"
+        mls-enabled: true
 
 service:
   pipelines:
@@ -116,25 +139,25 @@ service:
 The SLIM exporter:
 
 1. **Connects** to a SLIM node using the configured endpoint and authenticates using the shared secret.
-2. **Creates sessions** based on the `sessions` configuration, automatically suffixing channel names with the signal type (e.g., `-traces`, `-metrics`, `-logs`).
+2. **Creates channels** based on the `channels` configuration. Each channel is created with its specified name and handles one signal type.
 3. **Invites participants** to the created channels if configured.
 4. **Publishes** OpenTelemetry data (serialized as protobuf) to the appropriate SLIM channels based on signal type.
 5. **Listens for invitations** from other participants to join additional channels.
 
-The exporter can operate in multiple modes simultaneously: it can create and manage its own sessions while also accepting invitations to join channels created by other participants.
+The exporter can operate in multiple modes simultaneously: it can create and manage its own channels while also accepting invitations to join channels created by other participants.
 
 ### Signal Routing
 
-Each signal type (traces, metrics, logs) is routed to separate channels:
-- Traces → `channel-name-traces`
-- Metrics → `channel-name-metrics`
-- Logs → `channel-name-logs`
+Each signal type (traces, metrics, logs) is routed to channels configured for that specific signal type. You must create separate channels for each signal type you want to export:
+- Traces → channels with `signal: traces`
+- Metrics → channels with `signal: metrics`
+- Logs → channels with `signal: logs`
 
 This allows for fine-grained control over which participants receive which types of telemetry data.
 
 ### Security
 
-The SLIM exporter supports end-to-end encryption through MLS (Message Layer Security - RFC 9420) when `mls-enabled` is set to `true` for a session.
+The SLIM exporter supports end-to-end encryption through MLS (Message Layer Security - RFC 9420) when `mls-enabled` is set to `true` for a channel.
 
 ## Additional Information
 

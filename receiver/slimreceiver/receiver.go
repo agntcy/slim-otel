@@ -16,7 +16,7 @@ import (
 	"go.opentelemetry.io/collector/receiver"
 	"go.uber.org/zap"
 
-	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
+	slim "github.com/agntcy/slim-bindings-go"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
@@ -107,7 +107,7 @@ func newSlimReceiver(
 		set:             set,
 		app:             app,
 		connID:          connID,
-		sessions:        slimcommon.NewSessionsList(set.Logger, slimcommon.SignalUnknown),
+		sessions:        slimcommon.NewSessionsList(slimcommon.SignalUnknown),
 		tracesConsumer:  nil,
 		metricsConsumer: nil,
 		logsConsumer:    nil,
@@ -144,7 +144,7 @@ func listenForSessions(ctx context.Context, r *slimReceiver) {
 			r.set.Logger.Info("New session received")
 
 			// add session to the list
-			err = r.sessions.AddSession(session)
+			err = r.sessions.AddSession(ctx, session)
 			if err != nil {
 				r.set.Logger.Error("Failed to add new session", zap.Error(err))
 				continue
@@ -284,7 +284,7 @@ func handleSession(
 	r.set.Logger.Info("Handling new session", zap.Uint32("sessionID", id), zap.String("sessionName", sessionName))
 	defer func() {
 		// the session may be already removed from sessions.DeleteAll in Shutdown
-		_ = r.sessions.RemoveSession(id)
+		_ = r.sessions.RemoveSession(ctx, id)
 		_ = r.app.DeleteSessionAndWait(session)
 		r.set.Logger.Info("Session closed", zap.Uint32("sessionID", id), zap.String("sessionName", sessionName))
 	}()
@@ -345,7 +345,7 @@ func (r *slimReceiver) Start(ctx context.Context, _ component.Host) error {
 }
 
 // Shutdown implements the component.Component interface
-func (r *slimReceiver) Shutdown(_ context.Context) error {
+func (r *slimReceiver) Shutdown(ctx context.Context) error {
 	// stop only once - atomically check and set to prevent race condition
 	if !r.started.CompareAndSwap(true, false) {
 		return nil
@@ -356,7 +356,7 @@ func (r *slimReceiver) Shutdown(_ context.Context) error {
 	close(r.shutdownChan)
 
 	// remove all sessions
-	r.sessions.DeleteAll(r.app)
+	r.sessions.DeleteAll(ctx, r.app)
 
 	// destroy the app
 	r.app.Destroy()

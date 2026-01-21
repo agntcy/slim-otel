@@ -13,7 +13,7 @@ type Config struct {
 	SlimEndpoint string `mapstructure:"endpoint"`
 
 	// exporter names
-	ExporterNames slimcommon.SignalNames `mapstructure:"exporter-names"`
+	ExporterNames SignalNames `mapstructure:"exporter-names"`
 
 	// Shared Secret
 	SharedSecret string `mapstructure:"shared-secret"`
@@ -22,10 +22,51 @@ type Config struct {
 	Channels []ChannelsConfig `mapstructure:"channels"`
 }
 
+// SignalNames holds the SLIM names of an app or channel for each signal type
+type SignalNames struct {
+	// name for metrics in the SLIM format
+	Metrics string `mapstructure:"metrics"`
+
+	// name for traces in the SLIM format
+	Traces string `mapstructure:"traces"`
+
+	// name for logs in the SLIM format
+	Logs string `mapstructure:"logs"`
+}
+
+func (nps *SignalNames) GetNameForSignal(signal string) (string, error) {
+	switch signal {
+	case "metrics":
+		return nps.Metrics, nil
+	case "traces":
+		return nps.Traces, nil
+	case "logs":
+		return nps.Logs, nil
+	default:
+		return "", fmt.Errorf("unknown signal type: %s", signal)
+	}
+}
+
+func (nps *SignalNames) IsSignalNameSet(signal string) bool {
+	switch signal {
+	case "metrics":
+		return nps.Metrics != ""
+	case "traces":
+		return nps.Traces != ""
+	case "logs":
+		return nps.Logs != ""
+	default:
+		return false
+	}
+}
+
 // ChannelsConfig defines configuration for SLIM channels
 type ChannelsConfig struct {
 	// Channel names in the SLIM format
-	ChannelNames slimcommon.SignalNames `mapstructure:"channel-names"`
+	ChannelName string `mapstructure:"channel-name"`
+
+	// signal type to be sent on this channel
+	Signal string `mapstructure:"signal"`
 
 	// List of participants to invite to the channels
 	Participants []string `mapstructure:"participants"`
@@ -58,13 +99,19 @@ func (cfg *Config) Validate() error {
 
 	// Validate each channel (the list can be empty)
 	for i, channel := range cfg.Channels {
-		// At list one name must be provided
-		if channel.ChannelNames.Metrics == "" &&
-			channel.ChannelNames.Traces == "" &&
-			channel.ChannelNames.Logs == "" {
-			return fmt.Errorf("at least one name is required for channel %d", i)
+		if channel.ChannelName == "" {
+			return fmt.Errorf("channel name is required for channel %d", i)
 		}
-
+		// At list one signal type must be specified
+		if channel.Signal == "" {
+			return fmt.Errorf("signal type is required for channel %d", i)
+		}
+		// Validate signal types
+		if channel.Signal != string(slimcommon.SignalMetrics) &&
+			channel.Signal != string(slimcommon.SignalTraces) &&
+			channel.Signal != string(slimcommon.SignalLogs) {
+			return fmt.Errorf("invalid signal type '%s' for channel %d", channel.Signal, i)
+		}
 		// At least one participant must be specified
 		if len(channel.Participants) == 0 {
 			return fmt.Errorf("at least one participant must be specified for channel '%d'", i)

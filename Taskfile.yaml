@@ -108,7 +108,7 @@ tasks:
     desc: Check test coverage
     deps:
       - tools
-      # - fetch-and-run
+      - fetch-and-run
     cmds:
       - task: foreach-module
         vars:
@@ -122,7 +122,7 @@ tasks:
     cmds:
       - echo find . -name '*coverage.out' -execdir go tool cover -html=./{} \;
 
-  # expoter related tasks
+  # collector related tasks
   download-ocb:
     internal: true
     desc: Download OpenTelemetry Collector Builder for current architecture
@@ -138,7 +138,7 @@ tasks:
     desc: Build the SLIM OpenTelemetry Collector including both slimexporter and slimreceiver
     deps:
       - download-ocb
-      #- fetch-and-run
+      - fetch-and-run
     cmds:
       - echo "Generating collector sources..."
       - ./ocb --config builder-config.yaml --skip-compilation
@@ -153,23 +153,23 @@ tasks:
       - rm -rf {{.COLLECTOR_OUTPUT}}
       - echo "Collector build directory cleaned"
 
-  collector:run:expoter:
+  collector:run:exporter:
     desc: Run the SLIM OpenTelemetry Collector Exporter
     cmds:
       - echo "Running SLIM OpenTelemetry Collector Exporter..."
-      - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/collector-exporter-config.yaml"
+      - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/exporter/slimexporter/example-exporter-collector-config.yaml"
 
   collector:run:receiver:
     desc: Run the SLIM OpenTelemetry Collector Receiver
     cmds:
       - echo "Running SLIM OpenTelemetry Collector Receiver..."
-      - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/collector-receiver-config.yaml"
+      - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/receiver/slimreceiver/example-receiver-collector-config.yaml"
 
   collector:test:
     desc: Run tests for the SLIM exporter
     dir: exporter/slimexporter
-    #deps:
-    #  - fetch-and-run
+    deps:
+      - fetch-and-run
     cmds:
       - echo "Running slimexporter tests..."
       - go test -v
