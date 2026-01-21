@@ -55,7 +55,7 @@ func main() {
 	// connect to slim and start the local app
 	app, connID, err := slimcommon.CreateAndConnectApp(cfg.Manager.LocalName, cfg.Manager.SlimEndpoint, cfg.Manager.SharedSecret)
 	if err != nil {
-		logger.Fatal("Failed to create/connect app", zap.Error(err))
+		logger.Fatal("Failed to create or connect app", zap.Error(err))
 	}
 	defer app.Destroy()
 
