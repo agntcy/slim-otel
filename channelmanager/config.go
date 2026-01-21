@@ -8,44 +8,43 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mitchellh/mapstructure"
 	"gopkg.in/yaml.v3"
 )
 
 // Config represents the channel manager configuration
 type Config struct {
 	// Manager configuration
-	Manager ManagerConfig `mapstructure:"managers"`
+	Manager ManagerConfig `yaml:"managers"`
 
 	// Channels to create and manage
-	Channels []ChannelConfig `mapstructure:"channels"`
+	Channels []ChannelConfig `yaml:"channels"`
 }
 
 // ManagerConfig defines configuration for the channel manager itself
 type ManagerConfig struct {
 	// Slim endpoint where to connect
-	SlimEndpoint string `mapstructure:"endpoint"`
+	SlimEndpoint string `yaml:"endpoint"`
 
 	// gRPC service address to listen for commands
-	GRPCAddress string `mapstructure:"address"`
+	GRPCAddress string `yaml:"address"`
 
 	// Local name for the channel manager in SLIM
-	LocalName string `mapstructure:"local-name"`
+	LocalName string `yaml:"local-name"`
 
 	// Shared secret for MLS and identity provider
-	SharedSecret string `mapstructure:"shared-secret"`
+	SharedSecret string `yaml:"shared-secret"`
 }
 
 // ChannelConfig defines configuration for a single channel
 type ChannelConfig struct {
 	// Channel name in SLIM format
-	Name string `mapstructure:"name"`
+	Name string `yaml:"name"`
 
 	// List of participants to invite to the channel
-	Participants []string `mapstructure:"participants"`
+	Participants []string `yaml:"participants"`
 
 	// Flag to enable or disable MLS for this channel
-	MlsEnabled bool `mapstructure:"mls-enabled"`
+	MlsEnabled bool `yaml:"mls-enabled"`
 }
 
 // Validate checks if the configuration is valid
@@ -110,33 +109,21 @@ func CreateDefaultConfig() *Config {
 
 // LoadConfig loads configuration from a YAML file
 func LoadConfig(configFile string) (*Config, error) {
+	// Read the file
 	data, err := os.ReadFile(configFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	// First unmarshal YAML into a map
-	var rawConfig map[string]interface{}
-	if err := yaml.Unmarshal(data, &rawConfig); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal YAML: %w", err)
+	// Unmarshal YAML into Config struct
+	cfg := &Config{}
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
-	// Then decode into struct using mapstructure
-	cfg := CreateDefaultConfig()
-	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		Result:           cfg,
-		WeaklyTypedInput: true,
-		DecodeHook: mapstructure.ComposeDecodeHookFunc(
-			mapstructure.StringToTimeDurationHookFunc(),
-			mapstructure.StringToSliceHookFunc(","),
-		),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create decoder: %w", err)
-	}
-
-	if err := decoder.Decode(rawConfig); err != nil {
-		return nil, fmt.Errorf("failed to decode config: %w", err)
+	// Validate the configuration
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
 	return cfg, nil
