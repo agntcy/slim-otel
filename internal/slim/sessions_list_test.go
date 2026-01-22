@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	slim "github.com/agntcy/slim-bindings-go"
+	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
 )
 
 // TestSessionsList_RemoveSession tests removing sessions from SessionsList

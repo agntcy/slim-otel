@@ -12,7 +12,7 @@ import (
 
 	"go.uber.org/zap"
 
-	slim "github.com/agntcy/slim-bindings-go"
+	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
 )
 
 // SessionsList holds sessions related to a specific signal type
@@ -129,7 +129,7 @@ func (s *SessionsList) PublishToAll(ctx context.Context, data []byte) ([]uint32,
 		dst, _ := session.Destination()
 		logger.Info("Publishing "+string(s.signalType)+" to session",
 			zap.Uint32("session_id", id),
-			zap.String("destination", dst.AsString()))
+			zap.String("destination", dst.String()))
 
 		if err := session.PublishAndWait(data, nil, nil); err != nil {
 			if strings.Contains(err.Error(), "Session already closed or dropped") {

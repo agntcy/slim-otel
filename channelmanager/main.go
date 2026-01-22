@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	slim "github.com/agntcy/slim-bindings-go"
+	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 	"go.uber.org/zap"
 )

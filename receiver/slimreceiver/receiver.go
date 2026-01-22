@@ -16,7 +16,7 @@ import (
 	"go.opentelemetry.io/collector/receiver"
 	"go.uber.org/zap"
 
-	slim "github.com/agntcy/slim-bindings-go"
+	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
@@ -279,7 +279,7 @@ func handleSession(
 		return
 	}
 
-	sessionName := name.AsString()
+	sessionName := name.String()
 
 	r.set.Logger.Info("Handling new session", zap.Uint32("sessionID", id), zap.String("sessionName", sessionName))
 	defer func() {

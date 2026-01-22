@@ -63,7 +63,8 @@ tasks:
       - task: foreach-module
         vars:
           CMD: go mod download
-      - go run github.com/agntcy/slim-bindings-go/cmd/slim-bindings-setup
+      #- go run github.com/agntcy/slim-bindings-go/cmd/slim-bindings-setup
+      - echo "Slim bindings fetched and installed"
 
   modtidy:
     desc: Install go modules

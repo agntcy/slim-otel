@@ -18,7 +18,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
 
-	slim "github.com/agntcy/slim-bindings-go"
+	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
@@ -271,7 +271,7 @@ func waitForSessionsAndMessages(
 
 			logger.Info(
 				"New session established",
-				zap.String("channelName", dst.AsString()),
+				zap.String("channelName", dst.String()),
 			)
 			// Handle the session in a goroutine
 			wg.Add(1)
@@ -294,7 +294,7 @@ func handleSession(
 	if err != nil {
 		logger.Error("error getting destination from new received session", zap.Error(err))
 	}
-	sessionName := dst.AsString()
+	sessionName := dst.String()
 
 	defer func() {
 		if err := app.DeleteSessionAndWait(session); err != nil {

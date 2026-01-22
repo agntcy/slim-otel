@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	slim "github.com/agntcy/slim-bindings-go"
+	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
 )
 
 type SignalType string
