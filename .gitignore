@@ -12,6 +12,7 @@ slim-otelcol/
 
 # Built binaries
 testapp/testapp
+channelmanager/channelmanager
 
 # Temporary directories and tools
 .tmp/
