@@ -15,8 +15,7 @@ managers:
 channels:
   - name: "agntcy/otel/channel-1"
     participants:
-      - "agntcy/otel/exporter-metrics"
       - "agntcy/otel/exporter-traces"
-      - "agntcy/otel/exporter-logs"
+      - "agntcy/otel/exporter-metrics"
       - "agntcy/otel/receiver"
     mls-enabled: true

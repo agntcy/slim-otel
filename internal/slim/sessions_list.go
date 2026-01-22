@@ -125,6 +125,12 @@ func (s *SessionsList) PublishToAll(ctx context.Context, data []byte) ([]uint32,
 			// the session is no longer in the map, skip it
 			continue
 		}
+
+		dst, _ := session.Destination()
+		logger.Info("Publishing "+string(s.signalType)+" to session",
+			zap.Uint32("session_id", id),
+			zap.String("destination", dst.AsString()))
+
 		if err := session.PublishAndWait(data, nil, nil); err != nil {
 			if strings.Contains(err.Error(), "Session already closed or dropped") {
 				logger.Info("Session closed, marking for removal", zap.Uint32("session_id", id))
