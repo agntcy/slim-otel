@@ -95,7 +95,11 @@ func main() {
 	)
 
 	// Create and connect app
-	app, connID, err := slimcommon.CreateAndConnectApp(*appNameStr, *serverAddr, *sharedSecret)
+	connID, err := slimcommon.InitAndConnect(*serverAddr)
+	if err != nil {
+		logger.Fatal("Failed to connect to SLIM server", zap.Error(err))
+	}
+	app, err := slimcommon.CreateApp(*appNameStr, *sharedSecret, connID, slim.DirectionRecv)
 	if err != nil {
 		logger.Fatal("Failed to create/connect app", zap.Error(err))
 	}
@@ -271,7 +275,7 @@ func waitForSessionsAndMessages(
 
 			logger.Info(
 				"New session established",
-				zap.String("channelName", dst.AsString()),
+				zap.String("channelName", dst.String()),
 			)
 			// Handle the session in a goroutine
 			wg.Add(1)
@@ -294,7 +298,7 @@ func handleSession(
 	if err != nil {
 		logger.Error("error getting destination from new received session", zap.Error(err))
 	}
-	sessionName := dst.AsString()
+	sessionName := dst.String()
 
 	defer func() {
 		if err := app.DeleteSessionAndWait(session); err != nil {
