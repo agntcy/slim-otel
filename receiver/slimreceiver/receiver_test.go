@@ -6,13 +6,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer/consumertest"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/pdata/ptrace"
-	"go.opentelemetry.io/collector/receiver/receivertest"
 )
 
 func TestHandleReceivedTraces(t *testing.T) {
@@ -21,7 +19,6 @@ func TestHandleReceivedTraces(t *testing.T) {
 		ReceiverName: "agntcy/otel/test",
 		SharedSecret: "test-secret",
 	}
-	set := receivertest.NewNopSettings(component.MustNewType(TypeStr))
 
 	// Create a consumer to capture traces
 	sink := &consumertest.TracesSink{}
@@ -29,7 +26,6 @@ func TestHandleReceivedTraces(t *testing.T) {
 	// Create a mock receiver with the sink
 	r := &slimReceiver{
 		config:         cfg,
-		set:            &set,
 		tracesConsumer: sink,
 	}
 
@@ -57,7 +53,6 @@ func TestHandleReceivedMetrics(t *testing.T) {
 		ReceiverName: "agntcy/otel/test",
 		SharedSecret: "test-secret",
 	}
-	set := receivertest.NewNopSettings(component.MustNewType(TypeStr))
 
 	// Create a consumer to capture metrics
 	sink := &consumertest.MetricsSink{}
@@ -65,7 +60,6 @@ func TestHandleReceivedMetrics(t *testing.T) {
 	// Create a mock receiver with the sink
 	r := &slimReceiver{
 		config:          cfg,
-		set:             &set,
 		metricsConsumer: sink,
 	}
 
@@ -95,7 +89,6 @@ func TestHandleReceivedLogs(t *testing.T) {
 		ReceiverName: "agntcy/otel/test",
 		SharedSecret: "test-secret",
 	}
-	set := receivertest.NewNopSettings(component.MustNewType(TypeStr))
 
 	// Create a consumer to capture logs
 	sink := &consumertest.LogsSink{}
@@ -103,7 +96,6 @@ func TestHandleReceivedLogs(t *testing.T) {
 	// Create a mock receiver with the sink
 	r := &slimReceiver{
 		config:       cfg,
-		set:          &set,
 		logsConsumer: sink,
 	}
 
@@ -131,7 +123,6 @@ func TestDetectAndHandleMessage_Traces(t *testing.T) {
 		ReceiverName: "agntcy/otel/test",
 		SharedSecret: "test-secret",
 	}
-	set := receivertest.NewNopSettings(component.MustNewType(TypeStr))
 
 	// Create a consumer to capture traces
 	sink := &consumertest.TracesSink{}
@@ -139,7 +130,6 @@ func TestDetectAndHandleMessage_Traces(t *testing.T) {
 	// Create a mock receiver with the sink
 	r := &slimReceiver{
 		config:         cfg,
-		set:            &set,
 		tracesConsumer: sink,
 	}
 
@@ -170,7 +160,6 @@ func TestDetectAndHandleMessage_Metrics(t *testing.T) {
 		ReceiverName: "agntcy/otel/test",
 		SharedSecret: "test-secret",
 	}
-	set := receivertest.NewNopSettings(component.MustNewType(TypeStr))
 
 	// Create a consumer to capture metrics
 	sink := &consumertest.MetricsSink{}
@@ -178,7 +167,6 @@ func TestDetectAndHandleMessage_Metrics(t *testing.T) {
 	// Create a mock receiver with the sink
 	r := &slimReceiver{
 		config:          cfg,
-		set:             &set,
 		metricsConsumer: sink,
 	}
 
@@ -211,7 +199,6 @@ func TestDetectAndHandleMessage_Logs(t *testing.T) {
 		ReceiverName: "agntcy/otel/test",
 		SharedSecret: "test-secret",
 	}
-	set := receivertest.NewNopSettings(component.MustNewType(TypeStr))
 
 	// Create a consumer to capture logs
 	sink := &consumertest.LogsSink{}
@@ -219,7 +206,6 @@ func TestDetectAndHandleMessage_Logs(t *testing.T) {
 	// Create a mock receiver with the sink
 	r := &slimReceiver{
 		config:       cfg,
-		set:          &set,
 		logsConsumer: sink,
 	}
 
@@ -250,7 +236,6 @@ func TestDetectAndHandleMessage_InvalidPayload(t *testing.T) {
 		ReceiverName: "agntcy/otel/test",
 		SharedSecret: "test-secret",
 	}
-	set := receivertest.NewNopSettings(component.MustNewType(TypeStr))
 
 	// Create consumers
 	tracesSink := &consumertest.TracesSink{}
@@ -260,7 +245,6 @@ func TestDetectAndHandleMessage_InvalidPayload(t *testing.T) {
 	// Create a mock receiver with all consumers
 	r := &slimReceiver{
 		config:          cfg,
-		set:             &set,
 		tracesConsumer:  tracesSink,
 		metricsConsumer: metricsSink,
 		logsConsumer:    logsSink,
@@ -285,12 +269,10 @@ func TestDetectAndHandleMessage_NoConsumers(t *testing.T) {
 		ReceiverName: "agntcy/otel/test",
 		SharedSecret: "test-secret",
 	}
-	set := receivertest.NewNopSettings(component.MustNewType(TypeStr))
 
 	// Create a mock receiver with NO consumers
 	r := &slimReceiver{
 		config:          cfg,
-		set:             &set,
 		tracesConsumer:  nil,
 		metricsConsumer: nil,
 		logsConsumer:    nil,
@@ -319,7 +301,6 @@ func TestReceiverMultipleSignalTypes(t *testing.T) {
 		ReceiverName: "agntcy/otel/test",
 		SharedSecret: "test-secret",
 	}
-	set := receivertest.NewNopSettings(component.MustNewType(TypeStr))
 
 	// Create consumers for all signal types
 	tracesSink := &consumertest.TracesSink{}
@@ -329,7 +310,6 @@ func TestReceiverMultipleSignalTypes(t *testing.T) {
 	// Create a mock receiver with all consumers
 	r := &slimReceiver{
 		config:          cfg,
-		set:             &set,
 		tracesConsumer:  tracesSink,
 		metricsConsumer: metricsSink,
 		logsConsumer:    logsSink,
