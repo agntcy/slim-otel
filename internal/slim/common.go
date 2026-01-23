@@ -6,9 +6,58 @@ package slimcommon
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	slim "github.com/agntcy/slim-bindings-go"
 )
+
+// global variables for connection management
+var (
+	// connection must be established only once
+	mutex sync.Mutex
+	// true if connection is already established
+	connected bool
+	// the connection id is the same for all the applicaions
+	connID uint64
+)
+
+// InitAndConnect initializes the connection to the SLIM server if not already established.
+//
+// This function ensures thread-safe, single initialization of the SLIM crypto subsystem
+// and establishes a connection to the SLIM server. Subsequent calls return the existing
+// connection ID.
+//
+// Args:
+//
+//	endpoint: The SLIM server endpoint address
+//
+// Returns:
+//
+//	uint64: Connection ID for the established connection
+//	error: If initialization or connection fails
+func InitAndConnect(
+	endpoint string,
+) (uint64, error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	// Initialize only once
+	if !connected {
+		// Initialize crypto subsystem (idempotent, safe to call multiple times)
+		slim.InitializeWithDefaults()
+
+		// Connect to SLIM server (returns connection ID)
+		config := slim.NewInsecureClientConfig(endpoint)
+		connIDValue, err := slim.GetGlobalService().Connect(config)
+		if err != nil {
+			return 0, fmt.Errorf("failed to connect to SLIM server: %w", err)
+		}
+
+		connected = true
+		connID = connIDValue
+	}
+	return connID, nil
+}
 
 type SignalType string
 
@@ -36,33 +85,6 @@ func SplitID(id string) (*slim.Name, error) {
 		return nil, fmt.Errorf("IDs must be in the format organization/namespace/app-or-stream, got: %s", id)
 	}
 	return slim.NewName(parts[0], parts[1], parts[2]), nil
-}
-
-// InitAndConnect initializes the SLIM crypto subsystem and connects to a SLIM server.
-//
-// This is a convenience function that combines:
-//   - Crypto initialization
-//   - Server connection with insecure config
-//
-// Args:
-//
-//	endpoint: SLIM server endpoint URL
-//
-// Returns:
-//
-//	uint64: Connection ID returned by the server
-//	error: If initialization or connection fails
-func InitAndConnect(endpoint string) (uint64, error) {
-	// Initialize crypto subsystem (idempotent, safe to call multiple times)
-	slim.InitializeWithDefaults()
-
-	// Connect to SLIM server (returns connection ID)
-	config := slim.NewInsecureClientConfig(endpoint)
-	connID, err := slim.GetGlobalService().Connect(config)
-	if err != nil {
-		return 0, fmt.Errorf("failed to connect to SLIM server: %w", err)
-	}
-	return connID, nil
 }
 
 // CreateApp creates a SLIM app with shared secret authentication and subscribes it to a connection.
