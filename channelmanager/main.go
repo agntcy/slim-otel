@@ -55,7 +55,11 @@ func main() {
 	}
 
 	// connect to slim and start the local app
-	app, connID, err := slimcommon.CreateAndConnectApp(cfg.Manager.LocalName, cfg.Manager.SlimEndpoint, cfg.Manager.SharedSecret)
+	connID, err := slimcommon.InitAndConnect(cfg.Manager.SlimEndpoint)
+	if err != nil {
+		logger.Fatal("Failed to connect to SLIM server", zap.Error(err))
+	}
+	app, err := slimcommon.CreateApp(cfg.Manager.LocalName, cfg.Manager.SharedSecret, connID, slim.DirectionNone)
 	if err != nil {
 		logger.Fatal("Failed to create or connect app", zap.Error(err))
 	}

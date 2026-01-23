@@ -243,7 +243,7 @@ func handleSession(
 	r.set.Logger.Info("Handling new session", zap.Uint32("sessionID", id), zap.String("sessionName", sessionName))
 	defer func() {
 		// the session may be already removed from sessions.DeleteAll in Shutdown
-		_ = r.sessions.RemoveSession(ctx, id)
+		_, _ = r.sessions.RemoveSessionById(ctx, id)
 		_ = r.app.DeleteSessionAndWait(session)
 		r.set.Logger.Info("Session closed", zap.Uint32("sessionID", id), zap.String("sessionName", sessionName))
 	}()

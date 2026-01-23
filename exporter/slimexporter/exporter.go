@@ -266,7 +266,7 @@ func (e *slimExporter) publishData(ctx context.Context, data []byte) error {
 	// Remove closed sessions after iteration
 	for _, id := range closedSessions {
 		slimcommon.LoggerFromContextOrDefault(ctx).Info("Removing closed session", zap.Uint32("session_id", id))
-		if err := e.sessions.RemoveSession(ctx, id); err != nil {
+		if _, err := e.sessions.RemoveSessionById(ctx, id); err != nil {
 			return err
 		}
 	}
