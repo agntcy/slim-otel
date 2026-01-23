@@ -1,12 +1,13 @@
 // Copyright AGNTCY Contributors (https://github.com/agntcy)
 // SPDX-License-Identifier: Apache-2.0
 
-package main
+package channelmanager
 
 import (
 	"context"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -15,13 +16,14 @@ import (
 	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 type channelManager struct {
 	cfg      *Config
 	app      *slim.App
 	connID   uint64
-	sessions []*slim.Session
+	channels *slimcommon.SessionsList
 }
 
 func main() {
@@ -63,7 +65,7 @@ func main() {
 		cfg:      cfg,
 		app:      app,
 		connID:   connID,
-		sessions: []*slim.Session{},
+		channels: slimcommon.NewSessionsList(slimcommon.SignalUnknown),
 	}
 
 	// Set up signal handling for Ctrl+C
@@ -80,14 +82,37 @@ func main() {
 		logger.Fatal("Failed to create sessions from the config file", zap.Error(err))
 	}
 
+	server := NewChannelManagerServer(manager)
+
+	// Create gRPC server
+	lis, err := net.Listen("tcp", cfg.Manager.GRPCAddress)
+	if err != nil {
+		logger.Fatal("Failed to listen on gRPC address", zap.String("address", cfg.Manager.GRPCAddress), zap.Error(err))
+	}
+
+	grpcServer := grpc.NewServer()
+	RegisterChannelManagerServiceServer(grpcServer, server)
+
+	logger.Info("Starting gRPC server", zap.String("address", cfg.Manager.GRPCAddress))
+
+	// Start gRPC server in a goroutine
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			logger.Error("gRPC server failed", zap.Error(err))
+			cancel()
+		}
+	}()
+
 	// Wait for shutdown signal
 	<-ctx.Done()
 	logger.Info("Shutting down...")
 
+	// Gracefully stop gRPC server
+	logger.Info("Stopping gRPC server...")
+	grpcServer.GracefulStop()
+
 	// close all sessions and clean up
-	for _, session := range manager.sessions {
-		session.Destroy()
-	}
+	manager.channels.DeleteAll(ctx, manager.app)
 
 	manager.app.Destroy()
 
@@ -136,7 +161,7 @@ func (cm *channelManager) createSessions(
 		}
 
 		// add session to the list
-		cm.sessions = append(cm.sessions, session)
+		cm.channels.AddSession(ctx, session)
 
 		logger.Info("Created session and invited participants",
 			zap.String("channel", config.Name),

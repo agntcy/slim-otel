@@ -176,6 +176,27 @@ tasks:
       - go test -v
 
   # channel manager tasks
+  channelmanager:proto:install:
+    desc: Install protoc Go plugins
+    internal: true
+    cmds:
+      - echo "Installing protoc Go plugins..."
+      - go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+      - go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+      - echo "Protoc Go plugins installed successfully"
+
+  channelmanager:proto:compile:
+    desc: Compile proto files for channel manager
+    deps:
+      - channelmanager:proto:install
+    cmds:
+      - echo "Compiling proto files..."
+      - >
+        PATH="$(go env GOPATH)/bin:$PATH" protoc --go_out=. --go_opt=paths=source_relative
+        --go-grpc_out=. --go-grpc_opt=paths=source_relative
+        channelmanager/commands.proto
+      - echo "Proto files compiled successfully"
+
   channelmanager:build:
     desc: Build the channel manager
     dir: channelmanager
