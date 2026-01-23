@@ -15,6 +15,31 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+func printUsage() {
+	fmt.Println("cmctl - Channel Manager Control Tool")
+	fmt.Println("\nUsage:")
+	fmt.Println("  cmctl -command <command> [options]")
+	fmt.Println("\nAvailable commands:")
+	fmt.Println("  list-channels              List all channels")
+	fmt.Println("  list-participants          List participants in a channel (requires -channel)")
+	fmt.Println("  create-channel             Create a new channel (requires -channel, optional -mls)")
+	fmt.Println("  delete-channel             Delete a channel (requires -channel)")
+	fmt.Println("  add-participant            Add participant to channel (requires -channel and -participant)")
+	fmt.Println("  delete-participant         Remove participant from channel (requires -channel and -participant)")
+	fmt.Println("\nOptions:")
+	fmt.Println("  -server <address>          gRPC server address (default: localhost:46358)")
+	fmt.Println("  -command <command>         Command to execute")
+	fmt.Println("  -channel <name>            Channel name")
+	fmt.Println("  -participant <name>        Participant name")
+	fmt.Println("  -mls                       Enable MLS for channel creation (default: false)")
+	fmt.Println("\nExamples:")
+	fmt.Println("  cmctl -command list-channels")
+	fmt.Println("  cmctl -command create-channel -channel my-channel -mls")
+	fmt.Println("  cmctl -command list-participants -channel my-channel")
+	fmt.Println("  cmctl -command add-participant -channel my-channel -participant user1")
+	fmt.Println()
+}
+
 func main() {
 	// Initialize zap logger
 	logger, err := zap.NewProduction()
@@ -25,11 +50,17 @@ func main() {
 
 	// Parse command-line flags
 	serverAddr := flag.String("server", "localhost:46358", "gRPC server address")
-	command := flag.String("command", "list-channels", "Command to send (list-channels, list-participants, create-channel, delete-channel, add-participant, delete-participant)")
+	command := flag.String("command", "", "Command to send (list-channels, list-participants, create-channel, delete-channel, add-participant, delete-participant)")
 	channelName := flag.String("channel", "", "Channel name")
 	participantName := flag.String("participant", "", "Participant name")
 	mlsEnabled := flag.Bool("mls", false, "Enable MLS for channel creation")
 	flag.Parse()
+
+	// Check if command is provided
+	if *command == "" {
+		printUsage()
+		logger.Fatal("No command specified")
+	}
 
 	// Connect to the gRPC server
 	conn, err := grpc.NewClient(*serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -126,6 +157,7 @@ func main() {
 		}
 
 	default:
+		printUsage()
 		logger.Fatal("Unknown command", zap.String("command", *command))
 	}
 
