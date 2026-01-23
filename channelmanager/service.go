@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
+	slim "github.com/agntcy/slim-bindings-go"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 	"go.uber.org/zap"
 )

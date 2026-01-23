@@ -18,7 +18,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
 
-	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
+	slim "github.com/agntcy/slim-bindings-go"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
@@ -95,7 +95,11 @@ func main() {
 	)
 
 	// Create and connect app
-	app, connID, err := slimcommon.CreateAndConnectApp(*appNameStr, *serverAddr, *sharedSecret)
+	connID, err := slimcommon.InitAndConnect(*serverAddr)
+	if err != nil {
+		logger.Fatal("Failed to connect to SLIM server", zap.Error(err))
+	}
+	app, err := slimcommon.CreateApp(*appNameStr, *sharedSecret, connID, slim.DirectionRecv)
 	if err != nil {
 		logger.Fatal("Failed to create/connect app", zap.Error(err))
 	}

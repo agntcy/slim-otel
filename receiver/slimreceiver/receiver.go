@@ -16,7 +16,7 @@ import (
 	"go.opentelemetry.io/collector/receiver"
 	"go.uber.org/zap"
 
-	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
+	slim "github.com/agntcy/slim-bindings-go"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
@@ -43,12 +43,7 @@ func initConnection(
 	cfg *Config,
 	set *receiver.Settings,
 ) (uint64, error) {
-	// Initialize crypto subsystem (idempotent, safe to call multiple times)
-	slim.InitializeWithDefaults()
-
-	// Connect to SLIM server (returns connection ID)
-	config := slim.NewInsecureClientConfig(cfg.SlimEndpoint)
-	connID, err := slim.GetGlobalService().Connect(config)
+	connID, err := slimcommon.InitAndConnect(cfg.SlimEndpoint)
 	if err != nil {
 		return 0, fmt.Errorf("failed to connect to SLIM server: %w", err)
 	}
@@ -73,18 +68,9 @@ func CreateApp(
 		return nil, 0, err
 	}
 
-	appName, err := slimcommon.SplitID(cfg.ReceiverName)
+	app, err := slimcommon.CreateApp(cfg.ReceiverName, cfg.SharedSecret, connID, slim.DirectionRecv)
 	if err != nil {
-		return nil, 0, fmt.Errorf("invalid local ID: %w", err)
-	}
-	app, err := slim.GetGlobalService().CreateAppWithSecret(appName, cfg.SharedSecret)
-	if err != nil {
-		return nil, 0, fmt.Errorf("create app failed: %w", err)
-	}
-
-	if err := app.Subscribe(appName, &connID); err != nil {
-		app.Destroy()
-		return nil, 0, fmt.Errorf("subscribe failed: %w", err)
+		return nil, 0, fmt.Errorf("failed to create app: %w", err)
 	}
 
 	set.Logger.Info("created SLIM app", zap.String("app_name", cfg.ReceiverName))
@@ -162,8 +148,8 @@ func detectAndHandleMessage(ctx context.Context, r *slimReceiver, sessionID uint
 	if r.tracesConsumer != nil {
 		unmarshaler := &ptrace.ProtoUnmarshaler{}
 		traces, err := unmarshaler.UnmarshalTraces(payload)
-		if err == nil && traces.SpanCount() > 0 {
-			handleReceivedTraces(ctx, r, sessionID, payload)
+		if err == nil {
+			handleReceivedTraces(ctx, r, sessionID, traces)
 			return
 		}
 	}
@@ -172,8 +158,8 @@ func detectAndHandleMessage(ctx context.Context, r *slimReceiver, sessionID uint
 	if r.metricsConsumer != nil {
 		unmarshaler := &pmetric.ProtoUnmarshaler{}
 		metrics, err := unmarshaler.UnmarshalMetrics(payload)
-		if err == nil && metrics.DataPointCount() > 0 {
-			handleReceivedMetrics(ctx, r, sessionID, payload)
+		if err == nil {
+			handleReceivedMetrics(ctx, r, sessionID, metrics)
 			return
 		}
 	}
@@ -182,8 +168,8 @@ func detectAndHandleMessage(ctx context.Context, r *slimReceiver, sessionID uint
 	if r.logsConsumer != nil {
 		unmarshaler := &plog.ProtoUnmarshaler{}
 		logs, err := unmarshaler.UnmarshalLogs(payload)
-		if err == nil && logs.LogRecordCount() > 0 {
-			handleReceivedLogs(ctx, r, sessionID, payload)
+		if err == nil {
+			handleReceivedLogs(ctx, r, sessionID, logs)
 			return
 		}
 	}
@@ -194,19 +180,10 @@ func detectAndHandleMessage(ctx context.Context, r *slimReceiver, sessionID uint
 }
 
 // handleReceivedTraces processes a received trace message
-func handleReceivedTraces(ctx context.Context, r *slimReceiver, sessionID uint32, payload []byte) {
+func handleReceivedTraces(ctx context.Context, r *slimReceiver, sessionID uint32, traces ptrace.Traces) {
 	r.set.Logger.Info("Received trace message",
 		zap.Uint32("sessionID", sessionID),
-		zap.Int("messageSize", len(payload)))
-
-	unmarshaler := &ptrace.ProtoUnmarshaler{}
-	traces, err := unmarshaler.UnmarshalTraces(payload)
-	if err != nil {
-		r.set.Logger.Error("Failed to unmarshal traces",
-			zap.Uint32("sessionID", sessionID),
-			zap.Error(err))
-		return
-	}
+		zap.Int("spanCount", traces.SpanCount()))
 
 	if err := r.tracesConsumer.ConsumeTraces(ctx, traces); err != nil {
 		r.set.Logger.Error("Failed to consume traces",
@@ -216,19 +193,10 @@ func handleReceivedTraces(ctx context.Context, r *slimReceiver, sessionID uint32
 }
 
 // handleReceivedMetrics processes a received metrics message
-func handleReceivedMetrics(ctx context.Context, r *slimReceiver, sessionID uint32, payload []byte) {
+func handleReceivedMetrics(ctx context.Context, r *slimReceiver, sessionID uint32, metrics pmetric.Metrics) {
 	r.set.Logger.Info("Received metrics message",
 		zap.Uint32("sessionID", sessionID),
-		zap.Int("messageSize", len(payload)))
-
-	unmarshaler := &pmetric.ProtoUnmarshaler{}
-	metrics, err := unmarshaler.UnmarshalMetrics(payload)
-	if err != nil {
-		r.set.Logger.Error("Failed to unmarshal metrics",
-			zap.Uint32("sessionID", sessionID),
-			zap.Error(err))
-		return
-	}
+		zap.Int("dataPointCount", metrics.DataPointCount()))
 
 	if err := r.metricsConsumer.ConsumeMetrics(ctx, metrics); err != nil {
 		r.set.Logger.Error("Failed to consume metrics",
@@ -238,19 +206,10 @@ func handleReceivedMetrics(ctx context.Context, r *slimReceiver, sessionID uint3
 }
 
 // handleReceivedLogs processes a received logs message
-func handleReceivedLogs(ctx context.Context, r *slimReceiver, sessionID uint32, payload []byte) {
+func handleReceivedLogs(ctx context.Context, r *slimReceiver, sessionID uint32, logs plog.Logs) {
 	r.set.Logger.Info("Received logs message",
 		zap.Uint32("sessionID", sessionID),
-		zap.Int("messageSize", len(payload)))
-
-	unmarshaler := &plog.ProtoUnmarshaler{}
-	logs, err := unmarshaler.UnmarshalLogs(payload)
-	if err != nil {
-		r.set.Logger.Error("Failed to unmarshal logs",
-			zap.Uint32("sessionID", sessionID),
-			zap.Error(err))
-		return
-	}
+		zap.Int("logRecordCount", logs.LogRecordCount()))
 
 	if err := r.logsConsumer.ConsumeLogs(ctx, logs); err != nil {
 		r.set.Logger.Error("Failed to consume logs",

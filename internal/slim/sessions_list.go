@@ -12,7 +12,7 @@ import (
 
 	"go.uber.org/zap"
 
-	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
+	slim "github.com/agntcy/slim-bindings-go"
 )
 
 // SessionsList holds sessions related to a specific signal type

@@ -12,7 +12,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
 
-	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
+	slim "github.com/agntcy/slim-bindings-go"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
@@ -52,12 +52,7 @@ func initConnection(
 
 	// Initialize only once
 	if !connected {
-		// Initialize crypto subsystem (idempotent, safe to call multiple times)
-		slim.InitializeWithDefaults()
-
-		// Connect to SLIM server (returns connection ID)
-		config := slim.NewInsecureClientConfig(cfg.SlimEndpoint)
-		connIDValue, err := slim.GetGlobalService().Connect(config)
+		connIDValue, err := slimcommon.InitAndConnect(cfg.SlimEndpoint)
 		if err != nil {
 			return fmt.Errorf("failed to connect to SLIM server: %w", err)
 		}
@@ -92,18 +87,9 @@ func CreateApp(
 		return nil, 0, err
 	}
 
-	appName, err := slimcommon.SplitID(exporterName)
+	app, err := slimcommon.CreateApp(exporterName, cfg.SharedSecret, connID, slim.DirectionSend)
 	if err != nil {
-		return nil, 0, fmt.Errorf("invalid local ID: %w", err)
-	}
-	app, err := slim.GetGlobalService().CreateAppWithSecret(appName, cfg.SharedSecret)
-	if err != nil {
-		return nil, 0, fmt.Errorf("create app failed: %w", err)
-	}
-
-	if err := app.Subscribe(appName, &connID); err != nil {
-		app.Destroy()
-		return nil, 0, fmt.Errorf("subscribe failed: %w", err)
+		return nil, 0, err
 	}
 
 	slimcommon.LoggerFromContextOrDefault(ctx).Info("created SLIM app",

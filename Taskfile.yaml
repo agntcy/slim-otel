@@ -123,6 +123,18 @@ tasks:
     cmds:
       - echo find . -name '*coverage.out' -execdir go tool cover -html=./{} \;
 
+  test:
+    desc: Run all tests for the SLIM exporter and receiver
+    deps:
+      - fetch-and-run
+    cmds:
+      - echo "Running slimexporter tests..."
+      - cd exporter/slimexporter && go test -v
+      - echo "Running slimreceiver tests..."
+      - cd receiver/slimreceiver && go test -v
+      - echo "Running internal/slim tests..."
+      - cd internal/slim && go test -v
+
   # collector related tasks
   download-ocb:
     internal: true
@@ -166,15 +178,6 @@ tasks:
       - echo "Running SLIM OpenTelemetry Collector Receiver..."
       - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/receiver/slimreceiver/example-receiver-collector-config.yaml"
 
-  collector:test:
-    desc: Run tests for the SLIM exporter
-    dir: exporter/slimexporter
-    deps:
-      - fetch-and-run
-    cmds:
-      - echo "Running slimexporter tests..."
-      - go test -v
-
   # channel manager tasks
   channelmanager:proto:install:
     desc: Install protoc Go plugins
@@ -213,7 +216,6 @@ tasks:
       - >
         go run .
         --config-file example-channel-manager-config.yaml
-
 
   # Docker tasks
   docker:build:
