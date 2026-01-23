@@ -63,7 +63,7 @@ tasks:
       - task: foreach-module
         vars:
           CMD: go mod download
-      #- go run github.com/agntcy/slim-bindings-go/cmd/slim-bindings-setup
+      - go run github.com/agntcy/slim-bindings-go/cmd/slim-bindings-setup
       - echo "Slim bindings fetched and installed"
 
   modtidy:
@@ -195,17 +195,26 @@ tasks:
     cmds:
       - echo "Compiling proto files..."
       - >
-        PATH="$(go env GOPATH)/bin:$PATH" protoc --go_out=. --go_opt=paths=source_relative
-        --go-grpc_out=. --go-grpc_opt=paths=source_relative
-        channelmanager/commands.proto
+        PATH="$(go env GOPATH)/bin:$PATH" protoc 
+        --go_out=. --go_opt=module=github.com/agntcy/slim/otel
+        --go-grpc_out=. --go-grpc_opt=module=github.com/agntcy/slim/otel
+        channelmanager/api/commands.proto
       - echo "Proto files compiled successfully"
+
+  channelmanager:proto:clean:
+    desc: Clean generated proto files
+    cmds:
+      - echo "Cleaning generated proto files..."
+      - rm -f channelmanager/internal/channelmanager/commands.pb.go
+      - rm -f channelmanager/internal/channelmanager/commands_grpc.pb.go
+      - echo "Generated proto files cleaned"
 
   channelmanager:build:
     desc: Build the channel manager
     dir: channelmanager
     cmds:
       - echo "Building channel manager..."
-      - go build -a .
+      - go build -o channelmanager ./cmd/channelmanager
       - echo "Channel manager built successfully"
 
   channelmanager:run:
@@ -214,12 +223,12 @@ tasks:
     cmds:
       - echo "Running channel manager..."
       - >
-        go run .
+        go run ./cmd/channelmanager/main.go
         --config-file example-channel-manager-config.yaml
 
   channelmanager:cmctl:build:
     desc: Build cmctl
-    dir: channelmanager/cmctl
+    dir: channelmanager/cmd/cmctl
     cmds:
       - echo "Building cmctl..."
       - go build -o cmctl .

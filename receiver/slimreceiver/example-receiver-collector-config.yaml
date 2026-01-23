@@ -22,7 +22,9 @@ exporters:
 service:
   telemetry:
     logs:
-      level: warn
+      level: info
+    metrics:
+      level: none
 
   pipelines:
     traces:

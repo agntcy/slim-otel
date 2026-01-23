@@ -13,10 +13,11 @@ slim-otelcol/
 # Built binaries
 testapp/testapp
 channelmanager/channelmanager
+channelmanager/cmd/cmctl/cmctl
 
 # Generated proto files
-channelmanager/commands.pb.go
-channelmanager/commands_grpc.pb.go
+channelmanager/internal/channelmanager/commands.pb.go
+channelmanager/internal/channelmanager/commands_grpc.pb.go
 
 # Temporary directories and tools
 .tmp/
