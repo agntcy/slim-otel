@@ -97,7 +97,7 @@ func listenForSessions(ctx context.Context, r *slimReceiver) {
 			timeout := time.Millisecond * sessionTimeoutMs
 			session, err := r.app.ListenForSession(&timeout)
 			if err != nil {
-				logger.Debug("Timeout waiting for session, retrying...")
+				// Timeout is expected while waiting for sessions
 				continue
 			}
 

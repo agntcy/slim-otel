@@ -60,6 +60,7 @@ service:
   telemetry:
     logs:
       level: info
+
   pipelines:
     traces:
       receivers: [otlp]

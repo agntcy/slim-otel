@@ -12,10 +12,10 @@ managers:
   shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
 
 # channels to create
-channels:
-  - name: "agntcy/otel/channel-1"
-    participants:
-      - "agntcy/otel/exporter-traces"
-      - "agntcy/otel/exporter-metrics"
-      - "agntcy/otel/receiver"
-    mls-enabled: true
+channels: []
+#  - name: "agntcy/otel/channel-1"
+#    participants:
+#      - "agntcy/otel/exporter-traces"
+#      - "agntcy/otel/exporter-metrics"
+#      - "agntcy/otel/receiver"
+#    mls-enabled: true
