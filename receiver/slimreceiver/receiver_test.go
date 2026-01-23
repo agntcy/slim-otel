@@ -1,7 +1,6 @@
 package slimreceiver
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -44,7 +43,7 @@ func TestHandleReceivedTraces(t *testing.T) {
 	span.SetEndTimestamp(pcommon.NewTimestampFromTime(time.Now().Add(time.Second)))
 
 	// Handle the traces
-	ctx := context.Background()
+	ctx := t.Context()
 	handleReceivedTraces(ctx, r, 1, traces)
 
 	// Verify the consumer received the traces
@@ -82,7 +81,7 @@ func TestHandleReceivedMetrics(t *testing.T) {
 	dp.SetTimestamp(pcommon.NewTimestampFromTime(time.Now()))
 
 	// Handle the metrics
-	ctx := context.Background()
+	ctx := t.Context()
 	handleReceivedMetrics(ctx, r, 1, metrics)
 
 	// Verify the consumer received the metrics
@@ -118,7 +117,7 @@ func TestHandleReceivedLogs(t *testing.T) {
 	logRecord.SetTimestamp(pcommon.NewTimestampFromTime(time.Now()))
 
 	// Handle the logs
-	ctx := context.Background()
+	ctx := t.Context()
 	handleReceivedLogs(ctx, r, 1, logs)
 
 	// Verify the consumer received the logs
@@ -158,7 +157,7 @@ func TestDetectAndHandleMessage_Traces(t *testing.T) {
 	require.NoError(t, err)
 
 	// Detect and handle the message
-	ctx := context.Background()
+	ctx := t.Context()
 	detectAndHandleMessage(ctx, r, 1, payload)
 
 	// Verify the consumer received the traces
@@ -199,7 +198,7 @@ func TestDetectAndHandleMessage_Metrics(t *testing.T) {
 	require.NoError(t, err)
 
 	// Detect and handle the message
-	ctx := context.Background()
+	ctx := t.Context()
 	detectAndHandleMessage(ctx, r, 1, payload)
 
 	// Verify the consumer received the metrics
@@ -238,7 +237,7 @@ func TestDetectAndHandleMessage_Logs(t *testing.T) {
 	require.NoError(t, err)
 
 	// Detect and handle the message
-	ctx := context.Background()
+	ctx := t.Context()
 	detectAndHandleMessage(ctx, r, 1, payload)
 
 	// Verify the consumer received the logs
@@ -271,7 +270,7 @@ func TestDetectAndHandleMessage_InvalidPayload(t *testing.T) {
 	invalidPayload := []byte("invalid protobuf data")
 
 	// Detect and handle the message - should not panic
-	ctx := context.Background()
+	ctx := t.Context()
 	detectAndHandleMessage(ctx, r, 1, invalidPayload)
 
 	// Verify no consumers received data
@@ -309,7 +308,7 @@ func TestDetectAndHandleMessage_NoConsumers(t *testing.T) {
 	require.NoError(t, err)
 
 	// Detect and handle the message - should not panic even with no consumers
-	ctx := context.Background()
+	ctx := t.Context()
 	detectAndHandleMessage(ctx, r, 1, payload)
 	// Should complete without error
 }
@@ -336,7 +335,7 @@ func TestReceiverMultipleSignalTypes(t *testing.T) {
 		logsConsumer:    logsSink,
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Send traces
 	traces := ptrace.NewTraces()

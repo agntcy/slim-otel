@@ -39,6 +39,7 @@ func TestConfigValidate(t *testing.T) {
 			checkFields: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, "http://127.0.0.1:46357", cfg.SlimEndpoint)
 				assert.Equal(t, "agntcy/otel/test-receiver", cfg.ReceiverName)
+				assert.Equal(t, "test-secret-0123456789-abcdefg", cfg.SharedSecret)
 			},
 		},
 		{
@@ -51,6 +52,7 @@ func TestConfigValidate(t *testing.T) {
 			checkFields: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, "http://localhost:46357", cfg.SlimEndpoint)
 				assert.Equal(t, "agntcy/otel/receiver", cfg.ReceiverName)
+				assert.Equal(t, "test-secret-0123456789-abcdefg", cfg.SharedSecret)
 			},
 		},
 		{
@@ -62,6 +64,7 @@ func TestConfigValidate(t *testing.T) {
 			checkFields: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, "http://127.0.0.1:46357", cfg.SlimEndpoint)
 				assert.Equal(t, "agntcy/otel/receiver", cfg.ReceiverName)
+				assert.Equal(t, "test-secret-0123456789-abcdefg", cfg.SharedSecret)
 			},
 		},
 		{
@@ -92,19 +95,7 @@ func TestConfigValidate(t *testing.T) {
 			checkFields: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, "http://127.0.0.1:46357", cfg.SlimEndpoint)
 				assert.Equal(t, "agntcy/otel/receiver", cfg.ReceiverName)
-			},
-		},
-		{
-			name: "custom endpoint is preserved",
-			config: &Config{
-				SlimEndpoint: "https://custom.endpoint:8443",
-				ReceiverName: "agntcy/otel/custom",
-				SharedSecret: "test-secret-0123456789-abcdefg",
-			},
-			expectError: false,
-			checkFields: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, "https://custom.endpoint:8443", cfg.SlimEndpoint)
-				assert.Equal(t, "agntcy/otel/custom", cfg.ReceiverName)
+				assert.Equal(t, "test-secret-0123456789-abcdefg", cfg.SharedSecret)
 			},
 		},
 	}
