@@ -3,7 +3,6 @@ package slimexporter
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"go.opentelemetry.io/collector/component"
@@ -17,57 +16,19 @@ import (
 )
 
 const (
-	inviteDelayMs     = 1000
 	sessionTimeoutMs  = 1000
 	defaultMaxRetries = 10
 	defaultIntervalMs = 1000
 )
 
-var (
-	// connection must be established only once
-	mutex sync.Mutex
-	// true if connection is already established
-	connected bool
-	// the connection id is the same for all the applicaions
-	connID uint64
-)
-
 // slimExporter implements the exporter for traces, metrics, and logs
 type slimExporter struct {
-	config       *Config
-	signalType   slimcommon.SignalType
-	app          *slim.App
-	connID       uint64
-	sessions     *SessionsList
-	shutdownChan chan struct{}
-}
-
-// initConnection initializes the connection to the SLIM server if not done yet
-func initConnection(
-	ctx context.Context,
-	cfg *Config,
-) error {
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	// Initialize only once
-	if !connected {
-		connIDValue, err := slimcommon.InitAndConnect(cfg.SlimEndpoint)
-		if err != nil {
-			return fmt.Errorf("failed to connect to SLIM server: %w", err)
-		}
-
-		connected = true
-		connID = connIDValue
-		logger := slimcommon.LoggerFromContextOrDefault(ctx)
-
-		logger.Info(
-			"Connected to SLIM server",
-			zap.String("endpoint", cfg.SlimEndpoint),
-			zap.Uint64("connection_id", connIDValue),
-		)
-	}
-	return nil
+	config     *Config
+	signalType slimcommon.SignalType
+	app        *slim.App
+	connID     uint64
+	sessions   *SessionsList
+	cancelFunc context.CancelFunc
 }
 
 // createApp creates a new slim application and connects to the SLIM server
@@ -77,10 +38,13 @@ func CreateApp(
 	cfg *Config,
 	signalType slimcommon.SignalType,
 ) (*slim.App, uint64, error) {
-	err := initConnection(ctx, cfg)
+	logger := slimcommon.LoggerFromContextOrDefault(ctx)
+	connID, err := slimcommon.InitAndConnect(cfg.SlimEndpoint)
 	if err != nil {
 		return nil, 0, err
 	}
+
+	logger.Info("connected to SLIM server", zap.String("endpoint", cfg.SlimEndpoint), zap.Uint64("connection_id", connID))
 
 	exporterName, err := cfg.ExporterNames.GetNameForSignal(string(signalType))
 	if err != nil {
@@ -176,10 +140,6 @@ func listenForSessions(ctx context.Context, e *slimExporter) {
 			logger.Info("Shutting down listener...")
 			return
 
-		case <-e.shutdownChan:
-			logger.Info("All sessions closed, shutting down listener...")
-			return
-
 		default:
 			timeout := time.Millisecond * sessionTimeoutMs
 			session, err := e.app.ListenForSession(&timeout)
@@ -209,12 +169,11 @@ func newSlimExporter(ctx context.Context, cfg *Config, signalType slimcommon.Sig
 	}
 
 	slim := &slimExporter{
-		config:       cfg,
-		signalType:   signalType,
-		app:          app,
-		connID:       connID,
-		sessions:     &SessionsList{signalType: signalType},
-		shutdownChan: make(chan struct{}),
+		config:     cfg,
+		signalType: signalType,
+		app:        app,
+		connID:     connID,
+		sessions:   &SessionsList{signalType: signalType},
 	}
 
 	return slim, nil
@@ -232,9 +191,15 @@ func (e *slimExporter) start(ctx context.Context, _ component.Host) error {
 		return err
 	}
 
+	// Create a background context for the listener goroutine
+	listenerCtx, cancel := context.WithCancel(context.Background())
+	// Copy logger from the original context to the new background context
+	listenerCtx = slimcommon.InitContextWithLogger(listenerCtx, logger)
+	e.cancelFunc = cancel
+
 	// start to listen for incoming sessions
 	logger.Info("Start to listen for new sessions", zap.String("signal", string(e.signalType)))
-	go listenForSessions(ctx, e)
+	go listenForSessions(listenerCtx, e)
 
 	return nil
 }
@@ -244,8 +209,10 @@ func (e *slimExporter) shutdown(ctx context.Context) error {
 	logger := slimcommon.LoggerFromContextOrDefault(ctx)
 	logger.Info("Shutting down Slim exporter", zap.String("signal", string(e.signalType)))
 
-	// stop the receiver listener
-	close(e.shutdownChan)
+	// stop the receiver listener by canceling the background context
+	if e.cancelFunc != nil {
+		e.cancelFunc()
+	}
 
 	// remove all sessions
 	e.sessions.DeleteAll(ctx, e.app)
