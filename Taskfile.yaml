@@ -134,7 +134,6 @@ tasks:
       - echo "Running internal/slim tests..."
       - cd internal/slim && go test -v
 
-  # collector related tasks
   download-ocb:
     internal: true
     desc: Download OpenTelemetry Collector Builder for current architecture
