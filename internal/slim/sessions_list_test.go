@@ -4,7 +4,6 @@
 package slimcommon
 
 import (
-	"context"
 	"sync"
 	"testing"
 
@@ -18,18 +17,18 @@ func TestNewSessionsList(t *testing.T) {
 
 	assert.NotNil(t, ss)
 	assert.Equal(t, SignalTraces, ss.signalType)
-	assert.NotNil(t, ss.sessionsById)
+	assert.NotNil(t, ss.sessionsByID)
 	assert.NotNil(t, ss.sessionsByName)
-	assert.Equal(t, 0, len(ss.sessionsById))
+	assert.Equal(t, 0, len(ss.sessionsByID))
 	assert.Equal(t, 0, len(ss.sessionsByName))
 }
 
-// TestSessionsList_GetSessionById tests getting sessions by ID
-func TestSessionsList_GetSessionById(t *testing.T) {
+// TestSessionsList_GetSessionByID tests getting sessions by ID
+func TestSessionsList_GetSessionByID(t *testing.T) {
 	t.Run("get non-existing session", func(t *testing.T) {
 		ss := NewSessionsList(SignalTraces)
 
-		_, err := ss.GetSessionById(t.Context(), 1)
+		_, err := ss.GetSessionByID(t.Context(), 1)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "session with id 1 not found")
 	})
@@ -37,10 +36,10 @@ func TestSessionsList_GetSessionById(t *testing.T) {
 	t.Run("get from nil sessions map", func(t *testing.T) {
 		ss := &SessionsList{
 			signalType:   SignalTraces,
-			sessionsById: nil,
+			sessionsByID: nil,
 		}
 
-		_, err := ss.GetSessionById(t.Context(), 1)
+		_, err := ss.GetSessionByID(t.Context(), 1)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "sessions map is nil")
 	})
@@ -68,12 +67,12 @@ func TestSessionsList_GetSessionByName(t *testing.T) {
 	})
 }
 
-// TestSessionsList_RemoveSessionById tests removing sessions by ID
-func TestSessionsList_RemoveSessionById(t *testing.T) {
+// TestSessionsList_RemoveSessionByID tests removing sessions by ID
+func TestSessionsList_RemoveSessionByID(t *testing.T) {
 	t.Run("remove non-existing session", func(t *testing.T) {
 		ss := NewSessionsList(SignalLogs)
 
-		_, err := ss.RemoveSessionById(t.Context(), 1)
+		_, err := ss.RemoveSessionByID(t.Context(), 1)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "session with id 1 not found")
 	})
@@ -81,10 +80,10 @@ func TestSessionsList_RemoveSessionById(t *testing.T) {
 	t.Run("remove from nil sessions map", func(t *testing.T) {
 		ss := &SessionsList{
 			signalType:   SignalLogs,
-			sessionsById: nil,
+			sessionsByID: nil,
 		}
 
-		_, err := ss.RemoveSessionById(t.Context(), 1)
+		_, err := ss.RemoveSessionByID(t.Context(), 1)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "sessions map is nil")
 	})
@@ -124,7 +123,7 @@ func TestSessionsList_ListSessionNames(t *testing.T) {
 	t.Run("list from nil sessions map", func(t *testing.T) {
 		ss := &SessionsList{
 			signalType:   SignalMetrics,
-			sessionsById: nil,
+			sessionsByID: nil,
 		}
 
 		names := ss.ListSessionNames(t.Context())
@@ -140,14 +139,14 @@ func TestSessionsList_DeleteAll(t *testing.T) {
 		ss.DeleteAll(t.Context(), nil)
 
 		// When app is nil, the method returns early without deleting sessions
-		assert.NotNil(t, ss.sessionsById)
+		assert.NotNil(t, ss.sessionsByID)
 		assert.NotNil(t, ss.sessionsByName)
 	})
 
 	t.Run("delete all with nil sessions map", func(t *testing.T) {
 		ss := &SessionsList{
 			signalType:   SignalMetrics,
-			sessionsById: nil,
+			sessionsByID: nil,
 		}
 
 		// Should not panic
@@ -179,7 +178,7 @@ func TestSessionsList_PublishToAll(t *testing.T) {
 	t.Run("publish with nil sessions map", func(t *testing.T) {
 		ss := &SessionsList{
 			signalType:   SignalMetrics,
-			sessionsById: nil,
+			sessionsByID: nil,
 		}
 
 		data := []byte("test data")
@@ -196,12 +195,12 @@ func TestSessionsList_ConcurrentAccess(t *testing.T) {
 		ss := NewSessionsList(SignalTraces)
 		var wg sync.WaitGroup
 
-		// Concurrent RemoveSessionById operations
+		// Concurrent RemoveSessionByID operations
 		for i := 0; i < 5; i++ {
 			wg.Add(1)
 			go func(id uint32) {
 				defer wg.Done()
-				_, _ = ss.RemoveSessionById(t.Context(), id)
+				_, _ = ss.RemoveSessionByID(t.Context(), id)
 			}(uint32(i)) // #nosec G115
 		}
 
@@ -245,14 +244,14 @@ func TestSessionsList_ConcurrentAccess(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				ss.DeleteAll(context.Background(), nil)
+				ss.DeleteAll(t.Context(), nil)
 			}()
 		}
 
 		wg.Wait()
 
 		// When app is nil, sessions should remain unchanged
-		assert.NotNil(t, ss.sessionsById)
+		assert.NotNil(t, ss.sessionsByID)
 	})
 
 	t.Run("concurrent GetSessionById operations", func(_ *testing.T) {
@@ -264,7 +263,7 @@ func TestSessionsList_ConcurrentAccess(t *testing.T) {
 			wg.Add(1)
 			go func(id uint32) {
 				defer wg.Done()
-				_, _ = ss.GetSessionById(t.Context(), id)
+				_, _ = ss.GetSessionByID(t.Context(), id)
 			}(uint32(i)) // #nosec G115
 		}
 

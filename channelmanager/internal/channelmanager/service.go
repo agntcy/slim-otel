@@ -102,8 +102,6 @@ func (s *ChannelManagerServer) handleDeleteChannel(ctx context.Context, msgID ui
 
 	channelStr := channel.String()
 
-	// TODO: remove all the routes for the participants in the channel
-
 	session, err := s.channels.RemoveSessionByName(ctx, channelStr)
 	if err != nil {
 		return s.errorResponse(msgID, fmt.Sprintf("failed to delete channel %s: %v", channelStr, err))

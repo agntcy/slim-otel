@@ -5,82 +5,85 @@ A simple command-line client for interacting with the Channel Manager gRPC servi
 ## Building
 
 ```bash
-task channelmanager:client:build
+task channelmanager:cmctl:build
 ```
 
 Or using go directly:
 ```bash
-cd channelmanager/cmtl
+cd channelmanager/cmd/cmctl
 go build -o cmctl
 ```
 
 ## Usage
 
 ```bash
-./cmctl [flags]
+./cmctl <command> [channel] [participant] [options]
 ```
 
-### Flags
+### Positional Arguments
+
+- `command`: Command to execute (required)
+- `channel`: Channel name (required for channel-specific commands)
+- `participant`: Participant name (required for participant commands)
+
+### Options
 
 - `-server`: gRPC server address (default: `localhost:46358`)
-- `-command`: Command to send
-- `-channel`: Channel name (required for channel-specific commands)
-- `-participant`: Participant name (required for participant commands)
-- `-mls`: Enable MLS for channel creation (default: `false`)
+- `-disable-mls`: Disable MLS for channel creation (MLS is enabled by default)
 
 ### Available Commands
 
 #### Create a new channel
 ```bash
-./cmctl -command create-channel -channel "org/ns/channel"
+./cmctl create-channel org/ns/channel
 ```
 
-Create a channel with MLS enabled:
+Create a channel with MLS disabled:
 ```bash
-./cmctl -command create-channel -channel "org/ns/channel" -mls
+./cmctl create-channel org/ns/channel -disable-mls
 ```
 
 #### Delete a channel
 ```bash
-./cmctl -command delete-channel -channel "org/ns/channel"
+./cmctl delete-channel org/ns/channel
 ```
 
 #### Add a participant to a channel
 ```bash
-./cmctl -command add-participant -channel "org/ns/channel" -participant "agntcy/ns/participant"
+./cmctl add-participant org/ns/channel agntcy/ns/participant
 ```
 
 #### Remove a participant from a channel
 ```bash
-./cmctl -command delete-participant -channel "org/ns/channel" -participant "agntcy/ns/participant"
+./cmctl delete-participant org/ns/channel agntcy/ns/participant
 ```
 
 #### List all channels (returns only the list handled by this channel-manager)
 ```bash
-./cmctl -command list-channels
+./cmctl list-channels
 ```
 
 #### List participants in a channel
 ```bash
-./cmctl -command list-participants -channel "org/ns/channel"
+./cmctl list-participants org/ns/channel
 ```
 
 ### Examples
 
 Connect to a different server:
 ```bash
-./cmctl -server "192.168.1.100:46358" -command list-channels
+./cmctl list-channels -server "192.168.1.100:46358"
 ```
 
 Create a channel and add participants:
 ```bash
-# Create channel
-./cmctl -command create-channel -channel "team-chat"
+# Create channel with MLS enabled (default)
+./cmctl create-channel team-chat
 
 # Add participants
-./cmctl -command add-participant -channel "org/ns/channel" -participant "org/ns/channel"
-./cmctl -command add-participant -channel "org/ns/channel" -participant "org/ns/channel"
+./cmctl add-participant org/ns/channel org/ns/participant-1
+./cmctl add-participant org/ns/channel org/ns/participant-2
 
 # List participants
-./cmctl -command list-participants -channel "org/ns/channel"
+./cmctl list-participants org/ns/channel
 ```

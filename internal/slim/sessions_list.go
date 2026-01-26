@@ -20,7 +20,7 @@ type SessionsList struct {
 	mutex      sync.RWMutex
 	signalType SignalType
 	// map of session ID to Session
-	sessionsById map[uint32]*slim.Session
+	sessionsByID map[uint32]*slim.Session
 	// map of session Name to Session
 	// used to check if there are duplicate sessions by name
 	sessionsByName map[string]*slim.Session
@@ -30,7 +30,7 @@ type SessionsList struct {
 func NewSessionsList(signalType SignalType) *SessionsList {
 	return &SessionsList{
 		signalType:     signalType,
-		sessionsById:   make(map[uint32]*slim.Session),
+		sessionsByID:   make(map[uint32]*slim.Session),
 		sessionsByName: make(map[string]*slim.Session),
 	}
 }
@@ -38,8 +38,8 @@ func NewSessionsList(signalType SignalType) *SessionsList {
 func (s *SessionsList) AddSession(_ context.Context, session *slim.Session) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if s.sessionsById == nil {
-		s.sessionsById = make(map[uint32]*slim.Session)
+	if s.sessionsByID == nil {
+		s.sessionsByID = make(map[uint32]*slim.Session)
 		s.sessionsByName = make(map[string]*slim.Session)
 	}
 	id, err := session.SessionId()
@@ -51,13 +51,13 @@ func (s *SessionsList) AddSession(_ context.Context, session *slim.Session) erro
 		return fmt.Errorf("session name is not set")
 	}
 	// check if session with the same id or name already exists
-	if _, exists := s.sessionsById[id]; exists {
+	if _, exists := s.sessionsByID[id]; exists {
 		return fmt.Errorf("session with id %d already exists", id)
 	}
 	if _, exists := s.sessionsByName[name.String()]; exists {
 		return fmt.Errorf("session with name %s already exists", name)
 	}
-	s.sessionsById[id] = session
+	s.sessionsByID[id] = session
 	s.sessionsByName[name.String()] = session
 
 	fmt.Print("Added session: ID=", id, ", Name=", name.String(), "\n")
@@ -71,13 +71,13 @@ func (s *SessionsList) AddSession(_ context.Context, session *slim.Session) erro
 	return nil
 }
 
-func (s *SessionsList) GetSessionById(_ context.Context, id uint32) (*slim.Session, error) {
+func (s *SessionsList) GetSessionByID(_ context.Context, id uint32) (*slim.Session, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	if s.sessionsById == nil {
+	if s.sessionsByID == nil {
 		return nil, fmt.Errorf("sessions map is nil")
 	}
-	session, exists := s.sessionsById[id]
+	session, exists := s.sessionsByID[id]
 	if !exists {
 		return nil, fmt.Errorf("session with id %d not found", id)
 	}
@@ -104,8 +104,8 @@ func (s *SessionsList) GetSessionByName(_ context.Context, name string) (*slim.S
 	return session, nil
 }
 
-func (s *SessionsList) RemoveSessionById(_ context.Context, id uint32) (*slim.Session, error) {
-	session, err := s.GetSessionById(context.Background(), id)
+func (s *SessionsList) RemoveSessionByID(_ context.Context, id uint32) (*slim.Session, error) {
+	session, err := s.GetSessionByID(context.Background(), id)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (s *SessionsList) RemoveSessionById(_ context.Context, id uint32) (*slim.Se
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	delete(s.sessionsById, id)
+	delete(s.sessionsByID, id)
 	delete(s.sessionsByName, name.String())
 	return session, nil
 }
@@ -137,25 +137,25 @@ func (s *SessionsList) RemoveSessionByName(_ context.Context, name string) (*sli
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	delete(s.sessionsById, id)
+	delete(s.sessionsByID, id)
 	delete(s.sessionsByName, name)
 	return session, nil
 }
 
 func (s *SessionsList) ListSessionNames(ctx context.Context) []string {
-	if s.sessionsById == nil {
+	if s.sessionsByID == nil {
 		// nothing to do
 		return []string{}
 	}
 
 	s.mutex.RLock()
 	// get the keys to avoid holding the lock during PublishAndWait
-	keys := maps.Keys(s.sessionsById)
+	keys := maps.Keys(s.sessionsByID)
 	s.mutex.RUnlock()
 
 	var sessionNames []string
 	for id := range keys {
-		session, ok := s.sessionsById[id]
+		session, ok := s.sessionsByID[id]
 		if !ok {
 			// the session is no longer in the map, skip it
 			continue
@@ -183,12 +183,12 @@ func (s *SessionsList) DeleteAll(ctx context.Context, app *slim.App) {
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if s.sessionsById == nil {
+	if s.sessionsByID == nil {
 		// nothing to do
 		return
 	}
 
-	for id, session := range s.sessionsById {
+	for id, session := range s.sessionsByID {
 		if err := app.DeleteSessionAndWait(session); err != nil {
 			// log and continue
 			logger.Warn("failed to delete session",
@@ -199,7 +199,7 @@ func (s *SessionsList) DeleteAll(ctx context.Context, app *slim.App) {
 
 	logger.Info("All sessions deleted for signal", zap.String("signal_type", string(s.signalType)))
 
-	s.sessionsById = nil
+	s.sessionsByID = nil
 	s.sessionsByName = nil
 }
 
@@ -211,7 +211,7 @@ func (s *SessionsList) PublishToAll(ctx context.Context, data []byte) ([]uint32,
 		return nil, fmt.Errorf("missing data")
 	}
 
-	if s.sessionsById == nil {
+	if s.sessionsByID == nil {
 		// nothing to do
 		logger.Debug("No sessions to publish to", zap.String("signal_name", string(s.signalType)))
 		return nil, nil
@@ -219,12 +219,12 @@ func (s *SessionsList) PublishToAll(ctx context.Context, data []byte) ([]uint32,
 
 	s.mutex.RLock()
 	// get the keys to avoid holding the lock during PublishAndWait
-	keys := maps.Keys(s.sessionsById)
+	keys := maps.Keys(s.sessionsByID)
 	s.mutex.RUnlock()
 
 	var closedSessions []uint32
 	for id := range keys {
-		session, ok := s.sessionsById[id]
+		session, ok := s.sessionsByID[id]
 		if !ok {
 			// the session is no longer in the map, skip it
 			continue
