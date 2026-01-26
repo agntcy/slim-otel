@@ -163,6 +163,8 @@ func listenForSessions(ctx context.Context, e *slimExporter) {
 
 // newSlimExporter creates a new instance of the slim exporter
 func newSlimExporter(ctx context.Context, cfg *Config, signalType slimcommon.SignalType) (*slimExporter, error) {
+	logger := slimcommon.LoggerFromContextOrDefault(ctx)
+	logger.Info("call new slim exporter", zap.String("signal", string(signalType)))
 	app, connID, err := CreateApp(ctx, cfg, signalType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create/connect app: %w", err)

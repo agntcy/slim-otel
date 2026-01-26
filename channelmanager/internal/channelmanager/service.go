@@ -56,13 +56,14 @@ func (s *ChannelManagerServer) Command(ctx context.Context, req *ControlMessage)
 // handleCreateChannel creates a new channel
 func (s *ChannelManagerServer) handleCreateChannel(ctx context.Context, msgID uint64, req *CreateChannelRequest) (*ControlMessage, error) {
 	// check if the channel already exists
-	if _, err := s.channels.GetSessionByName(ctx, req.ChannelName); err == nil {
-		return s.errorResponse(msgID, fmt.Sprintf("channel %s already exists", req.ChannelName))
-	}
-
 	channel, err := slimcommon.SplitID(req.ChannelName)
 	if err != nil {
 		return s.errorResponse(msgID, fmt.Sprintf("invalid channel name: %s", req.ChannelName))
+	}
+
+	channelStr := channel.String()
+	if _, err := s.channels.GetSessionByName(ctx, channelStr); err == nil {
+		return s.errorResponse(msgID, fmt.Sprintf("channel %s already exists", channelStr))
 	}
 
 	// create a new session for the channel
@@ -78,40 +79,56 @@ func (s *ChannelManagerServer) handleCreateChannel(ctx context.Context, msgID ui
 
 	session, err := s.app.CreateSessionAndWait(sessionConfig, channel)
 	if err != nil {
-		return s.errorResponse(msgID, fmt.Sprintf("failed to create channel %s", req.ChannelName))
+		return s.errorResponse(msgID, fmt.Sprintf("failed to create channel %s", channelStr))
 	}
 
 	err = s.channels.AddSession(ctx, session)
 	if err != nil {
 		_ = s.app.DeleteSessionAndWait(session)
-		return s.errorResponse(msgID, fmt.Sprintf("failed to complete channel %s creation ", req.ChannelName))
+		return s.errorResponse(msgID, fmt.Sprintf("failed to complete channel %s creation ", channelStr))
 	}
 
-	slimcommon.LoggerFromContextOrDefault(ctx).Info("Created channel", zap.String("channel", req.ChannelName))
+	slimcommon.LoggerFromContextOrDefault(ctx).Info("Created channel", zap.String("channel", channelStr))
 	return s.successResponse(msgID)
 
 }
 
 // handleDeleteChannel deletes a channel
 func (s *ChannelManagerServer) handleDeleteChannel(ctx context.Context, msgID uint64, req *DeleteChannelRequest) (*ControlMessage, error) {
-	session, err := s.channels.RemoveSessionByName(ctx, req.ChannelName)
+	channel, err := slimcommon.SplitID(req.ChannelName)
 	if err != nil {
-		return s.errorResponse(msgID, fmt.Sprintf("failed to delete channel %s: %v", req.ChannelName, err))
+		return s.errorResponse(msgID, fmt.Sprintf("invalid channel name: %s", req.ChannelName))
+	}
+
+	channelStr := channel.String()
+
+	// TODO: remove all the routes for the participants in the channel
+
+	session, err := s.channels.RemoveSessionByName(ctx, channelStr)
+	if err != nil {
+		return s.errorResponse(msgID, fmt.Sprintf("failed to delete channel %s: %v", channelStr, err))
 	}
 
 	if err = s.app.DeleteSessionAndWait(session); err != nil {
-		return s.errorResponse(msgID, fmt.Sprintf("failed to delete channel %s: %v", req.ChannelName, err))
+		return s.errorResponse(msgID, fmt.Sprintf("failed to delete channel %s: %v", channelStr, err))
 	}
 
-	slimcommon.LoggerFromContextOrDefault(ctx).Info("Deleted channel", zap.String("channel", req.ChannelName))
+	slimcommon.LoggerFromContextOrDefault(ctx).Info("Deleted channel", zap.String("channel", channelStr))
 	return s.successResponse(msgID)
 }
 
 // handleAddParticipant adds a participant to a channel
 func (s *ChannelManagerServer) handleAddParticipant(ctx context.Context, msgID uint64, req *AddParticipantRequest) (*ControlMessage, error) {
-	session, err := s.channels.GetSessionByName(ctx, req.ChannelName)
+	channel, err := slimcommon.SplitID(req.ChannelName)
 	if err != nil {
-		return s.errorResponse(msgID, fmt.Sprintf("failed to get channel %s: %v", req.ChannelName, err))
+		return s.errorResponse(msgID, fmt.Sprintf("invalid channel name: %s", req.ChannelName))
+	}
+
+	channelStr := channel.String()
+
+	session, err := s.channels.GetSessionByName(ctx, channelStr)
+	if err != nil {
+		return s.errorResponse(msgID, fmt.Sprintf("failed to get channel %s: %v", channelStr, err))
 	}
 
 	participantName, err := slimcommon.SplitID(req.ParticipantName)
@@ -119,19 +136,30 @@ func (s *ChannelManagerServer) handleAddParticipant(ctx context.Context, msgID u
 		return s.errorResponse(msgID, fmt.Sprintf("invalid participant name: %s", req.ParticipantName))
 	}
 
-	if err = session.InviteAndWait(participantName); err != nil {
-		return s.errorResponse(msgID, fmt.Sprintf("failed to invite participant %s to channel %s: %v", req.ParticipantName, req.ChannelName, err))
+	if err = s.app.SetRoute(participantName, s.connID); err != nil {
+		return s.errorResponse(msgID, fmt.Sprintf("failed to set route for participant %s: %v", req.ParticipantName, err))
 	}
 
-	slimcommon.LoggerFromContextOrDefault(ctx).Info("Participant added", zap.String("channel", req.ChannelName), zap.String("participant", req.ParticipantName))
+	if err = session.InviteAndWait(participantName); err != nil {
+		return s.errorResponse(msgID, fmt.Sprintf("failed to invite participant %s to channel %s: %v", req.ParticipantName, channelStr, err))
+	}
+
+	slimcommon.LoggerFromContextOrDefault(ctx).Info("Participant added", zap.String("channel", channelStr), zap.String("participant", req.ParticipantName))
 	return s.successResponse(msgID)
 }
 
 // handleDeleteParticipant removes a participant from a channel
 func (s *ChannelManagerServer) handleDeleteParticipant(ctx context.Context, msgID uint64, req *DeleteParticipantRequest) (*ControlMessage, error) {
-	session, err := s.channels.GetSessionByName(ctx, req.ChannelName)
+	channel, err := slimcommon.SplitID(req.ChannelName)
 	if err != nil {
-		return s.errorResponse(msgID, fmt.Sprintf("failed to get channel %s: %v", req.ChannelName, err))
+		return s.errorResponse(msgID, fmt.Sprintf("invalid channel name: %s", req.ChannelName))
+	}
+
+	channelStr := channel.String()
+
+	session, err := s.channels.GetSessionByName(ctx, channelStr)
+	if err != nil {
+		return s.errorResponse(msgID, fmt.Sprintf("failed to get channel %s: %v", channelStr, err))
 	}
 
 	participantName, err := slimcommon.SplitID(req.ParticipantName)
@@ -140,15 +168,15 @@ func (s *ChannelManagerServer) handleDeleteParticipant(ctx context.Context, msgI
 	}
 
 	if err = session.RemoveAndWait(participantName); err != nil {
-		return s.errorResponse(msgID, fmt.Sprintf("failed to remove participant %s from channel %s: %v", req.ParticipantName, req.ChannelName, err))
+		return s.errorResponse(msgID, fmt.Sprintf("failed to remove participant %s from channel %s: %v", req.ParticipantName, channelStr, err))
 	}
 
-	slimcommon.LoggerFromContextOrDefault(ctx).Info("Participant deleted", zap.String("channel", req.ChannelName), zap.String("participant", req.ParticipantName))
+	slimcommon.LoggerFromContextOrDefault(ctx).Info("Participant deleted", zap.String("channel", channelStr), zap.String("participant", req.ParticipantName))
 	return s.successResponse(msgID)
 }
 
 // handleListChannels returns a list of all channels
-func (s *ChannelManagerServer) handleListChannels(ctx context.Context, msgID uint64, req *ListChannelsRequest) (*ControlMessage, error) {
+func (s *ChannelManagerServer) handleListChannels(ctx context.Context, msgID uint64, _ *ListChannelsRequest) (*ControlMessage, error) {
 	channels := s.channels.ListSessionNames(ctx)
 
 	slimcommon.LoggerFromContextOrDefault(ctx).Info("Listing channels",
@@ -159,14 +187,21 @@ func (s *ChannelManagerServer) handleListChannels(ctx context.Context, msgID uin
 
 // handleListParticipants returns a list of participants in a channel
 func (s *ChannelManagerServer) handleListParticipants(ctx context.Context, msgID uint64, req *ListParticipantsRequest) (*ControlMessage, error) {
-	session, err := s.channels.GetSessionByName(ctx, req.ChannelName)
+	channel, err := slimcommon.SplitID(req.ChannelName)
 	if err != nil {
-		return s.errorResponse(msgID, fmt.Sprintf("failed to get channel %s: %v", req.ChannelName, err))
+		return s.errorResponse(msgID, fmt.Sprintf("invalid channel name: %s", req.ChannelName))
+	}
+
+	channelStr := channel.String()
+
+	session, err := s.channels.GetSessionByName(ctx, channelStr)
+	if err != nil {
+		return s.errorResponse(msgID, fmt.Sprintf("failed to get channel %s: %v", channelStr, err))
 	}
 
 	participants, err := session.ParticipantsList()
 	if err != nil {
-		return s.errorResponse(msgID, fmt.Sprintf("failed to list participants for channel %s: %v", req.ChannelName, err))
+		return s.errorResponse(msgID, fmt.Sprintf("failed to list participants for channel %s: %v", channelStr, err))
 	}
 
 	participantNames := make([]string, 0, len(participants))
@@ -175,7 +210,7 @@ func (s *ChannelManagerServer) handleListParticipants(ctx context.Context, msgID
 	}
 
 	slimcommon.LoggerFromContextOrDefault(ctx).Info("Listing participants",
-		zap.String("channel", req.ChannelName),
+		zap.String("channel", channelStr),
 		zap.Int("count", len(participantNames)))
 
 	return s.listParticipantResponse(msgID, participantNames)

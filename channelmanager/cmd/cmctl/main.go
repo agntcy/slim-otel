@@ -7,6 +7,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"math/rand/v2"
 	"time"
 
 	pb "github.com/agntcy/slim/otel/channelmanager/internal/channelmanager"
@@ -18,25 +19,23 @@ import (
 func printUsage() {
 	fmt.Println("cmctl - Channel Manager Control Tool")
 	fmt.Println("\nUsage:")
-	fmt.Println("  cmctl -command <command> [options]")
+	fmt.Println("  cmctl <command> [channel] [participant] [options]")
 	fmt.Println("\nAvailable commands:")
 	fmt.Println("  list-channels              List all channels")
-	fmt.Println("  list-participants          List participants in a channel (requires -channel)")
-	fmt.Println("  create-channel             Create a new channel (requires -channel, optional -mls)")
-	fmt.Println("  delete-channel             Delete a channel (requires -channel)")
-	fmt.Println("  add-participant            Add participant to channel (requires -channel and -participant)")
-	fmt.Println("  delete-participant         Remove participant from channel (requires -channel and -participant)")
+	fmt.Println("  list-participants          List participants in a channel")
+	fmt.Println("  create-channel             Create a new channel")
+	fmt.Println("  delete-channel             Delete a channel")
+	fmt.Println("  add-participant            Add participant to channel")
+	fmt.Println("  delete-participant         Remove participant from channel")
 	fmt.Println("\nOptions:")
 	fmt.Println("  -server <address>          gRPC server address (default: localhost:46358)")
-	fmt.Println("  -command <command>         Command to execute")
-	fmt.Println("  -channel <name>            Channel name")
-	fmt.Println("  -participant <name>        Participant name")
 	fmt.Println("  -mls                       Enable MLS for channel creation (default: false)")
 	fmt.Println("\nExamples:")
-	fmt.Println("  cmctl -command list-channels")
-	fmt.Println("  cmctl -command create-channel -channel my-channel -mls")
-	fmt.Println("  cmctl -command list-participants -channel my-channel")
-	fmt.Println("  cmctl -command add-participant -channel my-channel -participant user1")
+	fmt.Println("  cmctl list-channels")
+	fmt.Println("  cmctl create-channel my-channel -mls")
+	fmt.Println("  cmctl list-participants my-channel")
+	fmt.Println("  cmctl add-participant my-channel user1")
+	fmt.Println("  cmctl delete-channel test/test/test")
 	fmt.Println()
 }
 
@@ -50,14 +49,33 @@ func main() {
 
 	// Parse command-line flags
 	serverAddr := flag.String("server", "localhost:46358", "gRPC server address")
-	command := flag.String("command", "", "Command to send (list-channels, list-participants, create-channel, delete-channel, add-participant, delete-participant)")
-	channelName := flag.String("channel", "", "Channel name")
-	participantName := flag.String("participant", "", "Participant name")
 	mlsEnabled := flag.Bool("mls", false, "Enable MLS for channel creation")
 	flag.Parse()
 
+	// Parse positional arguments
+	args := flag.Args()
+
+	var command, channelName, participantName string
+
+	// First positional argument is the command
+	if len(args) > 0 {
+		command = args[0]
+		args = args[1:]
+	}
+
+	// Second positional argument is the channel name
+	if len(args) > 0 {
+		channelName = args[0]
+		args = args[1:]
+	}
+
+	// Third positional argument is the participant name
+	if len(args) > 0 {
+		participantName = args[0]
+	}
+
 	// Check if command is provided
-	if *command == "" {
+	if command == "" {
 		printUsage()
 		logger.Fatal("No command specified")
 	}
@@ -77,60 +95,60 @@ func main() {
 
 	// Create and send the command
 	var req *pb.ControlMessage
-	msgID := uint64(time.Now().UnixNano())
+	msgID := rand.Uint64()
 
-	switch *command {
+	switch command {
 	case "create-channel":
-		if *channelName == "" {
+		if channelName == "" {
 			logger.Fatal("Channel name is required for create-channel command")
 		}
 		req = &pb.ControlMessage{
 			MgsId: msgID,
 			Payload: &pb.ControlMessage_CreateChannelRequest{
 				CreateChannelRequest: &pb.CreateChannelRequest{
-					ChannelName: *channelName,
+					ChannelName: channelName,
 					MlsEnabled:  *mlsEnabled,
 				},
 			},
 		}
 
 	case "delete-channel":
-		if *channelName == "" {
+		if channelName == "" {
 			logger.Fatal("Channel name is required for delete-channel command")
 		}
 		req = &pb.ControlMessage{
 			MgsId: msgID,
 			Payload: &pb.ControlMessage_DeleteChannelRequest{
 				DeleteChannelRequest: &pb.DeleteChannelRequest{
-					ChannelName: *channelName,
+					ChannelName: channelName,
 				},
 			},
 		}
 
 	case "add-participant":
-		if *channelName == "" || *participantName == "" {
+		if channelName == "" || participantName == "" {
 			logger.Fatal("Channel name and participant name are required for add-participant command")
 		}
 		req = &pb.ControlMessage{
 			MgsId: msgID,
 			Payload: &pb.ControlMessage_AddParticipantRequest{
 				AddParticipantRequest: &pb.AddParticipantRequest{
-					ChannelName:     *channelName,
-					ParticipantName: *participantName,
+					ChannelName:     channelName,
+					ParticipantName: participantName,
 				},
 			},
 		}
 
 	case "delete-participant":
-		if *channelName == "" || *participantName == "" {
+		if channelName == "" || participantName == "" {
 			logger.Fatal("Channel name and participant name are required for delete-participant command")
 		}
 		req = &pb.ControlMessage{
 			MgsId: msgID,
 			Payload: &pb.ControlMessage_DeleteParticipantRequest{
 				DeleteParticipantRequest: &pb.DeleteParticipantRequest{
-					ChannelName:     *channelName,
-					ParticipantName: *participantName,
+					ChannelName:     channelName,
+					ParticipantName: participantName,
 				},
 			},
 		}
@@ -144,25 +162,25 @@ func main() {
 		}
 
 	case "list-participants":
-		if *channelName == "" {
+		if channelName == "" {
 			logger.Fatal("Channel name is required for list-participants command")
 		}
 		req = &pb.ControlMessage{
 			MgsId: msgID,
 			Payload: &pb.ControlMessage_ListParticipantsRequest{
 				ListParticipantsRequest: &pb.ListParticipantsRequest{
-					ChannelName: *channelName,
+					ChannelName: channelName,
 				},
 			},
 		}
 
 	default:
 		printUsage()
-		logger.Fatal("Unknown command", zap.String("command", *command))
+		logger.Fatal("Unknown command", zap.String("command", command))
 	}
 
 	// Send the command
-	logger.Info("Sending command", zap.String("command", *command), zap.Uint64("msg_id", msgID))
+	logger.Info("Sending command", zap.String("command", command), zap.Uint64("msg_id", msgID))
 	resp, err := client.Command(ctx, req)
 	if err != nil {
 		logger.Fatal("Failed to send command", zap.Error(err))
