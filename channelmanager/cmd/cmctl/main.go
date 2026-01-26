@@ -29,13 +29,13 @@ func printUsage() {
 	fmt.Println("  delete-participant         Remove participant from channel")
 	fmt.Println("\nOptions:")
 	fmt.Println("  -server <address>          gRPC server address (default: localhost:46358)")
-	fmt.Println("  -mls                       Enable MLS for channel creation (default: false)")
+	fmt.Println("  -disable-mls               Disable MLS for channel creation (default: false)")
 	fmt.Println("\nExamples:")
 	fmt.Println("  cmctl list-channels")
-	fmt.Println("  cmctl create-channel my-channel -mls")
-	fmt.Println("  cmctl list-participants my-channel")
-	fmt.Println("  cmctl add-participant my-channel user1")
-	fmt.Println("  cmctl delete-channel test/test/test")
+	fmt.Println("  cmctl create-channel agntcy/ns/channel -disable-mls")
+	fmt.Println("  cmctl list-participants agntcy/ns/channel")
+	fmt.Println("  cmctl add-participant agntcy/ns/channel agntcy/ns/participant")
+	fmt.Println("  cmctl delete-channel agntcy/ns/channel")
 	fmt.Println()
 }
 
@@ -49,7 +49,7 @@ func main() {
 
 	// Parse command-line flags
 	serverAddr := flag.String("server", "localhost:46358", "gRPC server address")
-	mlsEnabled := flag.Bool("mls", false, "Enable MLS for channel creation")
+	mlsDisabled := flag.Bool("disable-mls", false, "Disable MLS for channel creation")
 	flag.Parse()
 
 	// Parse positional arguments
@@ -107,7 +107,7 @@ func main() {
 			Payload: &pb.ControlMessage_CreateChannelRequest{
 				CreateChannelRequest: &pb.CreateChannelRequest{
 					ChannelName: channelName,
-					MlsEnabled:  *mlsEnabled,
+					MlsEnabled:  !*mlsDisabled,
 				},
 			},
 		}

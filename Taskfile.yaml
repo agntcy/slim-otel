@@ -231,7 +231,7 @@ tasks:
     dir: channelmanager/cmd/cmctl
     cmds:
       - echo "Building cmctl..."
-      - go build -o cmctl .
+      - go build -a -o cmctl .
       - echo "cmctl built successfully"
 
   # Docker tasks

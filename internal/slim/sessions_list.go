@@ -230,10 +230,8 @@ func (s *SessionsList) PublishToAll(ctx context.Context, data []byte) ([]uint32,
 			continue
 		}
 
-		dst, _ := session.Destination()
 		logger.Info("Publishing "+string(s.signalType)+" to session",
-			zap.Uint32("session_id", id),
-			zap.String("destination", dst.String()))
+			zap.Uint32("session_id", id))
 
 		if err := session.PublishAndWait(data, nil, nil); err != nil {
 			if strings.Contains(err.Error(), "Session already closed or dropped") {
