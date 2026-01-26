@@ -8,7 +8,7 @@ import (
 	"go.opentelemetry.io/collector/exporter"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
 
-	common "github.com/agntcy/slim/otel"
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
 const (
@@ -34,7 +34,11 @@ func NewFactory() exporter.Factory {
 func createDefaultConfig() component.Config {
 	return &Config{
 		SlimEndpoint: "http://127.0.0.1:46357",
-		LocalName:    "agntcy/otel/exporter",
+		ExporterNames: SignalNames{
+			Metrics: "agntcy/otel/exporter-metrics",
+			Traces:  "agntcy/otel/exporter-traces",
+			Logs:    "agntcy/otel/exporter-logs",
+		},
 	}
 }
 
@@ -50,7 +54,8 @@ func createTracesExporter(
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	exp, err := newSlimExporter(exporterConfig, set.Logger, common.SignalTraces)
+	ctx = slimcommon.InitContextWithLogger(ctx, set.Logger)
+	exp, err := newSlimExporter(ctx, exporterConfig, slimcommon.SignalTraces)
 	if err != nil {
 		return nil, fmt.Errorf("error creating the exporter: %w", err)
 	}
@@ -77,7 +82,8 @@ func createMetricsExporter(
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	exp, err := newSlimExporter(exporterConfig, set.Logger, common.SignalMetrics)
+	ctx = slimcommon.InitContextWithLogger(ctx, set.Logger)
+	exp, err := newSlimExporter(ctx, exporterConfig, slimcommon.SignalMetrics)
 	if err != nil {
 		return nil, fmt.Errorf("error creating the exporter: %w", err)
 	}
@@ -104,7 +110,8 @@ func createLogsExporter(
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	exp, err := newSlimExporter(exporterConfig, set.Logger, common.SignalLogs)
+	ctx = slimcommon.InitContextWithLogger(ctx, set.Logger)
+	exp, err := newSlimExporter(ctx, exporterConfig, slimcommon.SignalLogs)
 	if err != nil {
 		return nil, fmt.Errorf("error creating the exporter: %w", err)
 	}

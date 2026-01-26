@@ -5,4 +5,14 @@ ocb
 slim-otelcol/
 
 # Coverage reports
-slimexporter/slimexporter-coverage.out
+*-coverage.out
+
+# Test binaries
+*.test
+
+# Built binaries
+testapp/testapp
+
+# Temporary directories and tools
+.tmp/
+.tools/

@@ -110,6 +110,7 @@ tasks:
         done
 
   tools:
+    internal: true
     desc: Download tools
     cmds:
       - task: tools:protoc

@@ -6,7 +6,8 @@ dist:
 
 replaces:
   - github.com/agntcy/slim/otel => ..
-  - github.com/agntcy/slim/otel/slimexporter => ../slimexporter
+  - github.com/agntcy/slim/otel/slimexporter => ../exporter/slimexporter
+  - github.com/agntcy/slim/bindings/generated => /Users/micpapal/Documents/code/agntcy/slim/data-plane/bindings/go/generated
 
 exporters:
   - gomod: github.com/agntcy/slim/otel/slimexporter v0.0.1

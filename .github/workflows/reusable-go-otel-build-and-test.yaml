@@ -117,7 +117,7 @@ jobs:
           which go
           go env
 
-          task collector:lint collector:impi
+          task lint impi
 
   govulncheck:
     runs-on: ${{ inputs.runner }}
@@ -146,7 +146,7 @@ jobs:
           which go
           go env
 
-          task collector:vuln
+          task vuln
 
   unittest-matrix:
     runs-on: ${{ inputs.runner }}
@@ -230,7 +230,7 @@ jobs:
           which go
           go env
 
-          task collector:coverage
+          task coverage-reports
 
   cross-build:
     name: "${{ matrix.platform.target }}"

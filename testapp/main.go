@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"os"
 	"os/signal"
 	"strings"
@@ -14,11 +13,35 @@ import (
 	"syscall"
 	"time"
 
+	"go.opentelemetry.io/collector/pdata/plog"
+	"go.opentelemetry.io/collector/pdata/pmetric"
+	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
 
 	slim "github.com/agntcy/slim-bindings-go"
-	common "github.com/agntcy/slim/otel"
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
+
+// detectSignalType attempts to determine the signal type of an OTLP payload
+func detectSignalType(payload []byte) string {
+	// Try traces
+	if traces, err := (&ptrace.ProtoUnmarshaler{}).UnmarshalTraces(payload); err == nil && traces.SpanCount() > 0 {
+		return "traces"
+	}
+
+	// Try metrics
+	metrics, err := (&pmetric.ProtoUnmarshaler{}).UnmarshalMetrics(payload)
+	if err == nil && metrics.DataPointCount() > 0 {
+		return "metrics"
+	}
+
+	// Try logs
+	if logs, err := (&plog.ProtoUnmarshaler{}).UnmarshalLogs(payload); err == nil && logs.LogRecordCount() > 0 {
+		return "logs"
+	}
+
+	return "unknown"
+}
 
 func main() {
 	// Initialize zap logger
@@ -34,15 +57,49 @@ func main() {
 	serverAddr := flag.String("server", "http://localhost:46357", "SLIM server address")
 	sharedSecret := flag.String("secret", "a-very-long-shared-secret-0123456789-abcdefg",
 		"Shared secret for authentication")
-	exporterNameStr := flag.String("exporter-name", "",
-		"Optional: exporter application name to invite to sessions")
-	channelNameStr := flag.String("channel-name", "",
-		"Optional: channel name to receive telemetry, required if the exporter name is provided")
+	channelNameMetricsStr := flag.String("channel-name-metrics", "",
+		"Optional: channel name to receive telemetry for metrics, required if the exporter name is provided")
+	channelNameTracesStr := flag.String("channel-name-traces", "",
+		"Optional: channel name to receive telemetry for traces, required if the exporter name is provided")
+	channelNameLogsStr := flag.String("channel-name-logs", "",
+		"Optional: channel name to receive telemetry for logs, required if the exporter name is provided")
+	exporterNameMetricsStr := flag.String("exporter-name-metrics", "",
+		"Optional: exporter application name to invite to sessions for metrics")
+	exporterNameTracesStr := flag.String("exporter-name-traces", "",
+		"Optional: exporter application name to invite to sessions for traces")
+	exporterNameLogsStr := flag.String("exporter-name-logs", "",
+		"Optional: exporter application name to invite to sessions for logs")
 	mlsEnabled := flag.Bool("mls-enabled", false, "Whether to use MLS")
 	flag.Parse()
 
+	// check the configuration
+	if (*exporterNameMetricsStr != "" && *channelNameMetricsStr == "") ||
+		(*exporterNameTracesStr != "" && *channelNameTracesStr == "") ||
+		(*exporterNameLogsStr != "" && *channelNameLogsStr == "") {
+		logger.Fatal(
+			"channel-name-metrics, channel-name-traces, and channel-name-logs " +
+				"must be provided when the corresponding exporter-name is set",
+		)
+	}
+
+	logger.Info("Starting SLIM test application",
+		zap.String("appName", *appNameStr),
+		zap.String("serverAddr", *serverAddr),
+		zap.String("channelNameMetrics", *channelNameMetricsStr),
+		zap.String("channelNameTraces", *channelNameTracesStr),
+		zap.String("channelNameLogs", *channelNameLogsStr),
+		zap.String("exporterNameMetrics", *exporterNameMetricsStr),
+		zap.String("exporterNameTraces", *exporterNameTracesStr),
+		zap.String("exporterNameLogs", *exporterNameLogsStr),
+		zap.Bool("mlsEnabled", *mlsEnabled),
+	)
+
 	// Create and connect app
-	app, connID, err := common.CreateAndConnectApp(*appNameStr, *serverAddr, *sharedSecret)
+	connID, err := slimcommon.InitAndConnect(*serverAddr)
+	if err != nil {
+		logger.Fatal("Failed to connect to SLIM server", zap.Error(err))
+	}
+	app, err := slimcommon.CreateApp(*appNameStr, *sharedSecret, connID, slim.DirectionRecv)
 	if err != nil {
 		logger.Fatal("Failed to create/connect app", zap.Error(err))
 	}
@@ -65,13 +122,12 @@ func main() {
 		cancel()
 	}()
 
-	if *exporterNameStr == "" {
+	if *exporterNameMetricsStr == "" && *exporterNameTracesStr == "" && *exporterNameLogsStr == "" {
 		go waitForSessionsAndMessages(ctx, &wg, logger, app)
 	} else {
-		if *channelNameStr == "" {
-			logger.Fatal("channel-name must be provided when inviter-name is set")
-		}
-		initiateSessions(ctx, &wg, logger, app, exporterNameStr, channelNameStr, connID, *mlsEnabled)
+		initiateSessions(ctx, &wg, logger, app, exporterNameMetricsStr,
+			channelNameMetricsStr, exporterNameTracesStr, channelNameTracesStr,
+			exporterNameLogsStr, channelNameLogsStr, connID, *mlsEnabled)
 	}
 
 	// Wait for shutdown signal
@@ -91,6 +147,7 @@ func main() {
 	case <-time.After(15 * time.Second):
 		logger.Warn("Shutdown timeout reached, forcing exit")
 	}
+	logger.Info("Application exited")
 }
 
 // initiateSessions creates and manages outgoing telemetry sessions
@@ -98,88 +155,90 @@ func initiateSessions(
 	ctx context.Context,
 	wg *sync.WaitGroup,
 	logger *zap.Logger,
-	app *slim.BindingsAdapter,
-	exporterNameStr *string,
-	channelNameStr *string,
+	app *slim.App,
+	exporterNameMetricsStr *string,
+	channelNameMetricsStr *string,
+	exporterNameTracesStr *string,
+	channelNameTracesStr *string,
+	exporterNameLogsStr *string,
+	channelNameLogsStr *string,
 	connID uint64,
 	mlsEnabled bool,
 ) {
-	// create names telemetry channel
-	channel := fmt.Sprintf("%s-%s", *channelNameStr, "traces")
-	tracesChannel, err := common.SplitID(channel)
-	if err != nil {
-		logger.Fatal("Invalid traces channel name", zap.Error(err))
+	// create traces, metrics, and logs sessions as needed
+	if channelNameMetricsStr != nil && *channelNameMetricsStr != "" {
+		go createAndHandleSession(ctx, wg, logger, app,
+			exporterNameMetricsStr, channelNameMetricsStr, slimcommon.SignalMetrics, connID, mlsEnabled)
 	}
-	channel = fmt.Sprintf("%s-%s", *channelNameStr, "metrics")
-	metricsChannel, err := common.SplitID(channel)
-	if err != nil {
-		logger.Fatal("Invalid metrics channel name", zap.Error(err))
+	if channelNameTracesStr != nil && *channelNameTracesStr != "" {
+		go createAndHandleSession(ctx, wg, logger, app,
+			exporterNameTracesStr, channelNameTracesStr, slimcommon.SignalTraces, connID, mlsEnabled)
 	}
-	channel = fmt.Sprintf("%s-%s", *channelNameStr, "logs")
-	logsChannel, err := common.SplitID(channel)
-	if err != nil {
-		logger.Fatal("Invalid logs channel name", zap.Error(err))
+	if channelNameLogsStr != nil && *channelNameLogsStr != "" {
+		go createAndHandleSession(ctx, wg, logger, app,
+			exporterNameLogsStr, channelNameLogsStr, slimcommon.SignalLogs, connID, mlsEnabled)
 	}
-	exporterName, err := common.SplitID(*exporterNameStr)
-	if err != nil {
-		logger.Fatal("Invalid application name", zap.Error(err))
-	}
+}
 
-	logger.Info("Create session and invite exporter", zap.String("exporter", *exporterNameStr))
+func createAndHandleSession(
+	ctx context.Context,
+	wg *sync.WaitGroup,
+	logger *zap.Logger,
+	app *slim.App,
+	exporterNameStr *string,
+	channelNameStr *string,
+	signalType slimcommon.SignalType,
+	connID uint64,
+	mlsEnabled bool,
+) {
+	exporterName, err := slimcommon.SplitID(*exporterNameStr)
+	if err != nil {
+		logger.Fatal("Invalid exporter application name", zap.String("exporterName", *exporterNameStr), zap.Error(err))
+	}
+	channelName, err := slimcommon.SplitID(*channelNameStr)
+	if err != nil {
+		logger.Fatal("Invalid channel name", zap.String("channelName", *channelNameStr), zap.Error(err))
+	}
 
 	maxRetries := uint32(10)
-	intervalMs := uint64(1000)
+	interval := time.Millisecond * 1000
 	config := slim.SessionConfig{
 		SessionType: slim.SessionTypeGroup,
 		EnableMls:   mlsEnabled,
 		MaxRetries:  &maxRetries,
-		IntervalMs:  &intervalMs,
-		Initiator:   true,
+		Interval:    &interval,
+		Metadata:    make(map[string]string),
 	}
 
 	err = app.SetRoute(exporterName, connID)
 	if err != nil {
-		logger.Fatal("Failed to set route", zap.Error(err))
+		logger.Fatal("Failed to set route", zap.String("exporterName", *exporterNameStr), zap.Error(err))
 	}
-	// create traces session
-	sessionTraces, err := app.CreateSession(config, tracesChannel)
-	if err != nil {
-		logger.Fatal("Failed to create traces session", zap.Error(err))
-	}
-	err = sessionTraces.Invite(exporterName)
-	if err != nil {
-		logger.Fatal("Failed to invite exporter to traces session", zap.Error(err))
-	}
-	time.Sleep(500 * time.Millisecond)
-	wg.Add(1)
-	go handleSession(ctx, wg, logger, app, sessionTraces, common.SignalTraces)
 
-	// create metrics session
-	sessionMetrics, err := app.CreateSession(config, metricsChannel)
+	session, err := app.CreateSessionAndWait(config, channelName)
 	if err != nil {
-		logger.Fatal("Failed to create metrics session", zap.Error(err))
+		logger.Fatal("Failed to create session", zap.String("channelName", *channelNameStr), zap.Error(err))
 	}
-	err = sessionMetrics.Invite(exporterName)
+	err = session.InviteAndWait(exporterName)
 	if err != nil {
-		logger.Fatal("Failed to invite exporter to metrics session", zap.Error(err))
+		logger.Fatal(
+			"Failed to invite exporter to session",
+			zap.String("exporterName", *exporterNameStr),
+			zap.String("channelName", *channelNameStr),
+			zap.Error(err),
+		)
 	}
-	time.Sleep(500 * time.Millisecond)
-	wg.Add(1)
-	go handleSession(ctx, wg, logger, app, sessionMetrics, common.SignalMetrics)
-	// create logs session
-	sessionLogs, err := app.CreateSession(config, logsChannel)
-	if err != nil {
-		logger.Fatal("Failed to create logs session", zap.Error(err))
-	}
-	err = sessionLogs.Invite(exporterName)
-	if err != nil {
-		logger.Fatal("Failed to invite exporter to logs session", zap.Error(err))
-	}
-	time.Sleep(500 * time.Millisecond)
-	wg.Add(1)
-	go handleSession(ctx, wg, logger, app, sessionLogs, common.SignalLogs)
 
-	logger.Info("Sessions created. Press Ctrl+C to stop")
+	logger.Info(
+		"Create session and invite exporter",
+		zap.String("exporterName", *exporterNameStr),
+		zap.String("channelName", *channelNameStr),
+		zap.String("signalType", string(signalType)),
+	)
+
+	time.Sleep(500 * time.Millisecond)
+	wg.Add(1)
+	go handleSession(ctx, wg, logger, app, session)
 }
 
 // waitForSessionsAndMessages listens for incoming sessions and
@@ -188,7 +247,7 @@ func waitForSessionsAndMessages(
 	ctx context.Context,
 	wg *sync.WaitGroup,
 	logger *zap.Logger,
-	app *slim.BindingsAdapter,
+	app *slim.App,
 ) {
 	logger.Info("Waiting for incoming sessions...")
 	logger.Info("Press Ctrl+C to stop")
@@ -201,7 +260,7 @@ func waitForSessionsAndMessages(
 
 		default:
 			// Wait for new session with timeout
-			timeout := uint32(1000) // 1 sec
+			timeout := time.Second * 1
 			session, err := app.ListenForSession(&timeout)
 			if err != nil {
 				// Timeout is normal, just continue
@@ -214,29 +273,13 @@ func waitForSessionsAndMessages(
 				continue
 			}
 
-			if len(dst.Components) < 3 {
-				logger.Error("session destination has insufficient components")
-				continue
-			}
-
-			// Extract signal type from dst.Components[2] suffix
-			telemetryType := dst.Components[2]
-			signalType, err := common.ExtractSignalType(telemetryType)
-			if err != nil {
-				logger.Error("error extracting signal type", zap.Error(err))
-				continue
-			}
-
-			dstStr := dst.Components[0] + "/" + dst.Components[1] + "/" + dst.Components[2]
-
 			logger.Info(
 				"New session established",
-				zap.String("telemetryType", string(signalType)),
-				zap.String("channelName", dstStr),
+				zap.String("channelName", dst.String()),
 			)
 			// Handle the session in a goroutine
 			wg.Add(1)
-			go handleSession(ctx, wg, logger, app, session, signalType)
+			go handleSession(ctx, wg, logger, app, session)
 		}
 	}
 }
@@ -246,27 +289,24 @@ func handleSession(
 	ctx context.Context,
 	wg *sync.WaitGroup,
 	logger *zap.Logger,
-	app *slim.BindingsAdapter,
-	session *slim.BindingsSessionContext,
-	signalType common.SignalType,
+	app *slim.App,
+	session *slim.Session,
 ) {
 	defer wg.Done()
 
-	sessionNum, err := session.SessionId()
+	dst, err := session.Destination()
 	if err != nil {
-		logger.Error("error getting session ID", zap.Error(err))
-		return
+		logger.Error("error getting destination from new received session", zap.Error(err))
 	}
+	sessionName := dst.String()
 
 	defer func() {
-
-		if err := app.DeleteSession(session); err != nil {
+		if err := app.DeleteSessionAndWait(session); err != nil {
 			logger.Warn("failed to delete session",
-				zap.Uint32("sessionId", sessionNum),
-				zap.String("signalType", string(signalType)),
+				zap.String("sessionName", sessionName),
 				zap.Error(err))
 		}
-		logger.Info("Session closed", zap.Uint32("sessionId", sessionNum), zap.String("signalType", string(signalType)))
+		logger.Info("Session closed", zap.String("sessionName", sessionName))
 	}()
 
 	messageCount := 0
@@ -275,33 +315,34 @@ func handleSession(
 		select {
 		case <-ctx.Done():
 			logger.Info("Shutting down session",
-				zap.Uint32("sessionId", sessionNum),
-				zap.String("signalType", string(signalType)),
+				zap.String("sessionName", sessionName),
 				zap.Int("totalMessages", messageCount))
 			return
 		default:
 			// Wait for message with timeout
-			timeout := uint32(1000) // 1 sec
+			timeout := time.Millisecond * 1000 // 1 sec
 			msg, err := session.GetMessage(&timeout)
 			if err != nil {
 				errMsg := err.Error()
 				switch {
 				case strings.Contains(errMsg, "session closed"):
-					logger.Info("Session closed by peer", zap.Uint32("sessionId", sessionNum), zap.Error(err))
+					logger.Info("Session closed by peer", zap.String("sessionName", sessionName), zap.Error(err))
 					return
 				case strings.Contains(errMsg, "receive timeout waiting for message"):
 					// Normal timeout, continue
 					continue
 				default:
-					logger.Error("Error getting message", zap.Uint32("sessionId", sessionNum), zap.Error(err))
+					logger.Error("Error getting message", zap.String("sessionName", sessionName), zap.Error(err))
 					continue
 				}
 			}
 
 			messageCount++
+
+			signalType := detectSignalType(msg.Payload)
 			logger.Info("Received message",
-				zap.Uint32("sessionId", sessionNum),
-				zap.String("signalType", string(signalType)),
+				zap.String("sessionName", sessionName),
+				zap.String("signalType", signalType),
 				zap.Int("messageNumber", messageCount),
 				zap.Int("sizeBytes", len(msg.Payload)))
 		}
