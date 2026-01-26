@@ -8,22 +8,23 @@ import (
 	"fmt"
 	"time"
 
+	"go.uber.org/zap"
+
 	slim "github.com/agntcy/slim-bindings-go"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
-	"go.uber.org/zap"
 )
 
-// ChannelManagerServer implements the ChannelManagerService gRPC service
-type ChannelManagerServer struct {
+// Server implements the ChannelManagerService gRPC service
+type Server struct {
 	UnimplementedChannelManagerServiceServer
 	app      *slim.App
 	connID   uint64
 	channels *slimcommon.SessionsList
 }
 
-// NewChannelManagerServer creates a new ChannelManagerServer instance
-func NewChannelManagerServer(app *slim.App, connID uint64, channels *slimcommon.SessionsList) *ChannelManagerServer {
-	return &ChannelManagerServer{
+// NewChannelManagerServer creates a new Server instance
+func NewChannelManagerServer(app *slim.App, connID uint64, channels *slimcommon.SessionsList) *Server {
+	return &Server{
 		app:      app,
 		connID:   connID,
 		channels: channels,
@@ -31,7 +32,7 @@ func NewChannelManagerServer(app *slim.App, connID uint64, channels *slimcommon.
 }
 
 // Command handles incoming control messages
-func (s *ChannelManagerServer) Command(ctx context.Context, req *ControlMessage) (*ControlMessage, error) {
+func (s *Server) Command(ctx context.Context, req *ControlMessage) (*ControlMessage, error) {
 	logger := slimcommon.LoggerFromContextOrDefault(ctx)
 	logger.Info("Received command", zap.Uint64("msg_id", req.MgsId))
 
@@ -54,7 +55,9 @@ func (s *ChannelManagerServer) Command(ctx context.Context, req *ControlMessage)
 }
 
 // handleCreateChannel creates a new channel
-func (s *ChannelManagerServer) handleCreateChannel(ctx context.Context, msgID uint64, req *CreateChannelRequest) (*ControlMessage, error) {
+func (s *Server) handleCreateChannel(
+	ctx context.Context, msgID uint64, req *CreateChannelRequest,
+) (*ControlMessage, error) {
 	// check if the channel already exists
 	channel, err := slimcommon.SplitID(req.ChannelName)
 	if err != nil {
@@ -62,7 +65,7 @@ func (s *ChannelManagerServer) handleCreateChannel(ctx context.Context, msgID ui
 	}
 
 	channelStr := channel.String()
-	if _, err := s.channels.GetSessionByName(ctx, channelStr); err == nil {
+	if _, existsErr := s.channels.GetSessionByName(ctx, channelStr); existsErr == nil {
 		return s.errorResponse(msgID, fmt.Sprintf("channel %s already exists", channelStr))
 	}
 
@@ -94,7 +97,9 @@ func (s *ChannelManagerServer) handleCreateChannel(ctx context.Context, msgID ui
 }
 
 // handleDeleteChannel deletes a channel
-func (s *ChannelManagerServer) handleDeleteChannel(ctx context.Context, msgID uint64, req *DeleteChannelRequest) (*ControlMessage, error) {
+func (s *Server) handleDeleteChannel(
+	ctx context.Context, msgID uint64, req *DeleteChannelRequest,
+) (*ControlMessage, error) {
 	channel, err := slimcommon.SplitID(req.ChannelName)
 	if err != nil {
 		return s.errorResponse(msgID, fmt.Sprintf("invalid channel name: %s", req.ChannelName))
@@ -116,7 +121,9 @@ func (s *ChannelManagerServer) handleDeleteChannel(ctx context.Context, msgID ui
 }
 
 // handleAddParticipant adds a participant to a channel
-func (s *ChannelManagerServer) handleAddParticipant(ctx context.Context, msgID uint64, req *AddParticipantRequest) (*ControlMessage, error) {
+func (s *Server) handleAddParticipant(
+	ctx context.Context, msgID uint64, req *AddParticipantRequest,
+) (*ControlMessage, error) {
 	channel, err := slimcommon.SplitID(req.ChannelName)
 	if err != nil {
 		return s.errorResponse(msgID, fmt.Sprintf("invalid channel name: %s", req.ChannelName))
@@ -139,15 +146,22 @@ func (s *ChannelManagerServer) handleAddParticipant(ctx context.Context, msgID u
 	}
 
 	if err = session.InviteAndWait(participantName); err != nil {
-		return s.errorResponse(msgID, fmt.Sprintf("failed to invite participant %s to channel %s: %v", req.ParticipantName, channelStr, err))
+		return s.errorResponse(
+			msgID,
+			fmt.Sprintf("failed to invite participant %s to channel %s: %v",
+				req.ParticipantName, channelStr, err))
 	}
 
-	slimcommon.LoggerFromContextOrDefault(ctx).Info("Participant added", zap.String("channel", channelStr), zap.String("participant", req.ParticipantName))
+	slimcommon.LoggerFromContextOrDefault(ctx).Info("Participant added",
+		zap.String("channel", channelStr),
+		zap.String("participant", req.ParticipantName))
 	return s.successResponse(msgID)
 }
 
 // handleDeleteParticipant removes a participant from a channel
-func (s *ChannelManagerServer) handleDeleteParticipant(ctx context.Context, msgID uint64, req *DeleteParticipantRequest) (*ControlMessage, error) {
+func (s *Server) handleDeleteParticipant(
+	ctx context.Context, msgID uint64, req *DeleteParticipantRequest,
+) (*ControlMessage, error) {
 	channel, err := slimcommon.SplitID(req.ChannelName)
 	if err != nil {
 		return s.errorResponse(msgID, fmt.Sprintf("invalid channel name: %s", req.ChannelName))
@@ -166,15 +180,22 @@ func (s *ChannelManagerServer) handleDeleteParticipant(ctx context.Context, msgI
 	}
 
 	if err = session.RemoveAndWait(participantName); err != nil {
-		return s.errorResponse(msgID, fmt.Sprintf("failed to remove participant %s from channel %s: %v", req.ParticipantName, channelStr, err))
+		return s.errorResponse(
+			msgID,
+			fmt.Sprintf("failed to remove participant %s from channel %s: %v",
+				req.ParticipantName, channelStr, err))
 	}
 
-	slimcommon.LoggerFromContextOrDefault(ctx).Info("Participant deleted", zap.String("channel", channelStr), zap.String("participant", req.ParticipantName))
+	slimcommon.LoggerFromContextOrDefault(ctx).Info("Participant deleted",
+		zap.String("channel", channelStr),
+		zap.String("participant", req.ParticipantName))
 	return s.successResponse(msgID)
 }
 
 // handleListChannels returns a list of all channels
-func (s *ChannelManagerServer) handleListChannels(ctx context.Context, msgID uint64, _ *ListChannelsRequest) (*ControlMessage, error) {
+func (s *Server) handleListChannels(
+	ctx context.Context, msgID uint64, _ *ListChannelsRequest,
+) (*ControlMessage, error) {
 	channels := s.channels.ListSessionNames(ctx)
 
 	slimcommon.LoggerFromContextOrDefault(ctx).Info("Listing channels",
@@ -184,7 +205,9 @@ func (s *ChannelManagerServer) handleListChannels(ctx context.Context, msgID uin
 }
 
 // handleListParticipants returns a list of participants in a channel
-func (s *ChannelManagerServer) handleListParticipants(ctx context.Context, msgID uint64, req *ListParticipantsRequest) (*ControlMessage, error) {
+func (s *Server) handleListParticipants(
+	ctx context.Context, msgID uint64, req *ListParticipantsRequest,
+) (*ControlMessage, error) {
 	channel, err := slimcommon.SplitID(req.ChannelName)
 	if err != nil {
 		return s.errorResponse(msgID, fmt.Sprintf("invalid channel name: %s", req.ChannelName))
@@ -215,7 +238,9 @@ func (s *ChannelManagerServer) handleListParticipants(ctx context.Context, msgID
 }
 
 // listChannelResponse creates a list channels response
-func (s *ChannelManagerServer) listChannelResponse(msgID uint64, channelNames []string) (*ControlMessage, error) {
+func (s *Server) listChannelResponse(
+	msgID uint64, channelNames []string,
+) (*ControlMessage, error) {
 	return &ControlMessage{
 		MgsId: msgID,
 		Payload: &ControlMessage_ListChannelResponse{
@@ -228,7 +253,9 @@ func (s *ChannelManagerServer) listChannelResponse(msgID uint64, channelNames []
 }
 
 // listParticipantResponse creates a list participants response
-func (s *ChannelManagerServer) listParticipantResponse(msgID uint64, participantNames []string) (*ControlMessage, error) {
+func (s *Server) listParticipantResponse(
+	msgID uint64, participantNames []string,
+) (*ControlMessage, error) {
 	return &ControlMessage{
 		MgsId: msgID,
 		Payload: &ControlMessage_ListParticipantsResponse{
@@ -241,7 +268,7 @@ func (s *ChannelManagerServer) listParticipantResponse(msgID uint64, participant
 }
 
 // successResponse creates a success response
-func (s *ChannelManagerServer) successResponse(msgID uint64) (*ControlMessage, error) {
+func (s *Server) successResponse(msgID uint64) (*ControlMessage, error) {
 	return &ControlMessage{
 		MgsId: msgID,
 		Payload: &ControlMessage_CommandResponse{
@@ -254,7 +281,7 @@ func (s *ChannelManagerServer) successResponse(msgID uint64) (*ControlMessage, e
 }
 
 // errorResponse creates an error response
-func (s *ChannelManagerServer) errorResponse(msgID uint64, errMsg string) (*ControlMessage, error) {
+func (s *Server) errorResponse(msgID uint64, errMsg string) (*ControlMessage, error) {
 	return &ControlMessage{
 		MgsId: msgID,
 		Payload: &ControlMessage_CommandResponse{

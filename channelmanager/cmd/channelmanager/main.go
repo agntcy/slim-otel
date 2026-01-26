@@ -13,11 +13,12 @@ import (
 	"syscall"
 	"time"
 
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+
 	slim "github.com/agntcy/slim-bindings-go"
 	channelmanager "github.com/agntcy/slim/otel/channelmanager/internal/channelmanager"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
 )
 
 type channelManagerApp struct {
@@ -51,8 +52,8 @@ func main() {
 		logger.Fatal("Failed to load configuration", zap.Error(err))
 	}
 
-	if err := cfg.Validate(); err != nil {
-		logger.Fatal("Invalid configuration", zap.Error(err))
+	if validateErr := cfg.Validate(); validateErr != nil {
+		logger.Fatal("Invalid configuration", zap.Error(validateErr))
 	}
 
 	// connect to slim and start the local app
@@ -83,8 +84,8 @@ func main() {
 		cancel()
 	}()
 
-	if err := manager.createSessions(ctx); err != nil {
-		logger.Fatal("Failed to create sessions from the config file", zap.Error(err))
+	if createErr := manager.createSessions(ctx); createErr != nil {
+		logger.Fatal("Failed to create sessions from the config file", zap.Error(createErr))
 	}
 
 	server := channelmanager.NewChannelManagerServer(manager.app, manager.connID, manager.channels)
@@ -166,7 +167,9 @@ func (cm *channelManagerApp) createSessions(
 		}
 
 		// add session to the list
-		cm.channels.AddSession(ctx, session)
+		if addErr := cm.channels.AddSession(ctx, session); addErr != nil {
+			return fmt.Errorf("failed to add session for channel %s: %w", config.Name, addErr)
+		}
 
 		logger.Info("Created session and invited participants",
 			zap.String("channel", config.Name),

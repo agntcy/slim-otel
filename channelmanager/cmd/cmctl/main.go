@@ -5,15 +5,17 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"flag"
 	"fmt"
-	"math/rand/v2"
 	"time"
 
-	pb "github.com/agntcy/slim/otel/channelmanager/internal/channelmanager"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+
+	pb "github.com/agntcy/slim/otel/channelmanager/internal/channelmanager"
 )
 
 func printUsage() {
@@ -45,7 +47,7 @@ func main() {
 	if err != nil {
 		panic("Failed to initialize zap logger: " + err.Error())
 	}
-	defer logger.Sync()
+	defer func() { _ = logger.Sync() }()
 
 	// Parse command-line flags
 	serverAddr := flag.String("server", "localhost:46358", "gRPC server address")
@@ -95,7 +97,13 @@ func main() {
 
 	// Create and send the command
 	var req *pb.ControlMessage
-	msgID := rand.Uint64()
+
+	// Generate a random message ID using crypto/rand
+	var msgIDBytes [8]byte
+	if _, randErr := rand.Read(msgIDBytes[:]); randErr != nil {
+		logger.Fatal("Failed to generate random message ID", zap.Error(randErr))
+	}
+	msgID := binary.BigEndian.Uint64(msgIDBytes[:])
 
 	switch command {
 	case "create-channel":
