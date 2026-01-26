@@ -24,6 +24,8 @@ type SessionsList struct {
 	// map of session Name to Session
 	// used to check if there are duplicate sessions by name
 	sessionsByName map[string]*slim.Session
+	// map of session ID to session name. Use this to get session name when session is closed
+	idToName map[uint32]string
 }
 
 // NewSessionsList creates a new SessionsList instance
@@ -32,6 +34,7 @@ func NewSessionsList(signalType SignalType) *SessionsList {
 		signalType:     signalType,
 		sessionsByID:   make(map[uint32]*slim.Session),
 		sessionsByName: make(map[string]*slim.Session),
+		idToName:       make(map[uint32]string),
 	}
 }
 
@@ -41,6 +44,7 @@ func (s *SessionsList) AddSession(_ context.Context, session *slim.Session) erro
 	if s.sessionsByID == nil {
 		s.sessionsByID = make(map[uint32]*slim.Session)
 		s.sessionsByName = make(map[string]*slim.Session)
+		s.idToName = make(map[uint32]string)
 	}
 	id, err := session.SessionId()
 	if err != nil {
@@ -59,6 +63,7 @@ func (s *SessionsList) AddSession(_ context.Context, session *slim.Session) erro
 	}
 	s.sessionsByID[id] = session
 	s.sessionsByName[name.String()] = session
+	s.idToName[id] = name.String()
 
 	fmt.Print("Added session: ID=", id, ", Name=", name.String(), "\n")
 
@@ -110,16 +115,19 @@ func (s *SessionsList) RemoveSessionByID(_ context.Context, id uint32) (*slim.Se
 		return nil, err
 	}
 
-	name, err := session.Destination()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get session name for id %d: %w", id, err)
-	}
-
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	// Get name from idToName map instead of calling session.Destination()
+	// which fails on closed sessions
+	name, exists := s.idToName[id]
+	if !exists {
+		return nil, fmt.Errorf("session name not found for id %d", id)
+	}
+
 	delete(s.sessionsByID, id)
-	delete(s.sessionsByName, name.String())
+	delete(s.sessionsByName, name)
+	delete(s.idToName, id)
 	return session, nil
 }
 
@@ -139,10 +147,11 @@ func (s *SessionsList) RemoveSessionByName(_ context.Context, name string) (*sli
 
 	delete(s.sessionsByID, id)
 	delete(s.sessionsByName, name)
+	delete(s.idToName, id)
 	return session, nil
 }
 
-func (s *SessionsList) ListSessionNames(ctx context.Context) []string {
+func (s *SessionsList) ListSessionNames(_ context.Context) []string {
 	if s.sessionsByID == nil {
 		// nothing to do
 		return []string{}
@@ -150,25 +159,12 @@ func (s *SessionsList) ListSessionNames(ctx context.Context) []string {
 
 	s.mutex.RLock()
 	// get the keys to avoid holding the lock during PublishAndWait
-	keys := maps.Keys(s.sessionsByID)
+	keys := maps.Keys(s.sessionsByName)
 	s.mutex.RUnlock()
 
 	var sessionNames []string
-	for id := range keys {
-		session, ok := s.sessionsByID[id]
-		if !ok {
-			// the session is no longer in the map, skip it
-			continue
-		}
-
-		name, err := session.Destination()
-		if err != nil {
-			LoggerFromContextOrDefault(ctx).Warn("failed to get session name",
-				zap.Uint32("session_id", id),
-				zap.Error(err))
-			continue
-		}
-		sessionNames = append(sessionNames, name.String())
+	for name := range keys {
+		sessionNames = append(sessionNames, name)
 	}
 
 	return sessionNames
@@ -201,6 +197,7 @@ func (s *SessionsList) DeleteAll(ctx context.Context, app *slim.App) {
 
 	s.sessionsByID = nil
 	s.sessionsByName = nil
+	s.idToName = nil
 }
 
 // PublishToAll publishes data to all sessions and returns a list of closed session IDs
