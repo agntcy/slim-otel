@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	slim "github.com/agntcy/slim-bindings-go"
+	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
 )
 
 // global variables for connection management

@@ -6,8 +6,11 @@ replace github.com/agntcy/slim/otel => ../
 
 replace github.com/agntcy/slim/otel/internal/sharedcomponent => ../internal/sharedcomponent
 
+replace github.com/agntcy/slim/bindings/generated => /Users/micpapal/Documents/code/agntcy/slim/data-plane/bindings/go/generated
+
 require (
-	github.com/agntcy/slim-bindings-go v1.0.0-rc.0
+	//github.com/agntcy/slim-bindings-go v1.0.0-rc.0
+	github.com/agntcy/slim/bindings/generated v0.0.0-00010101000000-000000000000
 	github.com/agntcy/slim/otel v0.0.0-00010101000000-000000000000
 	go.uber.org/zap v1.27.1
 	google.golang.org/grpc v1.78.0

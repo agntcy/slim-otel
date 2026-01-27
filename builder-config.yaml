@@ -5,6 +5,7 @@ dist:
   otelcol_version: 0.143.0
 
 replaces:
+  - github.com/agntcy/slim/bindings/generated => /Users/micpapal/Documents/code/agntcy/slim/data-plane/bindings/go/generated
   - github.com/agntcy/slim/otel => ..
   - github.com/agntcy/slim/otel/slimexporter => ../exporter/slimexporter
   - github.com/agntcy/slim/otel/slimreceiver => ../receiver/slimreceiver

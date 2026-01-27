@@ -60,10 +60,10 @@ tasks:
     internal: true
     desc: Fetch and install bindings
     cmds:
-      - task: foreach-module
-        vars:
-          CMD: go mod download
-      - go run github.com/agntcy/slim-bindings-go/cmd/slim-bindings-setup
+      #- task: foreach-module
+      #  vars:
+      #    CMD: go mod download
+      #- go run github.com/agntcy/slim-bindings-go/cmd/slim-bindings-setup
       - echo "Slim bindings fetched and installed"
 
   modtidy:
