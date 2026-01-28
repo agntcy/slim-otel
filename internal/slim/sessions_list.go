@@ -65,14 +65,6 @@ func (s *SessionsList) AddSession(_ context.Context, session *slim.Session) erro
 	s.sessionsByName[name.String()] = session
 	s.idToName[id] = name.String()
 
-	fmt.Print("Added session: ID=", id, ", Name=", name.String(), "\n")
-
-	var sessionNames []string
-	for sessionName := range s.sessionsByName {
-		sessionNames = append(sessionNames, sessionName)
-	}
-	fmt.Printf("all sessions: %v\n", sessionNames)
-
 	return nil
 }
 
@@ -95,12 +87,6 @@ func (s *SessionsList) GetSessionByName(_ context.Context, name string) (*slim.S
 	if s.sessionsByName == nil {
 		return nil, fmt.Errorf("sessions map is nil")
 	}
-
-	var sessionNames []string
-	for sessionName := range s.sessionsByName {
-		sessionNames = append(sessionNames, sessionName)
-	}
-	fmt.Printf("all sessions: %v\n", sessionNames)
 
 	session, exists := s.sessionsByName[name]
 	if !exists {

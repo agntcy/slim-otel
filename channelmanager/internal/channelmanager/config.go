@@ -14,7 +14,7 @@ import (
 // Config represents the channel manager configuration
 type Config struct {
 	// Manager configuration
-	Manager ManagerConfig `yaml:"managers"`
+	Manager ManagerConfig `yaml:"channel-manager"`
 
 	// Channels to create and manage
 	Channels []ChannelConfig `yaml:"channels"`
