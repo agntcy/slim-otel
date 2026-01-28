@@ -40,7 +40,7 @@ func TestHandleReceivedTraces(t *testing.T) {
 
 	// Handle the traces
 	ctx := t.Context()
-	handleReceivedTraces(ctx, r, 1, traces)
+	handleReceivedTraces(ctx, r, traces)
 
 	// Verify the consumer received the traces
 	assert.Equal(t, 1, len(sink.AllTraces()))
@@ -76,7 +76,7 @@ func TestHandleReceivedMetrics(t *testing.T) {
 
 	// Handle the metrics
 	ctx := t.Context()
-	handleReceivedMetrics(ctx, r, 1, metrics)
+	handleReceivedMetrics(ctx, r, metrics)
 
 	// Verify the consumer received the metrics
 	assert.Equal(t, 1, len(sink.AllMetrics()))
@@ -110,7 +110,7 @@ func TestHandleReceivedLogs(t *testing.T) {
 
 	// Handle the logs
 	ctx := t.Context()
-	handleReceivedLogs(ctx, r, 1, logs)
+	handleReceivedLogs(ctx, r, logs)
 
 	// Verify the consumer received the logs
 	assert.Equal(t, 1, len(sink.AllLogs()))
@@ -148,7 +148,7 @@ func TestDetectAndHandleMessage_Traces(t *testing.T) {
 
 	// Detect and handle the message
 	ctx := t.Context()
-	detectAndHandleMessage(ctx, r, 1, payload)
+	detectAndHandleMessage(ctx, r, payload)
 
 	// Verify the consumer received the traces
 	assert.Equal(t, 1, len(sink.AllTraces()))
@@ -187,7 +187,7 @@ func TestDetectAndHandleMessage_Metrics(t *testing.T) {
 
 	// Detect and handle the message
 	ctx := t.Context()
-	detectAndHandleMessage(ctx, r, 1, payload)
+	detectAndHandleMessage(ctx, r, payload)
 
 	// Verify the consumer received the metrics
 	assert.Equal(t, 1, len(sink.AllMetrics()))
@@ -224,7 +224,7 @@ func TestDetectAndHandleMessage_Logs(t *testing.T) {
 
 	// Detect and handle the message
 	ctx := t.Context()
-	detectAndHandleMessage(ctx, r, 1, payload)
+	detectAndHandleMessage(ctx, r, payload)
 
 	// Verify the consumer received the logs
 	assert.Equal(t, 1, len(sink.AllLogs()))
@@ -255,7 +255,7 @@ func TestDetectAndHandleMessage_InvalidPayload(t *testing.T) {
 
 	// Detect and handle the message - should not panic
 	ctx := t.Context()
-	detectAndHandleMessage(ctx, r, 1, invalidPayload)
+	detectAndHandleMessage(ctx, r, invalidPayload)
 
 	// Verify no consumers received data
 	assert.Equal(t, 0, len(tracesSink.AllTraces()))
@@ -291,7 +291,7 @@ func TestDetectAndHandleMessage_NoConsumers(t *testing.T) {
 
 	// Detect and handle the message - should not panic even with no consumers
 	ctx := t.Context()
-	detectAndHandleMessage(ctx, r, 1, payload)
+	detectAndHandleMessage(ctx, r, payload)
 	// Should complete without error
 }
 
@@ -325,7 +325,7 @@ func TestReceiverMultipleSignalTypes(t *testing.T) {
 	span.SetName("test-span")
 	tracesMarshaler := &ptrace.ProtoMarshaler{}
 	tracesPayload, _ := tracesMarshaler.MarshalTraces(traces)
-	detectAndHandleMessage(ctx, r, 1, tracesPayload)
+	detectAndHandleMessage(ctx, r, tracesPayload)
 
 	// Send metrics
 	metrics := pmetric.NewMetrics()
@@ -335,7 +335,7 @@ func TestReceiverMultipleSignalTypes(t *testing.T) {
 	metric.SetName("test-metric")
 	metricsMarshaler := &pmetric.ProtoMarshaler{}
 	metricsPayload, _ := metricsMarshaler.MarshalMetrics(metrics)
-	detectAndHandleMessage(ctx, r, 2, metricsPayload)
+	detectAndHandleMessage(ctx, r, metricsPayload)
 
 	// Send logs
 	logs := plog.NewLogs()
@@ -345,7 +345,7 @@ func TestReceiverMultipleSignalTypes(t *testing.T) {
 	logRecord.Body().SetStr("test log")
 	logsMarshaler := &plog.ProtoMarshaler{}
 	logsPayload, _ := logsMarshaler.MarshalLogs(logs)
-	detectAndHandleMessage(ctx, r, 3, logsPayload)
+	detectAndHandleMessage(ctx, r, logsPayload)
 
 	// Verify all consumers received their respective data
 	assert.Equal(t, 1, len(tracesSink.AllTraces()))

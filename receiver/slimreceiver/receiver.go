@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/collector/component"
@@ -29,7 +28,6 @@ type slimReceiver struct {
 	app             *slim.App
 	connID          uint64
 	sessions        *slimcommon.SessionsList
-	started         atomic.Bool
 	tracesConsumer  consumer.Traces
 	metricsConsumer consumer.Metrics
 	logsConsumer    consumer.Logs
@@ -58,26 +56,21 @@ func CreateApp(
 
 // newSlimReceiver creates a new SLIM receiver instance
 func newSlimReceiver(
-	ctx context.Context,
+	_ context.Context,
 	cfg *Config,
-) (*slimReceiver, error) {
-
-	app, connID, err := CreateApp(ctx, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create/connect app: %w", err)
-	}
+) *slimReceiver {
 
 	slim := &slimReceiver{
 		config:          cfg,
-		app:             app,
-		connID:          connID,
+		app:             nil,
+		connID:          0,
 		sessions:        slimcommon.NewSessionsList(slimcommon.SignalUnknown),
 		tracesConsumer:  nil,
 		metricsConsumer: nil,
 		logsConsumer:    nil,
 	}
 
-	return slim, nil
+	return slim
 }
 
 // listenForSessions listens for all incoming sessions
@@ -97,7 +90,7 @@ func listenForSessions(ctx context.Context, r *slimReceiver) {
 			timeout := time.Millisecond * sessionTimeoutMs
 			session, err := r.app.ListenForSession(&timeout)
 			if err != nil {
-				logger.Debug("Timeout waiting for session, retrying...")
+				// Timeout is expected while waiting for sessions
 				continue
 			}
 
@@ -117,13 +110,13 @@ func listenForSessions(ctx context.Context, r *slimReceiver) {
 }
 
 // detectAndHandleMessage attempts to determine the signal type and handle accordingly
-func detectAndHandleMessage(ctx context.Context, r *slimReceiver, sessionID uint32, payload []byte) {
+func detectAndHandleMessage(ctx context.Context, r *slimReceiver, payload []byte) {
 	// Try traces first if consumer is available
 	if r.tracesConsumer != nil {
 		unmarshaler := &ptrace.ProtoUnmarshaler{}
 		traces, err := unmarshaler.UnmarshalTraces(payload)
 		if err == nil {
-			handleReceivedTraces(ctx, r, sessionID, traces)
+			handleReceivedTraces(ctx, r, traces)
 			return
 		}
 	}
@@ -133,7 +126,7 @@ func detectAndHandleMessage(ctx context.Context, r *slimReceiver, sessionID uint
 		unmarshaler := &pmetric.ProtoUnmarshaler{}
 		metrics, err := unmarshaler.UnmarshalMetrics(payload)
 		if err == nil {
-			handleReceivedMetrics(ctx, r, sessionID, metrics)
+			handleReceivedMetrics(ctx, r, metrics)
 			return
 		}
 	}
@@ -143,54 +136,47 @@ func detectAndHandleMessage(ctx context.Context, r *slimReceiver, sessionID uint
 		unmarshaler := &plog.ProtoUnmarshaler{}
 		logs, err := unmarshaler.UnmarshalLogs(payload)
 		if err == nil {
-			handleReceivedLogs(ctx, r, sessionID, logs)
+			handleReceivedLogs(ctx, r, logs)
 			return
 		}
 	}
 
 	slimcommon.LoggerFromContextOrDefault(ctx).Warn("Unable to determine signal type for message",
-		zap.Uint32("sessionID", sessionID),
 		zap.Int("payloadSize", len(payload)))
 }
 
 // handleReceivedTraces processes a received trace message
-func handleReceivedTraces(ctx context.Context, r *slimReceiver, sessionID uint32, traces ptrace.Traces) {
+func handleReceivedTraces(ctx context.Context, r *slimReceiver, traces ptrace.Traces) {
 	logger := slimcommon.LoggerFromContextOrDefault(ctx)
 	logger.Info("Received trace message",
-		zap.Uint32("sessionID", sessionID),
 		zap.Int("spanCount", traces.SpanCount()))
 
 	if err := r.tracesConsumer.ConsumeTraces(ctx, traces); err != nil {
 		logger.Error("Failed to consume traces",
-			zap.Uint32("sessionID", sessionID),
 			zap.Error(err))
 	}
 }
 
 // handleReceivedMetrics processes a received metrics message
-func handleReceivedMetrics(ctx context.Context, r *slimReceiver, sessionID uint32, metrics pmetric.Metrics) {
+func handleReceivedMetrics(ctx context.Context, r *slimReceiver, metrics pmetric.Metrics) {
 	logger := slimcommon.LoggerFromContextOrDefault(ctx)
 	logger.Info("Received metrics message",
-		zap.Uint32("sessionID", sessionID),
 		zap.Int("dataPointCount", metrics.DataPointCount()))
 
 	if err := r.metricsConsumer.ConsumeMetrics(ctx, metrics); err != nil {
 		logger.Error("Failed to consume metrics",
-			zap.Uint32("sessionID", sessionID),
 			zap.Error(err))
 	}
 }
 
 // handleReceivedLogs processes a received logs message
-func handleReceivedLogs(ctx context.Context, r *slimReceiver, sessionID uint32, logs plog.Logs) {
+func handleReceivedLogs(ctx context.Context, r *slimReceiver, logs plog.Logs) {
 	logger := slimcommon.LoggerFromContextOrDefault(ctx)
 	logger.Info("Received logs message",
-		zap.Uint32("sessionID", sessionID),
 		zap.Int("logRecordCount", logs.LogRecordCount()))
 
 	if err := r.logsConsumer.ConsumeLogs(ctx, logs); err != nil {
 		logger.Error("Failed to consume logs",
-			zap.Uint32("sessionID", sessionID),
 			zap.Error(err))
 	}
 }
@@ -210,6 +196,7 @@ func handleSession(
 		logger.Error("Failed to get session ID", zap.Error(err))
 		return
 	}
+
 	name, err := session.Destination()
 	if err != nil {
 		logger.Error("Failed to get session destination", zap.Error(err))
@@ -218,12 +205,15 @@ func handleSession(
 
 	sessionName := name.String()
 
-	logger.Info("Handling new session", zap.Uint32("sessionID", id), zap.String("sessionName", sessionName))
+	logger = logger.With(zap.Uint32("sessionID", id), zap.String("sessionName", sessionName))
+	ctx = slimcommon.InitContextWithLogger(ctx, logger)
+
+	logger.Info("Handling new session")
 	defer func() {
 		// the session may be already removed from sessions.DeleteAll in Shutdown
 		_ = r.sessions.RemoveSession(ctx, id)
 		_ = r.app.DeleteSessionAndWait(session)
-		logger.Info("Session closed", zap.Uint32("sessionID", id), zap.String("sessionName", sessionName))
+		logger.Info("Session closed")
 	}()
 
 	messageCount := 0
@@ -232,8 +222,6 @@ func handleSession(
 		select {
 		case <-ctx.Done():
 			logger.Info("Shutting down session",
-				zap.Uint32("sessionID", id),
-				zap.String("sessionName", sessionName),
 				zap.Int("totalMessages", messageCount))
 			return
 		default:
@@ -250,8 +238,6 @@ func handleSession(
 					continue
 				default:
 					logger.Error("Error getting message",
-						zap.Uint32("sessionID", id),
-						zap.String("sessionName", sessionName),
 						zap.Error(err))
 					continue
 				}
@@ -260,20 +246,23 @@ func handleSession(
 			messageCount++
 
 			// Detect signal type and handle message
-			detectAndHandleMessage(ctx, r, id, msg.Payload)
+			detectAndHandleMessage(ctx, r, msg.Payload)
 		}
 	}
 }
 
 // Start implements the component.Component interface
 func (r *slimReceiver) Start(ctx context.Context, _ component.Host) error {
-	// start only once - atomically check and set to prevent race condition
-	if !r.started.CompareAndSwap(false, true) {
-		return nil
-	}
-
 	logger := slimcommon.LoggerFromContextOrDefault(ctx)
 	logger.Info("Starting Slim receiver")
+
+	app, connID, err := CreateApp(ctx, r.config)
+	if err != nil {
+		return fmt.Errorf("failed to create/connect app: %w", err)
+	}
+
+	r.app = app
+	r.connID = connID
 
 	// Create a background context for the listener goroutine
 	// The context passed to start() is short-lived and will be canceled after startup
@@ -291,11 +280,6 @@ func (r *slimReceiver) Start(ctx context.Context, _ component.Host) error {
 
 // Shutdown implements the component.Component interface
 func (r *slimReceiver) Shutdown(ctx context.Context) error {
-	// stop only once - atomically check and set to prevent race condition
-	if !r.started.CompareAndSwap(true, false) {
-		return nil
-	}
-
 	logger := slimcommon.LoggerFromContextOrDefault(ctx)
 	logger.Info("Shutting down Slim receiver")
 
