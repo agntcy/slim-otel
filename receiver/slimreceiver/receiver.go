@@ -15,7 +15,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
 
-	slim "github.com/agntcy/slim-bindings-go"
+	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
@@ -97,7 +97,7 @@ func listenForSessions(ctx context.Context, r *slimReceiver) {
 			timeout := time.Millisecond * sessionTimeoutMs
 			session, err := r.app.ListenForSession(&timeout)
 			if err != nil {
-				logger.Debug("Timeout waiting for session, retrying...")
+				// Timeout is expected while waiting for sessions
 				continue
 			}
 
@@ -221,7 +221,7 @@ func handleSession(
 	logger.Info("Handling new session", zap.Uint32("sessionID", id), zap.String("sessionName", sessionName))
 	defer func() {
 		// the session may be already removed from sessions.DeleteAll in Shutdown
-		_ = r.sessions.RemoveSession(ctx, id)
+		_, _ = r.sessions.RemoveSessionByID(ctx, id)
 		_ = r.app.DeleteSessionAndWait(session)
 		logger.Info("Session closed", zap.Uint32("sessionID", id), zap.String("sessionName", sessionName))
 	}()

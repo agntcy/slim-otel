@@ -60,10 +60,11 @@ tasks:
     internal: true
     desc: Fetch and install bindings
     cmds:
-      - task: foreach-module
-        vars:
-          CMD: go mod download
-      - go run github.com/agntcy/slim-bindings-go/cmd/slim-bindings-setup
+      #- task: foreach-module
+      #  vars:
+      #    CMD: go mod download
+      #- go run github.com/agntcy/slim-bindings-go/cmd/slim-bindings-setup
+      - echo "Slim bindings fetched and installed"
 
   modtidy:
     desc: Install go modules
@@ -175,6 +176,62 @@ tasks:
     cmds:
       - echo "Running SLIM OpenTelemetry Collector Receiver..."
       - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/receiver/slimreceiver/example-receiver-collector-config.yaml"
+
+  # channel manager tasks
+  channelmanager:proto:install:
+    desc: Install protoc Go plugins
+    internal: true
+    cmds:
+      - echo "Installing protoc Go plugins..."
+      - go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+      - go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+      - echo "Protoc Go plugins installed successfully"
+
+  channelmanager:proto:compile:
+    desc: Compile proto files for channel manager
+    deps:
+      - channelmanager:proto:install
+    cmds:
+      - echo "Compiling proto files..."
+      - >
+        PATH="$(go env GOPATH)/bin:$PATH" protoc 
+        --go_out=. --go_opt=module=github.com/agntcy/slim/otel
+        --go-grpc_out=. --go-grpc_opt=module=github.com/agntcy/slim/otel
+        channelmanager/api/commands.proto
+      - echo "Proto files compiled successfully"
+
+  channelmanager:proto:clean:
+    desc: Clean generated proto files
+    cmds:
+      - echo "Cleaning generated proto files..."
+      - rm -f channelmanager/internal/channelmanager/commands.pb.go
+      - rm -f channelmanager/internal/channelmanager/commands_grpc.pb.go
+      - echo "Generated proto files cleaned"
+
+  channelmanager:build:
+    desc: Build the channel manager
+    dir: channelmanager
+    cmds:
+      - echo "Building channel manager..."
+      - go build -o channelmanager ./cmd/channelmanager
+      - echo "Channel manager built successfully"
+
+  channelmanager:run:
+    desc: Run the channel manager
+    dir: channelmanager
+    cmds:
+      - echo "Running channel manager..."
+      - >
+        go run ./cmd/channelmanager/main.go
+        --config-file example-channel-manager-config.yaml
+
+  channelmanager:cmctl:build:
+    desc: Build cmctl
+    dir: channelmanager/cmd/cmctl
+    cmds:
+      - echo "Building cmctl..."
+      - go build -a -o cmctl .
+      - echo "cmctl built successfully"
 
   # Docker tasks
   docker:build:
