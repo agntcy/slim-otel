@@ -2,25 +2,28 @@ dist:
   name: slim-otelcol
   description: Basic OTel Collector distribution for Developers
   output_path: ./slim-otelcol
-  otelcol_version: 0.143.0
+  otelcol_version: 0.144.0
 
 replaces:
   - github.com/agntcy/slim/otel => ..
   - github.com/agntcy/slim/otel/slimexporter => ../exporter/slimexporter
-  - github.com/agntcy/slim/bindings/generated => /Users/micpapal/Documents/code/agntcy/slim/data-plane/bindings/go/generated
-
+  - github.com/agntcy/slim/otel/slimreceiver => ../receiver/slimreceiver
+  - github.com/agntcy/slim/otel/internal/sharedcomponent => ../internal/sharedcomponent
+  
 exporters:
   - gomod: github.com/agntcy/slim/otel/slimexporter v0.0.1
   - gomod:
-      go.opentelemetry.io/collector/exporter/otlpexporter v0.143.0
+      go.opentelemetry.io/collector/exporter/debugexporter v0.144.0
+  - gomod:
+      go.opentelemetry.io/collector/exporter/otlpexporter v0.144.0
 
 processors:
   - gomod:
-      go.opentelemetry.io/collector/processor/batchprocessor v0.143.0
-
+      go.opentelemetry.io/collector/processor/batchprocessor v0.144.0
 receivers:
+  - gomod: github.com/agntcy/slim/otel/slimreceiver v0.0.1
   - gomod:
-      go.opentelemetry.io/collector/receiver/otlpreceiver v0.143.0
+      go.opentelemetry.io/collector/receiver/otlpreceiver v0.144.0  
 
 providers:
   - gomod: go.opentelemetry.io/collector/confmap/provider/envprovider v1.48.0

@@ -7,7 +7,6 @@ import (
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 
-	slim "github.com/agntcy/slim-bindings-go"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
@@ -19,10 +18,7 @@ func TestSlimExporter_PublishData(t *testing.T) {
 				SlimEndpoint: "test-endpoint",
 			},
 			signalType: slimcommon.SignalTraces,
-			sessions: &SessionsList{
-				signalType: slimcommon.SignalTraces,
-				sessions:   map[uint32]*slim.Session{},
-			},
+			sessions:   slimcommon.NewSessionsList(slimcommon.SignalTraces),
 		}
 
 		data := []byte("test trace data")
@@ -39,10 +35,7 @@ func TestSlimExporter_PublishData(t *testing.T) {
 				SlimEndpoint: "test-endpoint",
 			},
 			signalType: slimcommon.SignalTraces,
-			sessions: &SessionsList{
-				signalType: slimcommon.SignalTraces,
-				sessions:   map[uint32]*slim.Session{},
-			},
+			sessions:   slimcommon.NewSessionsList(slimcommon.SignalTraces),
 		}
 
 		err := exporter.publishData(t.Context(), nil)
@@ -62,10 +55,7 @@ func TestSlimExporter_PushTraces(t *testing.T) {
 				SlimEndpoint: "test-endpoint",
 			},
 			signalType: slimcommon.SignalTraces,
-			sessions: &SessionsList{
-				signalType: slimcommon.SignalTraces,
-				sessions:   map[uint32]*slim.Session{},
-			},
+			sessions:   slimcommon.NewSessionsList(slimcommon.SignalTraces),
 		}
 
 		td := ptrace.NewTraces()
@@ -83,10 +73,7 @@ func TestSlimExporter_PushTraces(t *testing.T) {
 				SlimEndpoint: "test-endpoint",
 			},
 			signalType: slimcommon.SignalTraces,
-			sessions: &SessionsList{
-				signalType: slimcommon.SignalTraces,
-				sessions:   map[uint32]*slim.Session{},
-			},
+			sessions:   slimcommon.NewSessionsList(slimcommon.SignalTraces),
 		}
 
 		td := ptrace.NewTraces()
@@ -111,10 +98,7 @@ func TestSlimExporter_PushMetrics(t *testing.T) {
 				SlimEndpoint: "test-endpoint",
 			},
 			signalType: slimcommon.SignalMetrics,
-			sessions: &SessionsList{
-				signalType: slimcommon.SignalMetrics,
-				sessions:   map[uint32]*slim.Session{},
-			},
+			sessions:   slimcommon.NewSessionsList(slimcommon.SignalMetrics),
 		}
 
 		md := pmetric.NewMetrics()
@@ -135,10 +119,7 @@ func TestSlimExporter_PushLogs(t *testing.T) {
 				SlimEndpoint: "test-endpoint",
 			},
 			signalType: slimcommon.SignalLogs,
-			sessions: &SessionsList{
-				signalType: slimcommon.SignalLogs,
-				sessions:   map[uint32]*slim.Session{},
-			},
+			sessions:   slimcommon.NewSessionsList(slimcommon.SignalLogs),
 		}
 
 		ld := plog.NewLogs()

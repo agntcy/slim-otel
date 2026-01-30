@@ -1,11 +1,13 @@
 module github.com/agntcy/slim/otel
 
-go 1.25.5
+go 1.25.6
 
 require (
-	github.com/agntcy/slim-bindings-go v0.7.4
+	github.com/agntcy/slim-bindings-go v1.0.0
 	go.opentelemetry.io/collector/pdata v1.49.0
 	go.uber.org/zap v1.27.1
+	google.golang.org/grpc v1.78.0
+	google.golang.org/protobuf v1.36.11
 )
 
 require (
@@ -15,4 +17,8 @@ require (
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	go.opentelemetry.io/collector/featuregate v1.49.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+	golang.org/x/net v0.47.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/text v0.31.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251029180050-ab9386a59fda // indirect
 )
