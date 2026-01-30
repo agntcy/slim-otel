@@ -1,13 +1,13 @@
 module github.com/agntcy/slim/otel/receiver/slimreceiver
 
-go 1.25.5
+go 1.25.6
 
 replace github.com/agntcy/slim/otel => ../../
 
 replace github.com/agntcy/slim/otel/internal/sharedcomponent => ../../internal/sharedcomponent
 
 require (
-	github.com/agntcy/slim-bindings-go v0.7.4
+	github.com/agntcy/slim-bindings-go v1.0.0
 	github.com/agntcy/slim/otel v0.0.0
 	github.com/agntcy/slim/otel/internal/sharedcomponent v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.11.1

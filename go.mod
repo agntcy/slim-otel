@@ -1,9 +1,9 @@
 module github.com/agntcy/slim/otel
 
-go 1.25.5
+go 1.25.6
 
 require (
-	github.com/agntcy/slim-bindings-go v0.7.4
+	github.com/agntcy/slim-bindings-go v1.0.0
 	go.opentelemetry.io/collector/pdata v1.49.0
 	go.uber.org/zap v1.27.1
 	google.golang.org/grpc v1.78.0
