@@ -1,4 +1,7 @@
-package slimexporter
+// Copyright AGNTCY Contributors (https://github.com/agntcy)
+// SPDX-License-Identifier: Apache-2.0
+
+package slimcommon
 
 import (
 	"context"
@@ -10,15 +13,22 @@ import (
 	"go.uber.org/zap"
 
 	slim "github.com/agntcy/slim-bindings-go"
-	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
 // SessionsList holds sessions related to a specific signal type
 type SessionsList struct {
 	mutex      sync.RWMutex
-	signalType slimcommon.SignalType
+	signalType SignalType
 	// map of session ID to Session
 	sessions map[uint32]*slim.Session
+}
+
+// NewSessionsList creates a new SessionsList instance
+func NewSessionsList(signalType SignalType) *SessionsList {
+	return &SessionsList{
+		signalType: signalType,
+		sessions:   make(map[uint32]*slim.Session),
+	}
 }
 
 func (s *SessionsList) AddSession(_ context.Context, session *slim.Session) error {
@@ -62,7 +72,7 @@ func (s *SessionsList) RemoveSession(_ context.Context, id uint32) error {
 }
 
 func (s *SessionsList) DeleteAll(ctx context.Context, app *slim.App) {
-	logger := slimcommon.LoggerFromContextOrDefault(ctx)
+	logger := LoggerFromContextOrDefault(ctx)
 	if app == nil {
 		logger.Warn("Cannot delete sessions, app is nil", zap.String("signal_type", string(s.signalType)))
 		return
@@ -91,7 +101,7 @@ func (s *SessionsList) DeleteAll(ctx context.Context, app *slim.App) {
 
 // PublishToAll publishes data to all sessions and returns a list of closed session IDs
 func (s *SessionsList) PublishToAll(ctx context.Context, data []byte) ([]uint32, error) {
-	logger := slimcommon.LoggerFromContextOrDefault(ctx)
+	logger := LoggerFromContextOrDefault(ctx)
 
 	if data == nil {
 		return nil, fmt.Errorf("missing data")

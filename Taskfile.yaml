@@ -122,7 +122,18 @@ tasks:
     cmds:
       - echo find . -name '*coverage.out' -execdir go tool cover -html=./{} \;
 
-  # expoter related tasks
+  test:
+    desc: Run all tests for the SLIM exporter and receiver
+    deps:
+      - fetch-and-run
+    cmds:
+      - echo "Running slimexporter tests..."
+      - cd exporter/slimexporter && go test -v
+      - echo "Running slimreceiver tests..."
+      - cd receiver/slimreceiver && go test -v
+      - echo "Running internal/slim tests..."
+      - cd internal/slim && go test -v
+
   download-ocb:
     internal: true
     desc: Download OpenTelemetry Collector Builder for current architecture
@@ -135,7 +146,7 @@ tasks:
       - test -f ocb
 
   collector:build:
-    desc: Build the SLIM OpenTelemetry Collector
+    desc: Build the SLIM OpenTelemetry Collector including both slimexporter and slimreceiver
     deps:
       - download-ocb
       - fetch-and-run
@@ -149,23 +160,21 @@ tasks:
   collector:clean:
     desc: Clean the generated collector directory
     cmds:
+      - go clean -cache -modcache
       - rm -rf {{.COLLECTOR_OUTPUT}}
       - echo "Collector build directory cleaned"
 
-  collector:run:
-    desc: Run the SLIM OpenTelemetry Collector
+  collector:run:exporter:
+    desc: Run the SLIM OpenTelemetry Collector Exporter
     cmds:
-      - echo "Running SLIM OpenTelemetry Collector..."
-      - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/example-collector-config.yaml"
+      - echo "Running SLIM OpenTelemetry Collector Exporter..."
+      - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/exporter/slimexporter/example-exporter-collector-config.yaml"
 
-  collector:test:
-    desc: Run tests for the SLIM exporter
-    dir: exporter/slimexporter
-    deps:
-      - fetch-and-run
+  collector:run:receiver:
+    desc: Run the SLIM OpenTelemetry Collector Receiver
     cmds:
-      - echo "Running slimexporter tests..."
-      - go test -v
+      - echo "Running SLIM OpenTelemetry Collector Receiver..."
+      - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/receiver/slimreceiver/example-receiver-collector-config.yaml"
 
   # Docker tasks
   docker:build:
