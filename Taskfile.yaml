@@ -63,9 +63,7 @@ tasks:
       - task: foreach-module
         vars:
           CMD: go mod download
-      - go mod download github.com/agntcy/slim-bindings-go
       - go run github.com/agntcy/slim-bindings-go/cmd/slim-bindings-setup
-      - echo "Slim bindings fetched and installed"
 
   modtidy:
     desc: Install go modules
@@ -78,8 +76,9 @@ tasks:
 
   lint:
     desc: Run go linter
+    deps:
+      - tools
     cmds:
-      - task: tools
       - task: channelmanager:proto:compile
       - task: foreach-module
         vars:
@@ -101,8 +100,9 @@ tasks:
 
   vuln:
     desc: Run go govulncheck
+    deps:
+      - tools
     cmds:
-      - task: tools
       - task: channelmanager:proto:compile
       - task: foreach-module
         vars:
@@ -110,8 +110,9 @@ tasks:
 
   coverage-reports:
     desc: Check test coverage
+    deps:
+      - tools
     cmds:
-      - task: tools
       - task: fetch-and-run
       - task: channelmanager:proto:compile
       - task: foreach-module
