@@ -67,6 +67,8 @@ tasks:
 
   modtidy:
     desc: Install go modules
+    deps:
+      - fetch-and-run
     cmds:
       - task: foreach-module
         vars:
@@ -77,6 +79,7 @@ tasks:
     deps:
       - tools
     cmds:
+      - task: channelmanager:proto:compile
       - task: foreach-module
         vars:
           CMD: "echo ${PWD} && {{.TOOLS_INSTALL_DIR}}/golangci-lint run"
@@ -100,6 +103,7 @@ tasks:
     deps:
       - tools
     cmds:
+      - task: channelmanager:proto:compile
       - task: foreach-module
         vars:
           CMD: "{{.TOOLS_INSTALL_DIR}}/govulncheck ./..."
@@ -108,8 +112,9 @@ tasks:
     desc: Check test coverage
     deps:
       - tools
-      - fetch-and-run
     cmds:
+      - task: fetch-and-run
+      - task: channelmanager:proto:compile
       - task: foreach-module
         vars:
           CMD: |
@@ -176,6 +181,63 @@ tasks:
       - echo "Running SLIM OpenTelemetry Collector Receiver..."
       - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/receiver/slimreceiver/example-receiver-collector-config.yaml"
 
+  # channel manager tasks
+  channelmanager:proto:install:
+    desc: Install protoc Go plugins
+    internal: true
+    cmds:
+      - echo "Installing protoc Go plugins..."
+      - go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+      - go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+      - echo "Protoc Go plugins installed successfully"
+
+  channelmanager:proto:compile:
+    desc: Compile proto files for channel manager
+    deps:
+      - tools
+      - channelmanager:proto:install
+    cmds:
+      - echo "Compiling proto files..."
+      - >
+        PATH="{{.TOOLS_INSTALL_DIR}}:$(go env GOPATH)/bin:$PATH" protoc 
+        --go_out=. --go_opt=module=github.com/agntcy/slim/otel
+        --go-grpc_out=. --go-grpc_opt=module=github.com/agntcy/slim/otel
+        channelmanager/api/commands.proto
+      - echo "Proto files compiled successfully"
+
+  channelmanager:proto:clean:
+    desc: Clean generated proto files
+    cmds:
+      - echo "Cleaning generated proto files..."
+      - rm -f channelmanager/internal/channelmanager/commands.pb.go
+      - rm -f channelmanager/internal/channelmanager/commands_grpc.pb.go
+      - echo "Generated proto files cleaned"
+
+  channelmanager:build:
+    desc: Build the channel manager
+    dir: channelmanager
+    cmds:
+      - echo "Building channel manager..."
+      - go build -o channelmanager ./cmd/channelmanager
+      - echo "Channel manager built successfully"
+
+  channelmanager:run:
+    desc: Run the channel manager
+    dir: channelmanager
+    cmds:
+      - echo "Running channel manager..."
+      - >
+        go run ./cmd/channelmanager/main.go
+        --config-file example-channel-manager-config.yaml
+
+  channelmanager:cmctl:build:
+    desc: Build cmctl
+    dir: channelmanager/cmd/cmctl
+    cmds:
+      - echo "Building cmctl..."
+      - go build -a -o cmctl .
+      - echo "cmctl built successfully"
+
   # Docker tasks
   docker:build:
     desc: Build Docker image for the SLIM OpenTelemetry Collector
@@ -193,74 +255,11 @@ tasks:
         docker run --rm -p 4317:4317 -p 4318:4318
         -v {{.ROOT_DIR}}/collector-config.yaml:/etc/otel/config.yaml:ro
         {{.DOCKER_IMAGE}}:{{.DOCKER_TAG}}
-
-  # Examples
-  test:app:build:
-    desc: Build the test app
-    dir: testapp
-    cmds:
-      - echo "Building test app..."
-      - go build -a .
-      - echo "Test app built successfully"
-
-  test:app:participant:
-    desc: Run the test app as participant
-    dir: testapp
-    cmds:
-      - echo "Running test app in participant mode..."
-      - >
-        go run .
-        --app-name "agntcy/otel/receiver-app"
-        --server "http://localhost:46357"
-        --secret "a-very-long-shared-secret-0123456789-abcdefg"
-
-  test:app:get-metrics:
-    desc: Run the test app createing a challenge to get metrics
-    dir: testapp
-    cmds:
-      - echo "Running test app creating a challenge to get metrics..."
-      - >
-        go run .
-        --app-name "agntcy/otel/receiver-app-metrics"
-        --server "http://localhost:46357"
-        --secret "a-very-long-shared-secret-0123456789-abcdefg"
-        --exporter-name-metrics "agntcy/otel/exporter-metrics"
-        --channel-name-metrics "agntcy/otel/test-app-channel"
-
-  test:app:get-traces:
-    desc: Run the test app createing a challenge to get traces
-    dir: testapp
-    cmds:
-      - echo "Running test app creating a challenge to get traces..."
-      - >
-        go run .
-        --app-name "agntcy/otel/receiver-app-traces"
-        --server "http://localhost:46357"
-        --secret "a-very-long-shared-secret-0123456789-abcdefg"
-        --exporter-name-traces "agntcy/otel/exporter-traces"
-        --channel-name-traces "agntcy/otel/test-app-channel"
-
-  test:app:get-all-signals:
-    desc: Run the test app creating a challenge to get all signals (traces, metrics, logs)
-    dir: testapp
-    cmds:
-      - echo "Running test app creating a challenge to get all signals..."
-      - >
-        go run .
-        --app-name "agntcy/otel/receiver-app-all"
-        --server "http://localhost:46357"
-        --secret "a-very-long-shared-secret-0123456789-abcdefg"
-        --exporter-name-traces "agntcy/otel/exporter-traces"
-        --channel-name-traces "agntcy/otel/test-app-channel-traces"
-        --exporter-name-metrics "agntcy/otel/exporter-metrics"
-        --channel-name-metrics "agntcy/otel/test-app-channel-metrics"
-        --exporter-name-logs "agntcy/otel/exporter-logs"
-        --channel-name-logs "agntcy/otel/test-app-channel-logs"
   
-  test:slim:run:
+  slim:run:
     desc: Run a SLIM node as a docker container for testing 
     cmds:
       - >
         docker run -it
         -v ./slim-test-config.yaml:/config.yaml -p 46357:46357
-        ghcr.io/agntcy/slim:latest /slim --config /config.yaml
+        ghcr.io/agntcy/slim:1.0.0 /slim --config /config.yaml
