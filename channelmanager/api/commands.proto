@@ -65,5 +65,5 @@ message ListParticipantsResponse {
 message CommandResponse {
     uint64 msg_id = 1;
     bool success = 2;
-    optional string errorMsg = 3;
+    optional string error_msg = 3;
 }

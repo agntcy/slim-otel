@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
+	slim "github.com/agntcy/slim-bindings-go"
 	channelmanager "github.com/agntcy/slim/otel/channelmanager/internal/channelmanager"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )

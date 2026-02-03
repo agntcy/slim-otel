@@ -60,14 +60,17 @@ tasks:
     internal: true
     desc: Fetch and install bindings
     cmds:
-      #- task: foreach-module
-      #  vars:
-      #    CMD: go mod download
-      #- go run github.com/agntcy/slim-bindings-go/cmd/slim-bindings-setup
+      - task: foreach-module
+        vars:
+          CMD: go mod download
+      - go mod download github.com/agntcy/slim-bindings-go
+      - go run github.com/agntcy/slim-bindings-go/cmd/slim-bindings-setup
       - echo "Slim bindings fetched and installed"
 
   modtidy:
     desc: Install go modules
+    deps:
+      - fetch-and-run
     cmds:
       - task: foreach-module
         vars:
@@ -250,74 +253,11 @@ tasks:
         docker run --rm -p 4317:4317 -p 4318:4318
         -v {{.ROOT_DIR}}/collector-config.yaml:/etc/otel/config.yaml:ro
         {{.DOCKER_IMAGE}}:{{.DOCKER_TAG}}
-
-  # Examples
-  test:app:build:
-    desc: Build the test app
-    dir: testapp
-    cmds:
-      - echo "Building test app..."
-      - go build -a .
-      - echo "Test app built successfully"
-
-  test:app:participant:
-    desc: Run the test app as participant
-    dir: testapp
-    cmds:
-      - echo "Running test app in participant mode..."
-      - >
-        go run .
-        --app-name "agntcy/otel/receiver-app"
-        --server "http://localhost:46357"
-        --secret "a-very-long-shared-secret-0123456789-abcdefg"
-
-  test:app:get-metrics:
-    desc: Run the test app createing a challenge to get metrics
-    dir: testapp
-    cmds:
-      - echo "Running test app creating a challenge to get metrics..."
-      - >
-        go run .
-        --app-name "agntcy/otel/receiver-app-metrics"
-        --server "http://localhost:46357"
-        --secret "a-very-long-shared-secret-0123456789-abcdefg"
-        --exporter-name-metrics "agntcy/otel/exporter-metrics"
-        --channel-name-metrics "agntcy/otel/test-app-channel"
-
-  test:app:get-traces:
-    desc: Run the test app createing a challenge to get traces
-    dir: testapp
-    cmds:
-      - echo "Running test app creating a challenge to get traces..."
-      - >
-        go run .
-        --app-name "agntcy/otel/receiver-app-traces"
-        --server "http://localhost:46357"
-        --secret "a-very-long-shared-secret-0123456789-abcdefg"
-        --exporter-name-traces "agntcy/otel/exporter-traces"
-        --channel-name-traces "agntcy/otel/test-app-channel"
-
-  test:app:get-all-signals:
-    desc: Run the test app creating a challenge to get all signals (traces, metrics, logs)
-    dir: testapp
-    cmds:
-      - echo "Running test app creating a challenge to get all signals..."
-      - >
-        go run .
-        --app-name "agntcy/otel/receiver-app-all"
-        --server "http://localhost:46357"
-        --secret "a-very-long-shared-secret-0123456789-abcdefg"
-        --exporter-name-traces "agntcy/otel/exporter-traces"
-        --channel-name-traces "agntcy/otel/test-app-channel-traces"
-        --exporter-name-metrics "agntcy/otel/exporter-metrics"
-        --channel-name-metrics "agntcy/otel/test-app-channel-metrics"
-        --exporter-name-logs "agntcy/otel/exporter-logs"
-        --channel-name-logs "agntcy/otel/test-app-channel-logs"
   
-  test:slim:run:
+  slim:run:
     desc: Run a SLIM node as a docker container for testing 
     cmds:
       - >
         docker run -it
         -v ./slim-test-config.yaml:/config.yaml -p 46357:46357
-        ghcr.io/agntcy/slim:latest /slim --config /config.yaml
+        ghcr.io/agntcy/slim:1.0.0 /slim --config /config.yaml

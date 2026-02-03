@@ -12,7 +12,7 @@ import (
 
 	"go.uber.org/zap"
 
-	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
+	slim "github.com/agntcy/slim-bindings-go"
 )
 
 // SessionsList holds sessions related to a specific signal type
@@ -50,6 +50,7 @@ func (s *SessionsList) AddSession(_ context.Context, session *slim.Session) erro
 	if err != nil {
 		return fmt.Errorf("session id is not set")
 	}
+
 	name, err := session.Destination()
 	if err != nil {
 		return fmt.Errorf("session name is not set")
@@ -75,6 +76,7 @@ func (s *SessionsList) GetSessionByID(_ context.Context, id uint32) (*slim.Sessi
 		return nil, fmt.Errorf("sessions map is nil")
 	}
 	session, exists := s.sessionsByID[id]
+
 	if !exists {
 		return nil, fmt.Errorf("session with id %d not found", id)
 	}
@@ -165,6 +167,7 @@ func (s *SessionsList) DeleteAll(ctx context.Context, app *slim.App) {
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
 	if s.sessionsByID == nil {
 		// nothing to do
 		return
@@ -215,7 +218,6 @@ func (s *SessionsList) PublishToAll(ctx context.Context, data []byte) ([]uint32,
 
 		logger.Info("Publishing "+string(s.signalType)+" to session",
 			zap.Uint32("session_id", id))
-
 		if err := session.PublishAndWait(data, nil, nil); err != nil {
 			if strings.Contains(err.Error(), "Session already closed or dropped") {
 				logger.Info("Session closed, marking for removal", zap.Uint32("session_id", id))

@@ -53,25 +53,15 @@ func createTracesReceiver(
 	}
 
 	ctx = slimcommon.InitContextWithLogger(ctx, set.Logger)
-	var createErr error
 	r := receivers.GetOrAdd(
-		receiverConfig,
+		cfg,
 		func() component.Component {
-			rec, err := newSlimReceiver(ctx, receiverConfig)
-			if err != nil {
-				createErr = err
-				return nil
-			}
-			return rec
+			return newSlimReceiver(ctx, receiverConfig)
 		},
 	)
 
-	if createErr != nil {
-		return nil, fmt.Errorf("failed to create receiver: %w", createErr)
-	}
-
 	r.Unwrap().(*slimReceiver).tracesConsumer = nextConsumer
-	return r.Unwrap().(receiver.Traces), nil
+	return r, nil
 }
 
 // createMetricsReceiver creates a metrics receiver based on the config
@@ -88,25 +78,15 @@ func createMetricsReceiver(
 	}
 
 	ctx = slimcommon.InitContextWithLogger(ctx, set.Logger)
-	var createErr error
 	r := receivers.GetOrAdd(
-		receiverConfig,
+		cfg,
 		func() component.Component {
-			rec, err := newSlimReceiver(ctx, receiverConfig)
-			if err != nil {
-				createErr = err
-				return nil
-			}
-			return rec
+			return newSlimReceiver(ctx, receiverConfig)
 		},
 	)
 
-	if createErr != nil {
-		return nil, fmt.Errorf("failed to create receiver: %w", createErr)
-	}
-
 	r.Unwrap().(*slimReceiver).metricsConsumer = nextConsumer
-	return r.Unwrap().(receiver.Metrics), nil
+	return r, nil
 }
 
 // createLogsReceiver creates a logs receiver based on the config
@@ -123,25 +103,15 @@ func createLogsReceiver(
 	}
 
 	ctx = slimcommon.InitContextWithLogger(ctx, set.Logger)
-	var createErr error
 	r := receivers.GetOrAdd(
-		receiverConfig,
+		cfg,
 		func() component.Component {
-			rec, err := newSlimReceiver(ctx, receiverConfig)
-			if err != nil {
-				createErr = err
-				return nil
-			}
-			return rec
+			return newSlimReceiver(ctx, receiverConfig)
 		},
 	)
 
-	if createErr != nil {
-		return nil, fmt.Errorf("failed to create receiver: %w", createErr)
-	}
-
 	r.Unwrap().(*slimReceiver).logsConsumer = nextConsumer
-	return r.Unwrap().(receiver.Logs), nil
+	return r, nil
 }
 
 // receivers is a shared component to manage Slim receivers

@@ -26,7 +26,7 @@ type ManagerConfig struct {
 	SlimEndpoint string `yaml:"endpoint"`
 
 	// gRPC service address to listen for commands
-	GRPCAddress string `yaml:"address"`
+	GRPCAddress string `yaml:"service-address"`
 
 	// Local name for the channel manager in SLIM
 	LocalName string `yaml:"local-name"`
