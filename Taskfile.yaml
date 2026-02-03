@@ -78,9 +78,9 @@ tasks:
 
   lint:
     desc: Run go linter
-    deps:
-      - tools
     cmds:
+      - task: tools
+      - task: channelmanager:proto:compile
       - task: foreach-module
         vars:
           CMD: "echo ${PWD} && {{.TOOLS_INSTALL_DIR}}/golangci-lint run"
@@ -101,19 +101,19 @@ tasks:
 
   vuln:
     desc: Run go govulncheck
-    deps:
-      - tools
     cmds:
+      - task: tools
+      - task: channelmanager:proto:compile
       - task: foreach-module
         vars:
           CMD: "{{.TOOLS_INSTALL_DIR}}/govulncheck ./..."
 
   coverage-reports:
     desc: Check test coverage
-    deps:
-      - tools
-      - fetch-and-run
     cmds:
+      - task: tools
+      - task: fetch-and-run
+      - task: channelmanager:proto:compile
       - task: foreach-module
         vars:
           CMD: |
@@ -193,11 +193,12 @@ tasks:
   channelmanager:proto:compile:
     desc: Compile proto files for channel manager
     deps:
+      - tools
       - channelmanager:proto:install
     cmds:
       - echo "Compiling proto files..."
       - >
-        PATH="$(go env GOPATH)/bin:$PATH" protoc 
+        PATH="{{.TOOLS_INSTALL_DIR}}:$(go env GOPATH)/bin:$PATH" protoc 
         --go_out=. --go_opt=module=github.com/agntcy/slim/otel
         --go-grpc_out=. --go-grpc_opt=module=github.com/agntcy/slim/otel
         channelmanager/api/commands.proto

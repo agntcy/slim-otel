@@ -79,14 +79,12 @@ tasks:
         [[ "{{OS}}" == "darwin" ]] && O="osx"
         curl -L {{.PROTOC_URL}}/v{{.PROTOC_VERSION}}/protoc-{{.PROTOC_VERSION}}-$O-$A.zip -o protoc.zip
         unzip -o protoc.zip
-        mv bin/protoc {{.TOOLS_INSTALL_DIR}}
-        mv include {{.TOOLS_INSTALL_DIR}}
-        rm -f protoc.zip
+        rm -f {{.TOOLS_INSTALL_DIR}}/protoc
+        cp bin/protoc {{.TOOLS_INSTALL_DIR}}/
+        chmod +x {{.TOOLS_INSTALL_DIR}}/protoc
+        cp -r include {{.TOOLS_INSTALL_DIR}}/
     status:
-      - |
-        for tool in {{.ADDITIONAL_TOOLS}}; do
-          test -f {{.TOOLS_INSTALL_DIR}}/${tool}
-        done
+      - test -f {{.TOOLS_INSTALL_DIR}}/protoc
 
   # Download packages
   tools:go-tools:
