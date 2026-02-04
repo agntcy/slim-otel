@@ -3,7 +3,13 @@ package slimexporter
 import (
 	"strings"
 	"testing"
+
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
+
+func ptr(s string) *string {
+	return &s
+}
 
 func TestConfig_Validate(t *testing.T) {
 	tests := []struct {
@@ -21,7 +27,9 @@ func TestConfig_Validate(t *testing.T) {
 					Traces:  "agntcy/test/exporter-traces",
 					Logs:    "agntcy/test/exporter-logs",
 				},
-				SharedSecret: "test-secret",
+				Auth: slimcommon.AuthConfig{
+					SharedSecret: ptr("test-secret"),
+				},
 				Channels: []ChannelsConfig{
 					{
 						ChannelName:  "agntcy/test/channel",
@@ -36,7 +44,9 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "valid config with minimal fields",
 			config: &Config{
-				SharedSecret: "test-secret",
+				Auth: slimcommon.AuthConfig{
+					SharedSecret: ptr("test-secret"),
+				},
 				Channels: []ChannelsConfig{
 					{
 						ChannelName:  "agntcy/test/channel",
@@ -56,8 +66,10 @@ func TestConfig_Validate(t *testing.T) {
 					Traces:  "agntcy/test/exporter-traces",
 					Logs:    "agntcy/test/exporter-logs",
 				},
-				SharedSecret: "test-secret",
-				Channels:     []ChannelsConfig{},
+				Auth: slimcommon.AuthConfig{
+					SharedSecret: ptr("test-secret"),
+				},
+				Channels: []ChannelsConfig{},
 			},
 			wantErr: false,
 		},
@@ -82,7 +94,9 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "channel with missing channel name",
 			config: &Config{
-				SharedSecret: "test-secret",
+				Auth: slimcommon.AuthConfig{
+					SharedSecret: ptr("test-secret"),
+				},
 				Channels: []ChannelsConfig{
 					{
 						ChannelName:  "",
@@ -97,7 +111,9 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "channel with missing signal",
 			config: &Config{
-				SharedSecret: "test-secret",
+				Auth: slimcommon.AuthConfig{
+					SharedSecret: ptr("test-secret"),
+				},
 				Channels: []ChannelsConfig{
 					{
 						ChannelName:  "agntcy/test/channel",
@@ -112,7 +128,9 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "channel with empty participants",
 			config: &Config{
-				SharedSecret: "test-secret",
+				Auth: slimcommon.AuthConfig{
+					SharedSecret: ptr("test-secret"),
+				},
 				Channels: []ChannelsConfig{
 					{
 						ChannelName:  "agntcy/test/channel",
@@ -127,7 +145,9 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "multiple valid channels",
 			config: &Config{
-				SharedSecret: "test-secret",
+				Auth: slimcommon.AuthConfig{
+					SharedSecret: ptr("test-secret"),
+				},
 				Channels: []ChannelsConfig{
 					{
 						ChannelName:  "agntcy/test/channel1",
@@ -154,7 +174,9 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "valid config with traces signal",
 			config: &Config{
-				SharedSecret: "test-secret",
+				Auth: slimcommon.AuthConfig{
+					SharedSecret: ptr("test-secret"),
+				},
 				Channels: []ChannelsConfig{
 					{
 						ChannelName:  "agntcy/test/channel",
@@ -168,7 +190,9 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "invalid signal type",
 			config: &Config{
-				SharedSecret: "test-secret",
+				Auth: slimcommon.AuthConfig{
+					SharedSecret: ptr("test-secret"),
+				},
 				Channels: []ChannelsConfig{
 					{
 						ChannelName:  "agntcy/test/channel",
@@ -200,8 +224,10 @@ func TestConfig_Validate(t *testing.T) {
 
 func TestConfig_Validate_DefaultValues(t *testing.T) {
 	config := &Config{
-		SharedSecret: "test-secret",
-		Channels:     []ChannelsConfig{},
+		Auth: slimcommon.AuthConfig{
+			SharedSecret: ptr("test-secret"),
+		},
+		Channels: []ChannelsConfig{},
 	}
 
 	err := config.Validate()
@@ -232,8 +258,10 @@ func TestConfig_Validate_PartialDefaults(t *testing.T) {
 			Metrics: "custom/metrics",
 			// Traces and Logs should be filled with defaults
 		},
-		SharedSecret: "test-secret",
-		Channels:     []ChannelsConfig{},
+		Auth: slimcommon.AuthConfig{
+			SharedSecret: ptr("test-secret"),
+		},
+		Channels: []ChannelsConfig{},
 	}
 
 	err := config.Validate()
@@ -423,7 +451,9 @@ func TestConfig_Validate_MultipleChannelsWithError(t *testing.T) {
 		{
 			name: "second channel has no channel name",
 			config: &Config{
-				SharedSecret: "test-secret",
+				Auth: slimcommon.AuthConfig{
+					SharedSecret: ptr("test-secret"),
+				},
 				Channels: []ChannelsConfig{
 					{
 						ChannelName:  "agntcy/test/channel1",
@@ -443,7 +473,9 @@ func TestConfig_Validate_MultipleChannelsWithError(t *testing.T) {
 		{
 			name: "second channel has no signal",
 			config: &Config{
-				SharedSecret: "test-secret",
+				Auth: slimcommon.AuthConfig{
+					SharedSecret: ptr("test-secret"),
+				},
 				Channels: []ChannelsConfig{
 					{
 						ChannelName:  "agntcy/test/channel1",
@@ -463,7 +495,9 @@ func TestConfig_Validate_MultipleChannelsWithError(t *testing.T) {
 		{
 			name: "third channel has no participants",
 			config: &Config{
-				SharedSecret: "test-secret",
+				Auth: slimcommon.AuthConfig{
+					SharedSecret: ptr("test-secret"),
+				},
 				Channels: []ChannelsConfig{
 					{
 						ChannelName:  "agntcy/test/channel1",

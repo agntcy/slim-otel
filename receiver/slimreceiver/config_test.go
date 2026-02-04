@@ -3,9 +3,14 @@ package slimreceiver
 import (
 	"testing"
 
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func ptr(s string) *string {
+	return &s
+}
 
 func TestConfigValidate(t *testing.T) {
 	tests := []struct {
@@ -20,51 +25,63 @@ func TestConfigValidate(t *testing.T) {
 			config: &Config{
 				SlimEndpoint: "http://localhost:46357",
 				ReceiverName: "agntcy/otel/test-receiver",
-				SharedSecret: "test-secret-0123456789-abcdefg",
+				Auth: slimcommon.AuthConfig{
+					SharedSecret: ptr("test-secret-0123456789-abcdefg"),
+				},
 			},
 			expectError: false,
 			checkFields: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, "http://localhost:46357", cfg.SlimEndpoint)
 				assert.Equal(t, "agntcy/otel/test-receiver", cfg.ReceiverName)
-				assert.Equal(t, "test-secret-0123456789-abcdefg", cfg.SharedSecret)
+				assert.NotNil(t, cfg.Auth.SharedSecret)
+				assert.Equal(t, "test-secret-0123456789-abcdefg", *cfg.Auth.SharedSecret)
 			},
 		},
 		{
 			name: "missing endpoint uses default",
 			config: &Config{
 				ReceiverName: "agntcy/otel/test-receiver",
-				SharedSecret: "test-secret-0123456789-abcdefg",
+				Auth: slimcommon.AuthConfig{
+					SharedSecret: ptr("test-secret-0123456789-abcdefg"),
+				},
 			},
 			expectError: false,
 			checkFields: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, "http://127.0.0.1:46357", cfg.SlimEndpoint)
 				assert.Equal(t, "agntcy/otel/test-receiver", cfg.ReceiverName)
-				assert.Equal(t, "test-secret-0123456789-abcdefg", cfg.SharedSecret)
+				assert.NotNil(t, cfg.Auth.SharedSecret)
+				assert.Equal(t, "test-secret-0123456789-abcdefg", *cfg.Auth.SharedSecret)
 			},
 		},
 		{
 			name: "missing receiver name uses default",
 			config: &Config{
 				SlimEndpoint: "http://localhost:46357",
-				SharedSecret: "test-secret-0123456789-abcdefg",
+				Auth: slimcommon.AuthConfig{
+					SharedSecret: ptr("test-secret-0123456789-abcdefg"),
+				},
 			},
 			expectError: false,
 			checkFields: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, "http://localhost:46357", cfg.SlimEndpoint)
 				assert.Equal(t, "agntcy/otel/receiver", cfg.ReceiverName)
-				assert.Equal(t, "test-secret-0123456789-abcdefg", cfg.SharedSecret)
+				assert.NotNil(t, cfg.Auth.SharedSecret)
+				assert.Equal(t, "test-secret-0123456789-abcdefg", *cfg.Auth.SharedSecret)
 			},
 		},
 		{
 			name: "both endpoint and receiver name missing use defaults",
 			config: &Config{
-				SharedSecret: "test-secret-0123456789-abcdefg",
+				Auth: slimcommon.AuthConfig{
+					SharedSecret: ptr("test-secret-0123456789-abcdefg"),
+				},
 			},
 			expectError: false,
 			checkFields: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, "http://127.0.0.1:46357", cfg.SlimEndpoint)
 				assert.Equal(t, "agntcy/otel/receiver", cfg.ReceiverName)
-				assert.Equal(t, "test-secret-0123456789-abcdefg", cfg.SharedSecret)
+				assert.NotNil(t, cfg.Auth.SharedSecret)
+				assert.Equal(t, "test-secret-0123456789-abcdefg", *cfg.Auth.SharedSecret)
 			},
 		},
 		{
@@ -74,28 +91,33 @@ func TestConfigValidate(t *testing.T) {
 				ReceiverName: "agntcy/otel/test-receiver",
 			},
 			expectError: true,
-			errorMsg:    "shared secret cannot be empty",
+			errorMsg:    "invalid authentication configuration",
 		},
 		{
 			name: "empty shared secret returns error",
 			config: &Config{
 				SlimEndpoint: "http://localhost:46357",
 				ReceiverName: "agntcy/otel/test-receiver",
-				SharedSecret: "",
+				Auth: slimcommon.AuthConfig{
+					SharedSecret: ptr(""),
+				},
 			},
 			expectError: true,
-			errorMsg:    "shared secret cannot be empty",
+			errorMsg:    "invalid authentication configuration",
 		},
 		{
 			name: "all fields empty except shared secret uses defaults",
 			config: &Config{
-				SharedSecret: "test-secret-0123456789-abcdefg",
+				Auth: slimcommon.AuthConfig{
+					SharedSecret: ptr("test-secret-0123456789-abcdefg"),
+				},
 			},
 			expectError: false,
 			checkFields: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, "http://127.0.0.1:46357", cfg.SlimEndpoint)
 				assert.Equal(t, "agntcy/otel/receiver", cfg.ReceiverName)
-				assert.Equal(t, "test-secret-0123456789-abcdefg", cfg.SharedSecret)
+				assert.NotNil(t, cfg.Auth.SharedSecret)
+				assert.Equal(t, "test-secret-0123456789-abcdefg", *cfg.Auth.SharedSecret)
 			},
 		},
 	}
@@ -123,5 +145,5 @@ func TestDefaultConfig(t *testing.T) {
 	assert.NotNil(t, cfg)
 	assert.Equal(t, "http://127.0.0.1:46357", cfg.SlimEndpoint)
 	assert.Equal(t, "agntcy/otel/receiver", cfg.ReceiverName)
-	assert.Empty(t, cfg.SharedSecret, "default config should not have a shared secret")
+	assert.Nil(t, cfg.Auth.SharedSecret, "default config should not have a shared secret")
 }

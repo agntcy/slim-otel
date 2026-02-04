@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/consumer/consumertest"
@@ -17,7 +18,9 @@ func TestHandleReceivedTraces(t *testing.T) {
 	cfg := &Config{
 		SlimEndpoint: "http://localhost:46357",
 		ReceiverName: "agntcy/otel/test",
-		SharedSecret: "test-secret",
+		Auth: slimcommon.AuthConfig{
+			SharedSecret: ptr("test-secret"),
+		},
 	}
 
 	// Create a consumer to capture traces
@@ -51,7 +54,9 @@ func TestHandleReceivedMetrics(t *testing.T) {
 	cfg := &Config{
 		SlimEndpoint: "http://localhost:46357",
 		ReceiverName: "agntcy/otel/test",
-		SharedSecret: "test-secret",
+		Auth: slimcommon.AuthConfig{
+			SharedSecret: ptr("test-secret"),
+		},
 	}
 
 	// Create a consumer to capture metrics
@@ -87,7 +92,9 @@ func TestHandleReceivedLogs(t *testing.T) {
 	cfg := &Config{
 		SlimEndpoint: "http://localhost:46357",
 		ReceiverName: "agntcy/otel/test",
-		SharedSecret: "test-secret",
+		Auth: slimcommon.AuthConfig{
+			SharedSecret: ptr("test-secret"),
+		},
 	}
 
 	// Create a consumer to capture logs
@@ -121,7 +128,9 @@ func TestDetectAndHandleMessage_Traces(t *testing.T) {
 	cfg := &Config{
 		SlimEndpoint: "http://localhost:46357",
 		ReceiverName: "agntcy/otel/test",
-		SharedSecret: "test-secret",
+		Auth: slimcommon.AuthConfig{
+			SharedSecret: ptr("test-secret"),
+		},
 	}
 
 	// Create a consumer to capture traces
@@ -158,7 +167,9 @@ func TestDetectAndHandleMessage_Metrics(t *testing.T) {
 	cfg := &Config{
 		SlimEndpoint: "http://localhost:46357",
 		ReceiverName: "agntcy/otel/test",
-		SharedSecret: "test-secret",
+		Auth: slimcommon.AuthConfig{
+			SharedSecret: ptr("test-secret"),
+		},
 	}
 
 	// Create a consumer to capture metrics
@@ -197,7 +208,9 @@ func TestDetectAndHandleMessage_Logs(t *testing.T) {
 	cfg := &Config{
 		SlimEndpoint: "http://localhost:46357",
 		ReceiverName: "agntcy/otel/test",
-		SharedSecret: "test-secret",
+		Auth: slimcommon.AuthConfig{
+			SharedSecret: ptr("test-secret"),
+		},
 	}
 
 	// Create a consumer to capture logs
@@ -234,7 +247,9 @@ func TestDetectAndHandleMessage_InvalidPayload(t *testing.T) {
 	cfg := &Config{
 		SlimEndpoint: "http://localhost:46357",
 		ReceiverName: "agntcy/otel/test",
-		SharedSecret: "test-secret",
+		Auth: slimcommon.AuthConfig{
+			SharedSecret: ptr("test-secret"),
+		},
 	}
 
 	// Create consumers
@@ -267,7 +282,9 @@ func TestDetectAndHandleMessage_NoConsumers(t *testing.T) {
 	cfg := &Config{
 		SlimEndpoint: "http://localhost:46357",
 		ReceiverName: "agntcy/otel/test",
-		SharedSecret: "test-secret",
+		Auth: slimcommon.AuthConfig{
+			SharedSecret: ptr("test-secret"),
+		},
 	}
 
 	// Create a mock receiver with NO consumers
@@ -299,7 +316,9 @@ func TestReceiverMultipleSignalTypes(t *testing.T) {
 	cfg := &Config{
 		SlimEndpoint: "http://localhost:46357",
 		ReceiverName: "agntcy/otel/test",
-		SharedSecret: "test-secret",
+		Auth: slimcommon.AuthConfig{
+			SharedSecret: ptr("test-secret"),
+		},
 	}
 
 	// Create consumers for all signal types
