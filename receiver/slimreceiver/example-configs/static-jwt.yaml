@@ -4,7 +4,7 @@ receivers:
     receiver-name: "agntcy/otel/receiver"
     auth:
       static-jwt:
-        file: "../../../testing/config/crypto/jwt/static-token.jwt"
+        file: "./testing/config/crypto/jwt/static-token.jwt"
         duration: "3600s"
 
 processors:

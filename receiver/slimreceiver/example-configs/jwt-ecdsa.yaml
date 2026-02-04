@@ -11,11 +11,17 @@ receivers:
           subject: "slim"
         duration: "1h"
         key:
+          encoding:
+            algorithm: "ES256"
+            format: "pem"
+            key:
+              file: "./testing/config/crypto/jwt/ec256.pem"
+              # Receiver uses private key for JWT signing
           decoding:
             algorithm: "ES256"
             format: "pem"
             key:
-              file: "../../../testing/config/crypto/jwt/ec256-public.pem"
+              file: "./testing/config/crypto/jwt/ec256-public.pem"
               # Receiver uses public key for JWT verification
 
 processors:

@@ -31,14 +31,24 @@ exporters:
           subject: "slim"
         duration: "1h"
         key:
-          decoding:
+          encoding:
             algorithm: "ES256"
             format: "pem"
             key:
-              file: "../../../testing/config/crypto/jwt/ec256.pem"
+              file: "./testing/config/crypto/jwt/ec256.pem"
               # For verification, use: ../../../testing/config/crypto/jwt/ec256-public.pem
         
-    channels: []
+    channels:
+      - channel-name: "agntcy/otel/channel-metrics"
+        signal: metrics
+        participants:
+          - "agntcy/otel/receiver"
+        mls-enabled: true
+      - channel-name: "agntcy/otel/channel-traces"
+        signal: traces
+        participants:
+          - "agntcy/otel/receiver"
+        mls-enabled: true
     
 service:
   telemetry:

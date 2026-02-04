@@ -31,14 +31,14 @@ exporters:
           subject: "slim"
         duration: "3600s"
         key:
-          decoding:
+          encoding:
             algorithm: "RS256"
             format: "pem"
             key:
               file: "../../../testing/config/crypto/jwt/rsa.pem"
               # OR embed the key directly:
               # data: "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
-              # For verification, use: ../../../testing/config/crypto/jwt/rsa-public.pem
+              # For verification (receiver), use: ../../../testing/config/crypto/jwt/rsa-public.pem
         
     channels: []
     

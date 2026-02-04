@@ -32,16 +32,19 @@ slim:
         subject: "slim"
       # Token validity duration (e.g., "3600s", "1h")
       duration: "3600s"
-    # Key configuration - use 'decoding' for applications signing JWTs
+    # Key configuration for JWT verification (receiver is a JWT verifier)
+    # Use 'decoding' key with public key for verifying JWTs
+    # Or omit the key section entirely to enable 'autoresolve' mode
+    # (Exporters use 'encoding' key with private key for signing)
       key:
         decoding:
           algorithm: "RS256"  # Options: HS256, HS384, HS512, ES256, ES384, RS256, RS384, RS512, PS256, PS384, PS512, EdDSA
           format: "PEM"       # Options: PEM, JWK or JWKS
           key:
-            # file path to the private key
-            file: "/path/to/private-key.pem"
+            # file path to the public key
+            file: "/path/to/public-key.pem"
             # OR embed the key directly
-            data: "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+            data: "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
     
     # Method 4: SPIRE Workload Identity Authentication 
     spire:

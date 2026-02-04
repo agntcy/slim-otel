@@ -26,9 +26,9 @@ type StaticJWTConfig struct {
 
 // JWTConfig represents dynamic JWT authentication configuration
 type JWTConfig struct {
-	Claims   JWTClaims      `mapstructure:"claims"`
-	Duration string         `mapstructure:"duration"`
-	Key      JWTKeyDecoding `mapstructure:"key"`
+	Claims   JWTClaims `mapstructure:"claims"`
+	Duration string    `mapstructure:"duration"`
+	Key      JWTKey    `mapstructure:"key"`
 }
 
 // JWTClaims represents JWT claims configuration
@@ -38,8 +38,9 @@ type JWTClaims struct {
 	Subject  string   `mapstructure:"subject"`
 }
 
-// JWTKeyDecoding represents the JWT key configuration
-type JWTKeyDecoding struct {
+// JWTKey represents the JWT key configuration with type (encoding/decoding/autoresolve)
+type JWTKey struct {
+	Encoding *JWTKeyConfig `mapstructure:"encoding"`
 	Decoding *JWTKeyConfig `mapstructure:"decoding"`
 }
 
@@ -147,10 +148,23 @@ func (a *AuthConfig) ToIdentityVerifierConfig(appName string) (slim.IdentityVeri
 
 // jwtToProviderConfig converts JWT config to IdentityProviderConfig
 func (a *AuthConfig) jwtToProviderConfig() (slim.IdentityProviderConfig, error) {
-	keyType, audiences, issuer, subject, duration, err := a.prepareJWTConfig()
+	duration, err := parseDuration(a.JWT.Duration, 3600*time.Second)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid JWT duration: %w", err)
 	}
+
+	// Get encoding key configuration (for signing)
+	if a.JWT.Key.Encoding == nil {
+		return nil, fmt.Errorf("JWT key encoding configuration is required for IdentityProvider")
+	}
+
+	keyConfig, err := a.JWT.Key.Encoding.toJWTKeyConfig()
+	if err != nil {
+		return nil, fmt.Errorf("invalid encoding key config: %w", err)
+	}
+	keyType := slim.JwtKeyTypeEncoding{Key: keyConfig}
+
+	audiences, issuer, subject := a.convertJWTClaims()
 
 	return slim.IdentityProviderConfigJwt{
 		Config: slim.ClientJwtAuth{
@@ -165,10 +179,25 @@ func (a *AuthConfig) jwtToProviderConfig() (slim.IdentityProviderConfig, error) 
 
 // jwtToVerifierConfig converts JWT config to IdentityVerifierConfig
 func (a *AuthConfig) jwtToVerifierConfig() (slim.IdentityVerifierConfig, error) {
-	keyType, audiences, issuer, subject, duration, err := a.prepareJWTConfig()
+	duration, err := parseDuration(a.JWT.Duration, 3600*time.Second)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid JWT duration: %w", err)
 	}
+
+	var keyType slim.JwtKeyType
+	// Check if decoding key is provided
+	if a.JWT.Key.Decoding != nil {
+		keyConfig, err := a.JWT.Key.Decoding.toJWTKeyConfig()
+		if err != nil {
+			return nil, fmt.Errorf("invalid decoding key config: %w", err)
+		}
+		keyType = slim.JwtKeyTypeDecoding{Key: keyConfig}
+	} else {
+		// Default to autoresolve if no decoding key is specified
+		keyType = slim.JwtKeyTypeAutoresolve{}
+	}
+
+	audiences, issuer, subject := a.convertJWTClaims()
 
 	return slim.IdentityVerifierConfigJwt{
 		Config: slim.JwtAuth{
@@ -240,29 +269,6 @@ func (a *AuthConfig) convertJWTClaims() (*[]string, *string, *string) {
 	}
 
 	return audiences, issuer, subject
-}
-
-// prepareJWTConfig prepares JWT configuration
-func (a *AuthConfig) prepareJWTConfig() (slim.JwtKeyTypeDecoding, *[]string, *string, *string, time.Duration, error) {
-	duration, err := parseDuration(a.JWT.Duration, 3600*time.Second)
-	if err != nil {
-		return slim.JwtKeyTypeDecoding{}, nil, nil, nil, 0, fmt.Errorf("invalid JWT duration: %w", err)
-	}
-
-	// Get decoding key configuration
-	if a.JWT.Key.Decoding == nil {
-		return slim.JwtKeyTypeDecoding{}, nil, nil, nil, 0, fmt.Errorf("JWT key decoding configuration is required")
-	}
-
-	keyConfig, err := a.JWT.Key.Decoding.toJWTKeyConfig()
-	if err != nil {
-		return slim.JwtKeyTypeDecoding{}, nil, nil, nil, 0, fmt.Errorf("invalid decoding key config: %w", err)
-	}
-	keyType := slim.JwtKeyTypeDecoding{Key: keyConfig}
-
-	audiences, issuer, subject := a.convertJWTClaims()
-
-	return keyType, audiences, issuer, subject, duration, nil
 }
 
 // prepareSpireConfig prepares SPIRE configuration
