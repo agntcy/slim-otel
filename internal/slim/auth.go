@@ -26,9 +26,9 @@ type StaticJWTConfig struct {
 
 // JWTConfig represents dynamic JWT authentication configuration
 type JWTConfig struct {
-	Claims   JWTClaims  `mapstructure:"claims"`
-	Duration string     `mapstructure:"duration"`
-	Key      JWTKeyEnum `mapstructure:"key"`
+	Claims   JWTClaims      `mapstructure:"claims"`
+	Duration string         `mapstructure:"duration"`
+	Key      JWTKeyDecoding `mapstructure:"key"`
 }
 
 // JWTClaims represents JWT claims configuration
@@ -38,11 +38,9 @@ type JWTClaims struct {
 	Subject  string   `mapstructure:"subject"`
 }
 
-// JWTKeyEnum represents the JWT key configuration with type discrimination
-type JWTKeyEnum struct {
-	Encoding    *JWTKeyConfig `mapstructure:"encoding"`
-	Decoding    *JWTKeyConfig `mapstructure:"decoding"`
-	Autoresolve bool          `mapstructure:"autoresolve"`
+// JWTKeyDecoding represents the JWT key configuration
+type JWTKeyDecoding struct {
+	Decoding *JWTKeyConfig `mapstructure:"decoding"`
 }
 
 // JWTKeyConfig represents the key configuration for JWT signing/verification
@@ -68,7 +66,141 @@ type SpireConfig struct {
 
 // ToIdentityProviderConfig converts AuthConfig to SLIM's IdentityProviderConfig
 func (a *AuthConfig) ToIdentityProviderConfig(appName string) (slim.IdentityProviderConfig, error) {
-	// Count how many auth methods are configured
+	if err := a.ValidateAuthConfig(); err != nil {
+		return nil, err
+	}
+
+	// Convert based on which method is configured
+	if a.SharedSecret != nil {
+		return slim.IdentityProviderConfigSharedSecret{
+			Data: *a.SharedSecret,
+			Id:   appName,
+		}, nil
+	}
+
+	if a.StaticJWT != nil {
+		duration, err := parseDuration(a.StaticJWT.Duration, 3600*time.Second)
+		if err != nil {
+			return nil, fmt.Errorf("invalid static JWT duration: %w", err)
+		}
+
+		return slim.IdentityProviderConfigStaticJwt{
+			Config: slim.StaticJwtAuth{
+				TokenFile: a.StaticJWT.File,
+				Duration:  duration,
+			},
+		}, nil
+	}
+
+	if a.JWT != nil {
+		return a.jwtToProviderConfig()
+	}
+
+	if a.Spire != nil {
+		return a.spireToProviderConfig()
+	}
+
+	return nil, fmt.Errorf("no valid authentication method found")
+}
+
+// ToIdentityVerifierConfig converts AuthConfig to SLIM's IdentityVerifierConfig
+func (a *AuthConfig) ToIdentityVerifierConfig(appName string) (slim.IdentityVerifierConfig, error) {
+	if err := a.ValidateAuthConfig(); err != nil {
+		return nil, err
+	}
+
+	// Convert based on which method is configured
+	if a.SharedSecret != nil {
+		return slim.IdentityVerifierConfigSharedSecret{
+			Data: *a.SharedSecret,
+			Id:   appName,
+		}, nil
+	}
+
+	if a.StaticJWT != nil {
+		duration, err := parseDuration(a.StaticJWT.Duration, 3600*time.Second)
+		if err != nil {
+			return nil, fmt.Errorf("invalid static JWT duration: %w", err)
+		}
+
+		return slim.IdentityVerifierConfigJwt{
+			Config: slim.JwtAuth{
+				Key:      slim.JwtKeyTypeAutoresolve{},
+				Audience: nil,
+				Issuer:   nil,
+				Subject:  nil,
+				Duration: duration,
+			},
+		}, nil
+	}
+
+	if a.JWT != nil {
+		return a.jwtToVerifierConfig()
+	}
+
+	if a.Spire != nil {
+		return a.spireToVerifierConfig()
+	}
+
+	return nil, fmt.Errorf("no valid authentication method found")
+}
+
+// jwtToProviderConfig converts JWT config to IdentityProviderConfig
+func (a *AuthConfig) jwtToProviderConfig() (slim.IdentityProviderConfig, error) {
+	keyType, audiences, issuer, subject, duration, err := a.prepareJWTConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return slim.IdentityProviderConfigJwt{
+		Config: slim.ClientJwtAuth{
+			Key:      keyType,
+			Audience: audiences,
+			Issuer:   issuer,
+			Subject:  subject,
+			Duration: duration,
+		},
+	}, nil
+}
+
+// jwtToVerifierConfig converts JWT config to IdentityVerifierConfig
+func (a *AuthConfig) jwtToVerifierConfig() (slim.IdentityVerifierConfig, error) {
+	keyType, audiences, issuer, subject, duration, err := a.prepareJWTConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return slim.IdentityVerifierConfigJwt{
+		Config: slim.JwtAuth{
+			Key:      keyType,
+			Audience: audiences,
+			Issuer:   issuer,
+			Subject:  subject,
+			Duration: duration,
+		},
+	}, nil
+}
+
+// spireToProviderConfig converts SPIRE config to IdentityProviderConfig
+func (a *AuthConfig) spireToProviderConfig() (slim.IdentityProviderConfig, error) {
+	return slim.IdentityProviderConfigSpire{
+		Config: a.prepareSpireConfig(),
+	}, nil
+}
+
+// spireToVerifierConfig converts SPIRE config to IdentityVerifierConfig
+func (a *AuthConfig) spireToVerifierConfig() (slim.IdentityVerifierConfig, error) {
+	return slim.IdentityVerifierConfigSpire{
+		Config: a.prepareSpireConfig(),
+	}, nil
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+// ValidateAuthConfig validates that exactly one authentication method is configured
+func (a *AuthConfig) ValidateAuthConfig() error {
 	configured := 0
 	if a.SharedSecret != nil {
 		configured++
@@ -84,72 +216,21 @@ func (a *AuthConfig) ToIdentityProviderConfig(appName string) (slim.IdentityProv
 	}
 
 	if configured == 0 {
-		return nil, fmt.Errorf("no authentication method configured")
+		return fmt.Errorf("no authentication method configured")
 	}
 	if configured > 1 {
-		return nil, fmt.Errorf("only one authentication method can be configured at a time")
+		return fmt.Errorf("only one authentication method can be configured at a time")
 	}
-
-	// Convert based on which method is configured
-	if a.SharedSecret != nil {
-		return slim.NewIdentityProviderConfigSharedSecret(appName, *a.SharedSecret), nil
-	}
-
-	if a.StaticJWT != nil {
-		duration, err := parseDuration(a.StaticJWT.Duration, 3600*time.Second)
-		if err != nil {
-			return nil, fmt.Errorf("invalid static JWT duration: %w", err)
-		}
-
-		staticJWTAuth := slim.NewStaticJwtAuth(a.StaticJWT.File, duration)
-		return slim.NewIdentityProviderConfigStaticJwt(staticJWTAuth), nil
-	}
-
-	if a.JWT != nil {
-		return a.jwtToProviderConfig()
-	}
-
-	if a.Spire != nil {
-		return a.spireToProviderConfig()
-	}
-
-	return nil, fmt.Errorf("no valid authentication method found")
+	return nil
 }
 
-// jwtToProviderConfig converts JWT config to IdentityProviderConfig
-func (a *AuthConfig) jwtToProviderConfig() (slim.IdentityProviderConfig, error) {
-	duration, err := parseDuration(a.JWT.Duration, 3600*time.Second)
-	if err != nil {
-		return nil, fmt.Errorf("invalid JWT duration: %w", err)
-	}
-
-	// Determine key type
-	var keyType slim.JwtKeyType
-	if a.JWT.Key.Encoding != nil {
-		keyConfig, err := a.JWT.Key.Encoding.toSlimJWTKeyConfig()
-		if err != nil {
-			return nil, fmt.Errorf("invalid encoding key config: %w", err)
-		}
-		keyType = slim.NewJwtKeyTypeEncoding(keyConfig)
-	} else if a.JWT.Key.Decoding != nil {
-		keyConfig, err := a.JWT.Key.Decoding.toSlimJWTKeyConfig()
-		if err != nil {
-			return nil, fmt.Errorf("invalid decoding key config: %w", err)
-		}
-		keyType = slim.NewJwtKeyTypeDecoding(keyConfig)
-	} else if a.JWT.Key.Autoresolve {
-		keyType = slim.NewJwtKeyTypeAutoresolve()
-	} else {
-		return nil, fmt.Errorf("JWT key must specify encoding, decoding, or autoresolve")
-	}
-
-	// Convert audiences to pointers if present
+// convertJWTClaims converts JWT claims to pointers for the SLIM API
+func (a *AuthConfig) convertJWTClaims() (*[]string, *string, *string) {
 	var audiences *[]string
 	if len(a.JWT.Claims.Audience) > 0 {
 		audiences = &a.JWT.Claims.Audience
 	}
 
-	// Convert issuer and subject to pointers if present
 	var issuer, subject *string
 	if a.JWT.Claims.Issuer != "" {
 		issuer = &a.JWT.Claims.Issuer
@@ -158,12 +239,34 @@ func (a *AuthConfig) jwtToProviderConfig() (slim.IdentityProviderConfig, error) 
 		subject = &a.JWT.Claims.Subject
 	}
 
-	clientJWTAuth := slim.NewClientJwtAuth(keyType, audiences, issuer, subject, duration)
-	return slim.NewIdentityProviderConfigJwt(clientJWTAuth), nil
+	return audiences, issuer, subject
 }
 
-// spireToProviderConfig converts SPIRE config to IdentityProviderConfig
-func (a *AuthConfig) spireToProviderConfig() (slim.IdentityProviderConfig, error) {
+// prepareJWTConfig prepares JWT configuration
+func (a *AuthConfig) prepareJWTConfig() (slim.JwtKeyTypeDecoding, *[]string, *string, *string, time.Duration, error) {
+	duration, err := parseDuration(a.JWT.Duration, 3600*time.Second)
+	if err != nil {
+		return slim.JwtKeyTypeDecoding{}, nil, nil, nil, 0, fmt.Errorf("invalid JWT duration: %w", err)
+	}
+
+	// Get decoding key configuration
+	if a.JWT.Key.Decoding == nil {
+		return slim.JwtKeyTypeDecoding{}, nil, nil, nil, 0, fmt.Errorf("JWT key decoding configuration is required")
+	}
+
+	keyConfig, err := a.JWT.Key.Decoding.toJWTKeyConfig()
+	if err != nil {
+		return slim.JwtKeyTypeDecoding{}, nil, nil, nil, 0, fmt.Errorf("invalid decoding key config: %w", err)
+	}
+	keyType := slim.JwtKeyTypeDecoding{Key: keyConfig}
+
+	audiences, issuer, subject := a.convertJWTClaims()
+
+	return keyType, audiences, issuer, subject, duration, nil
+}
+
+// prepareSpireConfig prepares SPIRE configuration
+func (a *AuthConfig) prepareSpireConfig() slim.SpireConfig {
 	var socketPath, targetSpiffeID *string
 	var jwtAudiences, trustDomains []string
 
@@ -180,12 +283,16 @@ func (a *AuthConfig) spireToProviderConfig() (slim.IdentityProviderConfig, error
 		trustDomains = a.Spire.TrustDomains
 	}
 
-	spireConfig := slim.NewSpireConfig(socketPath, targetSpiffeID, jwtAudiences, trustDomains)
-	return slim.NewIdentityProviderConfigSpire(spireConfig), nil
+	return slim.SpireConfig{
+		SocketPath:     socketPath,
+		TargetSpiffeId: targetSpiffeID,
+		JwtAudiences:   jwtAudiences,
+		TrustDomains:   trustDomains,
+	}
 }
 
-// toSlimJWTKeyConfig converts JWTKeyConfig to SLIM's JwtKeyConfig
-func (k *JWTKeyConfig) toSlimJWTKeyConfig() (slim.JwtKeyConfig, error) {
+// toJWTKeyConfig converts JWTKeyConfig to SLIM's JwtKeyConfig
+func (k *JWTKeyConfig) toJWTKeyConfig() (slim.JwtKeyConfig, error) {
 	// Parse algorithm
 	algorithm, err := parseJWTAlgorithm(k.Algorithm)
 	if err != nil {
@@ -201,49 +308,53 @@ func (k *JWTKeyConfig) toSlimJWTKeyConfig() (slim.JwtKeyConfig, error) {
 	// Parse key source
 	var keyData slim.JwtKeyData
 	if k.Key.File != nil {
-		keyData = slim.NewJwtKeyDataFile(*k.Key.File)
+		keyData = slim.JwtKeyDataFile{Path: *k.Key.File}
 	} else if k.Key.Data != nil {
-		keyData = slim.NewJwtKeyDataData(*k.Key.Data)
+		keyData = slim.JwtKeyDataData{Value: *k.Key.Data}
 	} else {
 		return slim.JwtKeyConfig{}, fmt.Errorf("JWT key must specify either 'file' or 'data'")
 	}
 
-	return slim.NewJwtKeyConfig(algorithm, format, keyData), nil
+	return slim.JwtKeyConfig{
+		Algorithm: algorithm,
+		Format:    format,
+		Key:       keyData,
+	}, nil
 }
 
-// parseJWTAlgorithm converts string to JwtAlgorithm enum
+// parseJWTAlgorithm converts string to slim.`JwtAlgorithm enum
 func parseJWTAlgorithm(alg string) (slim.JwtAlgorithm, error) {
 	switch alg {
 	case "HS256":
-		return slim.JwtAlgorithmHS256, nil
+		return slim.JwtAlgorithmHs256, nil
 	case "HS384":
-		return slim.JwtAlgorithmHS384, nil
+		return slim.JwtAlgorithmHs384, nil
 	case "HS512":
-		return slim.JwtAlgorithmHS512, nil
+		return slim.JwtAlgorithmHs512, nil
 	case "ES256":
-		return slim.JwtAlgorithmES256, nil
+		return slim.JwtAlgorithmEs256, nil
 	case "ES384":
-		return slim.JwtAlgorithmES384, nil
+		return slim.JwtAlgorithmEs384, nil
 	case "RS256":
-		return slim.JwtAlgorithmRS256, nil
+		return slim.JwtAlgorithmRs256, nil
 	case "RS384":
-		return slim.JwtAlgorithmRS384, nil
+		return slim.JwtAlgorithmRs384, nil
 	case "RS512":
-		return slim.JwtAlgorithmRS512, nil
+		return slim.JwtAlgorithmRs512, nil
 	case "PS256":
-		return slim.JwtAlgorithmPS256, nil
+		return slim.JwtAlgorithmPs256, nil
 	case "PS384":
-		return slim.JwtAlgorithmPS384, nil
+		return slim.JwtAlgorithmPs384, nil
 	case "PS512":
-		return slim.JwtAlgorithmPS512, nil
+		return slim.JwtAlgorithmPs512, nil
 	case "EdDSA":
-		return slim.JwtAlgorithmEdDSA, nil
+		return slim.JwtAlgorithmEdDsa, nil
 	default:
 		return 0, fmt.Errorf("unsupported JWT algorithm: %s", alg)
 	}
 }
 
-// parseJWTKeyFormat converts string to JwtKeyFormat enum
+// parseJWTKeyFormat converts string to slim.JwtKeyFormat enum
 func parseJWTKeyFormat(format string) (slim.JwtKeyFormat, error) {
 	switch format {
 	case "pem":

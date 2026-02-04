@@ -1,0 +1,53 @@
+receivers:
+  slim:
+    endpoint: "http://127.0.0.1:46357"
+    receiver-name: "agntcy/otel/receiver"
+    auth:
+      jwt:
+        claims:
+          audience:
+            - "slim"
+          issuer: "slim"
+          subject: "slim"
+        duration: "3600s"
+        key:
+          decoding:
+            algorithm: "RS256"
+            format: "pem"
+            key:
+              file: "../../../testing/config/crypto/jwt/rsa-public.pem"
+              # Receiver uses public key for JWT verification
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+exporters:
+  debug:
+    verbosity: detailed
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+service:
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: none
+
+  pipelines:
+    traces:
+      receivers: [slim]
+      processors: [batch]
+      exporters: [debug]
+    
+    metrics:
+      receivers: [slim]
+      processors: [batch]
+      exporters: [debug]
+    
+    logs:
+      receivers: [slim]
+      processors: [batch]
+      exporters: [debug]

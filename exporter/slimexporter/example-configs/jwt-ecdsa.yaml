@@ -1,0 +1,64 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+exporters:
+  # Slim exporter with JWT ECDSA authentication
+  slim:
+    endpoint: "http://127.0.0.1:46357"
+
+    exporter-names:
+      metrics: "agntcy/otel/exporter-metrics"
+      traces: "agntcy/otel/exporter-traces"
+      logs: "agntcy/otel/exporter-logs"
+
+    # JWT authentication with ECDSA signing
+    auth:
+      jwt:
+        claims:
+          audience:
+            - "slim"
+          issuer: "slim"
+          subject: "slim"
+        duration: "1h"
+        key:
+          decoding:
+            algorithm: "ES256"
+            format: "pem"
+            key:
+              file: "../../../testing/config/crypto/jwt/ec256.pem"
+              # For verification, use: ../../../testing/config/crypto/jwt/ec256-public.pem
+        
+    channels: []
+    
+service:
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: none
+
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [slim]
+    
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [slim]
+    
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [slim]

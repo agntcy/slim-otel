@@ -45,7 +45,7 @@ func CreateApp(
 		return nil, 0, err
 	}
 
-	app, err := slimcommon.CreateApp(cfg.ReceiverName, cfg.SharedSecret, connID, slim.DirectionRecv)
+	app, err := slimcommon.CreateApp(cfg.ReceiverName, connID, cfg.Auth, slim.DirectionRecv)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to create app: %w", err)
 	}

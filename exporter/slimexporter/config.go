@@ -15,8 +15,8 @@ type Config struct {
 	// exporter names
 	ExporterNames SignalNames `mapstructure:"exporter-names"`
 
-	// Shared Secret
-	SharedSecret string `mapstructure:"shared-secret"`
+	// Authentication configuration
+	Auth slimcommon.AuthConfig `mapstructure:"auth"`
 
 	// List of sessions/channels to create
 	Channels []ChannelsConfig `mapstructure:"channels"`
@@ -77,8 +77,8 @@ type ChannelsConfig struct {
 
 // Validate checks if the exporter configuration is valid
 func (cfg *Config) Validate() error {
-	if cfg.SharedSecret == "" {
-		return errors.New("missing shared secret")
+	if cfg.Auth.ValidateAuthConfig() != nil {
+		return errors.New("invalid authentication configuration")
 	}
 
 	defaultCfg := createDefaultConfig().(*Config)

@@ -1,0 +1,58 @@
+# Example configuration for the SLIM Receiver
+# Slim receiver config
+slim:
+  # address of the SLIM node where to connect
+  endpoint: "http://127.0.0.1:46357"
+  # name for the receiver to be used in SLIM channels
+  receiver-name: "agntcy/otel/receiver"
+  # Authentication configuration for application identity 
+  # Choose ONE of the following methods:
+  auth:
+    # Method 1: Shared Secret Authentication
+    # Simple symmetric key authentication
+    shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
+    
+    # Method 2: Static JWT Token Authentication
+    static-jwt:
+      # Path to the file containing the JWT token (auto-reloaded on change)
+      file: "/path/to/jwt-token.txt"
+      # Optional: Duration for token cache refresh (default: 3600s)
+      duration: "3600s"
+    
+    # Method 3: Dynamic JWT Authentication with Signing Keys
+    jwt:
+      # JWT claims configuration
+      claims:
+        # Audience claim(s) - list of expected audiences
+        audience:
+          - "slim"
+        # Issuer claim - who issued the token
+        issuer: "slim"
+        # Subject claim - identifies the principal (typically this application)
+        subject: "slim"
+      # Token validity duration (e.g., "3600s", "1h")
+      duration: "3600s"
+    # Key configuration - use 'decoding' for applications signing JWTs
+      key:
+        decoding:
+          algorithm: "RS256"  # Options: HS256, HS384, HS512, ES256, ES384, RS256, RS384, RS512, PS256, PS384, PS512, EdDSA
+          format: "PEM"       # Options: PEM, JWK or JWKS
+          key:
+            # file path to the private key
+            file: "/path/to/private-key.pem"
+            # OR embed the key directly
+            data: "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+    
+    # Method 4: SPIRE Workload Identity Authentication 
+    spire:
+      # Path to the SPIRE agent socket
+      socket-path: "unix:///tmp/spire-agent/public/api.sock"
+      # Target SPIFFE ID for the SLIM server you're connecting to
+      target-spiffe-id: "spiffe://example.org/slim-server"
+      # JWT audience claims for SPIRE-issued JWTs
+      jwt-audiences:
+        - "slim"
+      # Optional: specific trust domains to include
+      trust-domains:
+        - "example.org"
+        - "partner.com"

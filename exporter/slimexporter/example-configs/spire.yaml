@@ -1,0 +1,62 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+exporters:
+  # Slim exporter with SPIRE workload identity authentication
+  slim:
+    endpoint: "http://127.0.0.1:46357"
+
+    exporter-names:
+      metrics: "agntcy/otel/exporter-metrics"
+      traces: "agntcy/otel/exporter-traces"
+      logs: "agntcy/otel/exporter-logs"
+
+    # SPIRE-based authentication (zero-trust, production-ready)
+    auth:
+      spire:
+        # Path to the SPIRE agent socket
+        socket-path: "unix:///tmp/spire-agent/public/api.sock"
+        # Target SPIFFE ID for the SLIM server you're connecting to
+        target-spiffe-id: "spiffe://example.org/slim-server"
+        # JWT audience claims for SPIRE-issued JWTs
+        jwt-audiences:
+          - "slim"
+        # Optional: specific trust domains to include
+        trust-domains:
+          - "example.org"
+          - "partner.com"
+        
+    channels: []
+    
+service:
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: none
+
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [slim]
+    
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [slim]
+    
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [slim]

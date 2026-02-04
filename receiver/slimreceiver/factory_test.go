@@ -24,5 +24,4 @@ func TestCreateDefaultConfig(t *testing.T) {
 	receiverCfg := cfg.(*Config)
 	assert.Equal(t, "http://127.0.0.1:46357", receiverCfg.SlimEndpoint)
 	assert.Equal(t, "agntcy/otel/receiver", receiverCfg.ReceiverName)
-	assert.Empty(t, receiverCfg.SharedSecret)
 }

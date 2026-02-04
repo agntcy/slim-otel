@@ -2,6 +2,8 @@ package slimreceiver
 
 import (
 	"errors"
+
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
 // Config represents the receiver config settings in the Collector config.yaml
@@ -12,8 +14,7 @@ type Config struct {
 	// Receiver name for different signals
 	ReceiverName string `mapstructure:"receiver-name"`
 
-	// Shared Secret
-	SharedSecret string `mapstructure:"shared-secret"`
+	Auth slimcommon.AuthConfig `mapstructure:"auth"`
 }
 
 // Validate checks if the receiver configuration is valid
@@ -28,8 +29,8 @@ func (cfg *Config) Validate() error {
 		cfg.ReceiverName = defaultCfg.ReceiverName
 	}
 
-	if cfg.SharedSecret == "" {
-		return errors.New("shared secret cannot be empty")
+	if cfg.Auth.ValidateAuthConfig() != nil {
+		return errors.New("invalid authentication configuration")
 	}
 
 	return nil

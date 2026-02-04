@@ -51,7 +51,7 @@ func CreateApp(
 		return nil, 0, err
 	}
 
-	app, err := slimcommon.CreateApp(exporterName, cfg.SharedSecret, connID, slim.DirectionSend)
+	app, err := slimcommon.CreateApp(exporterName, connID, cfg.Auth, slim.DirectionSend)
 	if err != nil {
 		return nil, 0, err
 	}

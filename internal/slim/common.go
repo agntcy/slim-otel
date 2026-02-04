@@ -107,8 +107,8 @@ func SplitID(id string) (*slim.Name, error) {
 //	error: If creation or subscription fails
 func CreateApp(
 	localID string,
-	secret string,
 	connID uint64,
+	authCfg AuthConfig,
 	direction slim.Direction,
 ) (*slim.App, error) {
 	appName, err := SplitID(localID)
@@ -116,14 +116,14 @@ func CreateApp(
 		return nil, fmt.Errorf("invalid local ID: %w", err)
 	}
 
-	identityProvider := slim.IdentityProviderConfigSharedSecret{
-		Data: secret,
-		Id:   localID,
+	identityProvider, err := authCfg.ToIdentityProviderConfig(localID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create identity provider config: %w", err)
 	}
 
-	identityVerifier := slim.IdentityVerifierConfigSharedSecret{
-		Data: secret,
-		Id:   localID,
+	identityVerifier, err := authCfg.ToIdentityVerifierConfig(localID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create identity verifier config: %w", err)
 	}
 
 	// this is an exporter, so should not receive any incoming data
