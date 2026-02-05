@@ -11,12 +11,16 @@ receivers:
           subject: "slim"
         duration: "3600s"
         key:
+          encoding:
+            algorithm: "RS256"
+            format: "pem"
+            key:
+              file: "/Users/micpapal/Documents/code/agntcy/slim-otel/testing/config/crypto/jwt/rsa.pem"
           decoding:
             algorithm: "RS256"
             format: "pem"
             key:
-              file: "../../../testing/config/crypto/jwt/rsa-public.pem"
-              # Receiver uses public key for JWT verification
+              file: "/Users/micpapal/Documents/code/agntcy/slim-otel/testing/config/crypto/jwt/rsa-public-2.pem"
 
 processors:
   batch:

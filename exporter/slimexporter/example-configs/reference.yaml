@@ -38,21 +38,7 @@ slim:
     shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
     
     # ------------------------------------------------------------------------
-    # Method 2: Static JWT Token Authentication
-    # ------------------------------------------------------------------------
-    # Load a pre-generated JWT token from a file
-    # The file is monitored and automatically reloaded on change
-    static-jwt:
-      # REQUIRED: Path to the file containing the JWT token
-      file: "/path/to/jwt-token.txt"
-
-      # OPTIONAL: Duration for token cache refresh
-      # Default: "3600s" (1 hour)
-      # Format: duration string (e.g., "30s", "5m", "1h", "3600s")
-      duration: "3600s"
-    
-    # ------------------------------------------------------------------------
-    # Method 3: Dynamic JWT Authentication with Signing Keys
+    # Method 2: Dynamic JWT Authentication with Signing Keys
     # ------------------------------------------------------------------------
     # Generate and sign JWTs dynamically using configured keys
     jwt:
@@ -61,11 +47,10 @@ slim:
         # OPTIONAL: Audience claim(s) - list of intended recipients
         # Can be a single audience or multiple audiences
         audience:
-          - "slim"
-          - "slim-service"
+          - "slim-otel"
         
         # OPTIONAL: Issuer claim - identifies who issued the token
-        issuer: "slim-exporter"
+        issuer: "slim-otel"
         
         # OPTIONAL: Subject claim - identifies the principal (this application)
         subject: "otel-exporter"
@@ -76,19 +61,12 @@ slim:
       duration: "3600s"
       
       # REQUIRED: Key configuration for JWT signing
-      # Exporters are JWT providers/signers, so use 'encoding' key
-      # (Receivers are JWT verifiers, so they use 'decoding' key)
       key:
-        # For EXPORTERS: Use 'encoding' with PRIVATE key for signing JWTs
         encoding:
           # REQUIRED: Algorithm for signing/verifying JWT
           # Options:
           #   HMAC:   HS256, HS384, HS512 (symmetric key)
-          #   ECDSA:  ES256, ES384 (elliptic curve)
-          #   RSA:    RS256, RS384, RS512 (RSA signature)
-          #   RSA-PSS: PS256, PS384, PS512 (RSA-PSS signature)
-          #   EdDSA:  EdDSA (Ed25519)
-          algorithm: "RS256"
+          algorithm: "HS256"
           
           # REQUIRED: Key format
           # Options:
@@ -100,22 +78,21 @@ slim:
           # REQUIRED: Key source - choose ONE
           key:
             # Option A: Load key from file
-            file: "/path/to/private-key.pem"
+            file: "/path/to/secret.pem"
             # Option B: Embed key directly in config
-            data: "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7...\n-----END PRIVATE KEY-----"
+            data: "a-very-long-shared-secret-0123456789-abcdefg"
         
-        # For RECEIVERS: Use 'decoding' with PUBLIC key for verifying JWTs
         decoding:
-          algorithm: "RS256"
+          algorithm: "HS256"
           format: "pem"
           key:
             # Option A: Load key from file
-            file: "/path/to/public-key.pem"
+            file: "/path/to/secret.pem"
             # Option B: Embed key directly in config
-            data: "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+            data: "a-very-long-shared-secret-0123456789-abcdefg"
     
     # ------------------------------------------------------------------------
-    # Method 4: SPIRE Workload Identity Authentication
+    # Method 3: SPIRE Workload Identity Authentication
     # ------------------------------------------------------------------------
     # Use SPIRE (SPIFFE Runtime Environment) for workload identity
     # Requires SPIRE agent to be running and accessible

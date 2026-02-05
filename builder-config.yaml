@@ -9,6 +9,7 @@ replaces:
   - github.com/agntcy/slim/otel/slimexporter => ../exporter/slimexporter
   - github.com/agntcy/slim/otel/slimreceiver => ../receiver/slimreceiver
   - github.com/agntcy/slim/otel/internal/sharedcomponent => ../internal/sharedcomponent
+  - github.com/agntcy/slim/bindings/generated => /Users/micpapal/Documents/code/agntcy/slim/data-plane/bindings/go/generated
   
 exporters:
   - gomod: github.com/agntcy/slim/otel/slimexporter v0.0.1

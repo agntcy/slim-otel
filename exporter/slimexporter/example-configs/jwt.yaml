@@ -12,7 +12,7 @@ processors:
     send_batch_size: 1024
 
 exporters:
-  # Slim exporter with JWT ECDSA authentication
+  # Slim exporter with JWT HMAC authentication
   slim:
     endpoint: "http://127.0.0.1:46357"
 
@@ -21,7 +21,7 @@ exporters:
       traces: "agntcy/otel/exporter-traces"
       logs: "agntcy/otel/exporter-logs"
 
-    # JWT authentication with ECDSA signing
+    # JWT authentication with HMAC signing (symmetric key)
     auth:
       jwt:
         claims:
@@ -29,21 +29,23 @@ exporters:
             - "slim"
           issuer: "slim"
           subject: "slim"
-        duration: "1h"
+        duration: "3600s"
         key:
           encoding:
-            algorithm: "ES256"
+            algorithm: "HS256"
             format: "pem"
             key:
-              file: "./testing/config/crypto/jwt/ec256.pem"
-              # For verification, use: ../../../testing/config/crypto/jwt/ec256-public.pem
+              # HMAC uses symmetric keys - can be provided directly (min 32 chars)
+              data: "test-shared-secret-value-0123456789abcdef"
+          decoding:
+            algorithm: "HS256"
+            format: "pem"
+            key:
+              # HMAC uses symmetric keys - can be provided directly (min 32 chars)
+              data: "test-shared-secret-value-0123456789abcdef"
+
         
     channels:
-      - channel-name: "agntcy/otel/channel-metrics"
-        signal: metrics
-        participants:
-          - "agntcy/otel/receiver"
-        mls-enabled: true
       - channel-name: "agntcy/otel/channel-traces"
         signal: traces
         participants:

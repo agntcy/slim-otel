@@ -2,6 +2,7 @@ receivers:
   slim:
     endpoint: "http://127.0.0.1:46357"
     receiver-name: "agntcy/otel/receiver"
+    # JWT authentication with HMAC signing (symmetric key)
     auth:
       jwt:
         claims:
@@ -11,14 +12,18 @@ receivers:
           subject: "slim"
         duration: "3600s"
         key:
+          encoding:
+            algorithm: "HS256"
+            format: "pem"
+            key:
+              # HMAC uses symmetric keys - can be provided directly (min 32 chars)
+              data: "test-shared-secret-value-0123456789abcdef"
           decoding:
             algorithm: "HS256"
             format: "pem"
             key:
-              # HMAC uses symmetric keys - same secret for signing and verification
+              # HMAC uses symmetric keys - can be provided directly (min 32 chars)
               data: "test-shared-secret-value-0123456789abcdef"
-              # OR from file:
-              # file: "../../../testing/config/crypto/jwt/hmac-secret.txt"
 
 processors:
   batch:

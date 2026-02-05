@@ -5,23 +5,17 @@ package slimcommon
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
-	slim "github.com/agntcy/slim-bindings-go"
+	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
 )
 
 // AuthConfig represents the authentication configuration for SLIM applications
 type AuthConfig struct {
-	SharedSecret *string          `mapstructure:"shared-secret"`
-	StaticJWT    *StaticJWTConfig `mapstructure:"static-jwt"`
-	JWT          *JWTConfig       `mapstructure:"jwt"`
-	Spire        *SpireConfig     `mapstructure:"spire"`
-}
-
-// StaticJWTConfig represents static JWT authentication configuration
-type StaticJWTConfig struct {
-	File     string `mapstructure:"file"`
-	Duration string `mapstructure:"duration"`
+	SharedSecret *string      `mapstructure:"shared-secret"`
+	JWT          *JWTConfig   `mapstructure:"jwt"`
+	Spire        *SpireConfig `mapstructure:"spire"`
 }
 
 // JWTConfig represents dynamic JWT authentication configuration
@@ -79,20 +73,6 @@ func (a *AuthConfig) ToIdentityProviderConfig(appName string) (slim.IdentityProv
 		}, nil
 	}
 
-	if a.StaticJWT != nil {
-		duration, err := parseDuration(a.StaticJWT.Duration, 3600*time.Second)
-		if err != nil {
-			return nil, fmt.Errorf("invalid static JWT duration: %w", err)
-		}
-
-		return slim.IdentityProviderConfigStaticJwt{
-			Config: slim.StaticJwtAuth{
-				TokenFile: a.StaticJWT.File,
-				Duration:  duration,
-			},
-		}, nil
-	}
-
 	if a.JWT != nil {
 		return a.jwtToProviderConfig()
 	}
@@ -115,23 +95,6 @@ func (a *AuthConfig) ToIdentityVerifierConfig(appName string) (slim.IdentityVeri
 		return slim.IdentityVerifierConfigSharedSecret{
 			Data: *a.SharedSecret,
 			Id:   appName,
-		}, nil
-	}
-
-	if a.StaticJWT != nil {
-		duration, err := parseDuration(a.StaticJWT.Duration, 3600*time.Second)
-		if err != nil {
-			return nil, fmt.Errorf("invalid static JWT duration: %w", err)
-		}
-
-		return slim.IdentityVerifierConfigJwt{
-			Config: slim.JwtAuth{
-				Key:      slim.JwtKeyTypeAutoresolve{},
-				Audience: nil,
-				Issuer:   nil,
-				Subject:  nil,
-				Duration: duration,
-			},
 		}, nil
 	}
 
@@ -232,9 +195,6 @@ func (a *AuthConfig) spireToVerifierConfig() (slim.IdentityVerifierConfig, error
 func (a *AuthConfig) ValidateAuthConfig() error {
 	configured := 0
 	if a.SharedSecret != nil {
-		configured++
-	}
-	if a.StaticJWT != nil {
 		configured++
 	}
 	if a.JWT != nil {
@@ -362,7 +322,8 @@ func parseJWTAlgorithm(alg string) (slim.JwtAlgorithm, error) {
 
 // parseJWTKeyFormat converts string to slim.JwtKeyFormat enum
 func parseJWTKeyFormat(format string) (slim.JwtKeyFormat, error) {
-	switch format {
+	// Convert to lowercase for case-insensitive comparison
+	switch strings.ToLower(format) {
 	case "pem":
 		return slim.JwtKeyFormatPem, nil
 	case "jwk":

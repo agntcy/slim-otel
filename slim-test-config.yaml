@@ -1,5 +1,5 @@
 tracing:
-  log_level: info
+  log_level: debug
   display_thread_names: true
   display_thread_ids: true
 

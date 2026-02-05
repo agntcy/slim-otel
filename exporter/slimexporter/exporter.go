@@ -11,7 +11,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
 
-	slim "github.com/agntcy/slim-bindings-go"
+	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
@@ -106,12 +106,15 @@ func createSessionsAndInvite(
 			if parseErr != nil {
 				return fmt.Errorf("failed to parse participant name %s for channel %s: %w", participant, channel, parseErr)
 			}
+			fmt.Println("Setting route for participant", participantName.String(), "to connection", e.connID)
 			if routeErr := e.app.SetRoute(participantName, e.connID); routeErr != nil {
 				return fmt.Errorf("failed to set route for participant %s for channel %s: %w", participant, channel, routeErr)
 			}
+			fmt.Println("Inviting participant", participantName.String(), "to session for channel", channel)
 			if inviteErr := session.InviteAndWait(participantName); inviteErr != nil {
 				return fmt.Errorf("failed to invite participant %s for channel %s: %w", participant, channel, inviteErr)
 			}
+			fmt.Println("Invited participant", participantName.String(), "to session for channel", channel)
 		}
 
 		// add session to the list

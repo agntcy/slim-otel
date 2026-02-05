@@ -63,12 +63,12 @@ tasks:
       - task: foreach-module
         vars:
           CMD: go mod download
-      - go run github.com/agntcy/slim-bindings-go/cmd/slim-bindings-setup
+      # - go run github.com/agntcy/slim-bindings-go/cmd/slim-bindings-setup
 
   modtidy:
     desc: Install go modules
-    deps:
-      - fetch-and-run
+    #deps:
+    #  - fetch-and-run
     cmds:
       - task: foreach-module
         vars:
@@ -154,7 +154,7 @@ tasks:
     desc: Build the SLIM OpenTelemetry Collector including both slimexporter and slimreceiver
     deps:
       - download-ocb
-      - fetch-and-run
+      #- fetch-and-run
     cmds:
       - echo "Generating collector sources..."
       - ./ocb --config builder-config.yaml --skip-compilation

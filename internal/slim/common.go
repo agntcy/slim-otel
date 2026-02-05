@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	slim "github.com/agntcy/slim-bindings-go"
+	slim "github.com/agntcy/slim/bindings/generated/slim_bindings"
 )
 
 // global variables for connection management
@@ -121,10 +121,14 @@ func CreateApp(
 		return nil, fmt.Errorf("failed to create identity provider config: %w", err)
 	}
 
+	fmt.Printf("IDENTITY PROVIDER %#v\n", identityProvider)
+
 	identityVerifier, err := authCfg.ToIdentityVerifierConfig(localID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create identity verifier config: %w", err)
 	}
+
+	fmt.Printf("IDENTITY VERIFIER %#v\n", identityVerifier)
 
 	// this is an exporter, so should not receive any incoming data
 	app, err := slim.GetGlobalService().CreateAppWithDirection(

@@ -24,7 +24,17 @@ exporters:
     auth:
       shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
 
-    channels: []
+    channels:
+      - channel-name: "agntcy/otel/channel-metrics"
+        signal: metrics
+        participants:
+          - "agntcy/otel/receiver"
+        mls-enabled: true
+      - channel-name: "agntcy/otel/channel-traces"
+        signal: traces
+        participants:
+          - "agntcy/otel/receiver"
+        mls-enabled: true
     
 service:
   telemetry:
