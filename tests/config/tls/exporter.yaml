@@ -14,7 +14,11 @@ processors:
 exporters:
   slim:
     connection-config:
-      address: "http://localhost:46357"
+      address: "https://localhost:46357"
+      tls:
+        ca_source:
+          path: tests/certs/slim-node-ca-cert.pem
+
     shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
     exporter-names:
       metrics: "agntcy/otel/exporter-metrics"

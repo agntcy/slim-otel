@@ -527,7 +527,6 @@ func (cfg *ConnectionConfig) ToSlimClientConfig() (slim.ClientConfig, error) {
 		}
 		clientCfg.Tls = tlsCfg
 	} else {
-		fmt.Println("No TLS configuration provided, using default insecure TLS config")
 		// Use default insecure TLS config if not specified
 		defaultTLS := &TLSConfig{
 			Insecure:                 true,
@@ -634,6 +633,10 @@ func (cfg *TLSConfig) toSlimTLSConfig() (slim.TlsClientConfig, error) {
 		includeSystemCACertsPool = *cfg.IncludeSystemCACertsPool
 	} else {
 		includeSystemCACertsPool = true // default to true if not specified
+	}
+
+	if cfg.TLSVersion == "" {
+		cfg.TLSVersion = "tls1.3" // default to TLS 1.3 if not specified
 	}
 
 	tlsCfg := slim.TlsClientConfig{

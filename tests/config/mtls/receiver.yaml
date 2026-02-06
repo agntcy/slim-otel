@@ -1,7 +1,14 @@
 receivers:
   slim:
     connection-config:
-      address: "http://localhost:46357"
+      address: "https://localhost:46357"
+      tls:
+        ca_source:
+          path: tests/certs/slim-node-ca-cert.pem
+        source:
+          cert_file: tests/certs/receiver-cert.pem
+          key_file: tests/certs/receiver-key.pem
+
     receiver-name: "agntcy/otel/receiver"
     shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
 
