@@ -1,0 +1,42 @@
+receivers:
+  slim:
+    connection-config:
+      address: "http://localhost:46357"
+      compression: "gzip"
+
+    receiver-name: "agntcy/otel/receiver"
+    shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+exporters:
+  debug:
+    verbosity: detailed
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+service:
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: none
+
+  pipelines:
+    traces:
+      receivers: [slim]
+      processors: [batch]
+      exporters: [debug]
+    
+    metrics:
+      receivers: [slim]
+      processors: [batch]
+      exporters: [debug]
+    
+    logs:
+      receivers: [slim]
+      processors: [batch]
+      exporters: [debug]
