@@ -6,8 +6,8 @@
 # REQUIRED CONFIGURATION
 # ============================================================================
 
-# SLIM endpoint configuration (required)
-slim_endpoint:
+# Connection configuration for the SLIM server (required)
+connection-config:
   # The address of the SLIM endpoint to connect to (required)
   # Type: string
   address: "127.0.0.1:46357"
@@ -35,7 +35,7 @@ exporter-names:
 # CONNECTION OPTIONS
 # ============================================================================
 
-# slim_endpoint:
+# connection-config:
 #   # Origin header value - HTTP Host authority override (optional)
 #   # Type: string
 #   # origin: "https://example.com"
@@ -82,7 +82,7 @@ exporter-names:
 # TLS CONFIGURATION
 # ============================================================================
 
-# slim_endpoint:
+# connection-config:
 #   tls:
 #     # Disable TLS (use plain HTTP) (optional)
 #     # Type: bool
@@ -140,7 +140,7 @@ exporter-names:
 # AUTHENTICATION
 # ============================================================================
 
-# slim_endpoint:
+# connection-config:
 #   auth:
 #     # -------------------------
 #     # Basic Authentication
@@ -216,7 +216,7 @@ exporter-names:
 # ADVANCED OPTIONS
 # ============================================================================
 
-# slim_endpoint:
+# connection-config:
 #   # Keepalive configuration (optional)
 #   # keepalive:
 #   #   # TCP keepalive interval (optional)

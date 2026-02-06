@@ -1,11 +1,8 @@
 receivers:
-# Slim receiver config
   slim:
-    # address of the SLIM node where to connect
-    endpoint: "http://127.0.0.1:46357"
-    # name for the receiver to be used in SLIM channels
+    connection-config:
+      address: "http://127.0.0.1:46357"
     receiver-name: "agntcy/otel/receiver"
-    # shared secret used for MLS and identity provider
     shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
 
 processors:

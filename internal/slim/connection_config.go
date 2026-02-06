@@ -6,6 +6,7 @@ package slimcommon
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	slim "github.com/agntcy/slim-bindings-go"
@@ -47,7 +48,7 @@ type ConnectionConfig struct {
 	BufferSize *uint64 `mapstructure:"buffer_size"`
 
 	// Additional headers to include in requests
-	Headers map[string]string `mapstructure:"headers"`
+	Headers *map[string]string `mapstructure:"headers"`
 
 	// Authentication configuration
 	Auth *AuthConfig `mapstructure:"auth"`
@@ -74,7 +75,7 @@ type TLSConfig struct {
 	TLSVersion string `mapstructure:"tls_version"`
 
 	// Include system CA certificates pool (default: true)
-	IncludeSystemCACertsPool bool `mapstructure:"include_system_ca_certs_pool"`
+	IncludeSystemCACertsPool *bool `mapstructure:"include_system_ca_certs_pool"`
 
 	// Skip server name verification (INSECURE, default: false)
 	InsecureSkipVerify bool `mapstructure:"insecure_skip_verify"`
@@ -256,8 +257,18 @@ func (cfg *ConnectionConfig) Validate() error {
 		return errors.New("connection address is required")
 	}
 
+	if cfg.TLS == nil && !strings.HasPrefix(cfg.Address, "http://") {
+		return errors.New("address must start with http:// for insecure connection (no TLS config provided)")
+	}
+
 	// Validate TLS configuration
 	if cfg.TLS != nil {
+		if cfg.TLS.Insecure && !strings.HasPrefix(cfg.Address, "http://") {
+			return errors.New("address must start with http:// for insecure TLS config")
+		} else if !cfg.TLS.Insecure && !strings.HasPrefix(cfg.Address, "https://") {
+			return errors.New("address must start with https:// for secure TLS config")
+		}
+
 		if err := validateTLSConfig(cfg.TLS); err != nil {
 			return fmt.Errorf("invalid TLS config: %w", err)
 		}
@@ -477,37 +488,16 @@ func validateProxyConfig(cfg *ProxyConfig) error {
 	return nil
 }
 
-// SetDefaults sets default values for the connection configuration
-func (cfg *ConnectionConfig) SetDefaults() {
-	if cfg.TLS == nil {
-		cfg.TLS = &TLSConfig{
-			Insecure: true,
-		}
-	}
-
-	// Set TLS defaults
-	if cfg.TLS != nil {
-		if cfg.TLS.TLSVersion == "" {
-			cfg.TLS.TLSVersion = "tls1.3"
-		}
-		// Default to including system CA certs pool
-		if !cfg.TLS.Insecure && cfg.TLS.CASource != nil {
-			cfg.TLS.IncludeSystemCACertsPool = true
-		}
-	}
-
-	if cfg.Auth != nil && cfg.Auth.Type == "jwt" && cfg.Auth.Jwt != nil {
-		if cfg.Auth.Jwt.Duration == 0 {
-			cfg.Auth.Jwt.Duration = 1 * time.Hour
-		}
-		if cfg.Auth.Jwt.Key != nil && cfg.Auth.Jwt.Key.Format == "" {
-			cfg.Auth.Jwt.Key.Format = "pem"
-		}
-	}
-}
-
 // ToSlimClientConfig converts the ConnectionConfig to a slim.ClientConfig
 func (cfg *ConnectionConfig) ToSlimClientConfig() (slim.ClientConfig, error) {
+	// Initialize headers to empty map if nil
+	var headers map[string]string
+	if cfg.Headers != nil {
+		headers = *cfg.Headers
+	} else {
+		headers = make(map[string]string)
+	}
+
 	clientCfg := slim.ClientConfig{
 		Endpoint:       cfg.Address,
 		Origin:         cfg.Origin,
@@ -516,7 +506,7 @@ func (cfg *ConnectionConfig) ToSlimClientConfig() (slim.ClientConfig, error) {
 		ConnectTimeout: cfg.ConnectTimeout,
 		RequestTimeout: cfg.RequestTimeout,
 		BufferSize:     cfg.BufferSize,
-		Headers:        cfg.Headers,
+		Headers:        headers,
 		Metadata:       cfg.Metadata,
 	}
 
@@ -536,6 +526,19 @@ func (cfg *ConnectionConfig) ToSlimClientConfig() (slim.ClientConfig, error) {
 			return clientCfg, fmt.Errorf("failed to convert TLS config: %w", err)
 		}
 		clientCfg.Tls = tlsCfg
+	} else {
+		fmt.Println("No TLS configuration provided, using default insecure TLS config")
+		// Use default insecure TLS config if not specified
+		defaultTLS := &TLSConfig{
+			Insecure:                 true,
+			TLSVersion:               "tls1.3",
+			IncludeSystemCACertsPool: nil,
+		}
+		tlsCfg, err := defaultTLS.toSlimTLSConfig()
+		if err != nil {
+			return clientCfg, fmt.Errorf("failed to convert default TLS config: %w", err)
+		}
+		clientCfg.Tls = tlsCfg
 	}
 
 	// Convert keepalive configuration
@@ -550,6 +553,22 @@ func (cfg *ConnectionConfig) ToSlimClientConfig() (slim.ClientConfig, error) {
 			return clientCfg, fmt.Errorf("failed to convert proxy config: %w", err)
 		}
 		clientCfg.Proxy = proxyCfg
+	} else {
+		// set default proxy config with no proxy
+		defaultTLS := &TLSConfig{
+			Insecure:                 true,
+			TLSVersion:               "tls1.3",
+			IncludeSystemCACertsPool: nil,
+		}
+		tlsCfg, err := defaultTLS.toSlimTLSConfig()
+		if err != nil {
+			return clientCfg, fmt.Errorf("failed to convert default TLS config: %w", err)
+		}
+		clientCfg.Proxy = slim.ProxyConfig{
+			Url:     nil,
+			Tls:     tlsCfg,
+			Headers: map[string]string{},
+		}
 	}
 
 	// Convert authentication configuration
@@ -559,6 +578,8 @@ func (cfg *ConnectionConfig) ToSlimClientConfig() (slim.ClientConfig, error) {
 			return clientCfg, fmt.Errorf("failed to convert auth config: %w", err)
 		}
 		clientCfg.Auth = authCfg
+	} else {
+		clientCfg.Auth = slim.ClientAuthenticationConfigNone{}
 	}
 
 	// Convert backoff configuration
@@ -568,6 +589,15 @@ func (cfg *ConnectionConfig) ToSlimClientConfig() (slim.ClientConfig, error) {
 			return clientCfg, fmt.Errorf("failed to convert backoff config: %w", err)
 		}
 		clientCfg.Backoff = backoffCfg
+	} else {
+		config := slim.ExponentialBackoff{
+			Base:        100 * time.Millisecond,
+			Factor:      1,
+			MaxDelay:    100 * time.Second,
+			MaxAttempts: 0xffffffffffffffff,
+			Jitter:      true,
+		}
+		clientCfg.Backoff = slim.BackoffConfigExponential{Config: config}
 	}
 
 	return clientCfg, nil
@@ -599,29 +629,39 @@ func parseCompressionType(compression string) (slim.CompressionType, error) {
 
 // toSlimTLSConfig converts TLSConfig to slim.TlsClientConfig
 func (cfg *TLSConfig) toSlimTLSConfig() (slim.TlsClientConfig, error) {
+	var includeSystemCACertsPool bool
+	if cfg.IncludeSystemCACertsPool != nil {
+		includeSystemCACertsPool = *cfg.IncludeSystemCACertsPool
+	} else {
+		includeSystemCACertsPool = true // default to true if not specified
+	}
+
 	tlsCfg := slim.TlsClientConfig{
 		Insecure:                 cfg.Insecure,
 		InsecureSkipVerify:       cfg.InsecureSkipVerify,
-		IncludeSystemCaCertsPool: cfg.IncludeSystemCACertsPool,
+		IncludeSystemCaCertsPool: includeSystemCACertsPool,
 		TlsVersion:               cfg.TLSVersion,
 	}
 
-	// Convert CA source
+	// Convert CA source (always set, defaults to CaSourceNone if not specified)
 	if cfg.CASource != nil {
 		caSource, err := cfg.CASource.toSlimCASource()
 		if err != nil {
 			return tlsCfg, fmt.Errorf("failed to convert CA source: %w", err)
 		}
 		tlsCfg.CaSource = caSource
+	} else {
+		tlsCfg.CaSource = slim.CaSourceNone{}
 	}
 
-	// Convert TLS source (client cert)
 	if cfg.Source != nil {
 		tlsSource, err := cfg.Source.toSlimTLSSource()
 		if err != nil {
 			return tlsCfg, fmt.Errorf("failed to convert TLS source: %w", err)
 		}
 		tlsCfg.Source = tlsSource
+	} else {
+		tlsCfg.Source = slim.TlsSourceNone{}
 	}
 
 	return tlsCfg, nil
