@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 	"gopkg.in/yaml.v3"
 )
 
@@ -23,7 +24,7 @@ type Config struct {
 // ManagerConfig defines configuration for the channel manager itself
 type ManagerConfig struct {
 	// Slim endpoint where to connect
-	SlimEndpoint string `yaml:"endpoint"`
+	ConnectionConfig *slimcommon.ConnectionConfig `yaml:"connection-config"`
 
 	// gRPC service address to listen for commands
 	GRPCAddress string `yaml:"service-address"`
@@ -66,8 +67,12 @@ func (cfg *Config) Validate() error {
 
 // Validate checks if the manager configuration is valid
 func (cfg *ManagerConfig) Validate() error {
-	if cfg.SlimEndpoint == "" {
-		return errors.New("slim endpoint cannot be empty")
+	if cfg.ConnectionConfig == nil {
+		return errors.New("missing connection config")
+	}
+
+	if err := cfg.ConnectionConfig.Validate(); err != nil {
+		return fmt.Errorf("invalid connection config: %w", err)
 	}
 
 	if cfg.LocalName == "" {
@@ -98,7 +103,6 @@ func (cfg *ChannelConfig) Validate() error {
 func CreateDefaultConfig() *Config {
 	return &Config{
 		Manager: ManagerConfig{
-			SlimEndpoint: "http://127.0.0.1:46357",
 			GRPCAddress:  "",
 			LocalName:    "agntcy/otel/channel-manager",
 			SharedSecret: "",

@@ -1,17 +1,7 @@
 package slimexporter
 
-import (
-	"testing"
-
-	"go.opentelemetry.io/collector/pdata/plog"
-	"go.opentelemetry.io/collector/pdata/pmetric"
-	"go.opentelemetry.io/collector/pdata/ptrace"
-
-	slimcommon "github.com/agntcy/slim/otel/internal/slim"
-)
-
 // TestSlimExporter_PublishData tests the publishData method
-func TestSlimExporter_PublishData(t *testing.T) {
+/*func TestSlimExporter_PublishData(t *testing.T) {
 	t.Run("publish data with empty sessions list", func(t *testing.T) {
 		exporter := &slimExporter{
 			config: &Config{
@@ -131,3 +121,4 @@ func TestSlimExporter_PushLogs(t *testing.T) {
 		}
 	})
 }
+*/

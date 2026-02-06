@@ -40,7 +40,7 @@ func CreateApp(
 	ctx context.Context,
 	cfg *Config,
 ) (*slim.App, uint64, error) {
-	connID, err := slimcommon.InitAndConnect(cfg.SlimEndpoint)
+	connID, err := slimcommon.InitAndConnect(*cfg.ConnectionConfig)
 	if err != nil {
 		return nil, 0, err
 	}

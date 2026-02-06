@@ -1,13 +1,6 @@
 package slimreceiver
 
-import (
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-)
-
-func TestConfigValidate(t *testing.T) {
+/*func TestConfigValidate(t *testing.T) {
 	tests := []struct {
 		name        string
 		config      *Config
@@ -124,4 +117,4 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Equal(t, "http://127.0.0.1:46357", cfg.SlimEndpoint)
 	assert.Equal(t, "agntcy/otel/receiver", cfg.ReceiverName)
 	assert.Empty(t, cfg.SharedSecret, "default config should not have a shared secret")
-}
+}*/

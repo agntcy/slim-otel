@@ -1,0 +1,286 @@
+# SLIM Receiver Configuration Reference
+# This file documents all available configuration options for the SLIM receiver.
+# For use in OpenTelemetry Collector, place these settings under receivers.slim in your config.yaml
+
+# ============================================================================
+# REQUIRED CONFIGURATION
+# ============================================================================
+
+# Connection configuration for the SLIM server (required)
+connection-config:
+  # The address of the SLIM endpoint to connect to (required)
+  # Type: string
+  address: "127.0.0.1:46357"
+
+# Shared secret used for MLS and identity provider (required)
+# Type: string
+shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
+
+# Receiver name for identifying this receiver across all signal types (required)
+# Type: string
+receiver-name: "agntcy/otel/receiver"
+
+# ============================================================================
+# CONNECTION OPTIONS
+# ============================================================================
+
+# connection-config:
+#   # Origin header value - HTTP Host authority override (optional)
+#   # Type: string
+#   # origin: "https://example.com"
+#
+#   # Server name for TLS SNI override (optional)
+#   # Type: string
+#   # server_name: "slim.example.com"
+#
+#   # Compression algorithm (optional)
+#   # Type: string
+#   # Options: "gzip", "zlib", "deflate", "snappy", "zstd", "lz4", "none", "empty"
+#   # compression: "gzip"
+#
+#   # Rate limit for requests (optional)
+#   # Type: string
+#   # Format: "<number>/<unit>" where unit is "s" (second) or "m" (minute)
+#   # rate_limit: "100/s"
+#
+#   # Connection timeout (optional)
+#   # Type: duration
+#   # Default: 0 (no timeout)
+#   # connect_timeout: 10s
+#
+#   # Request timeout (optional)
+#   # Type: duration
+#   # Default: 0 (no timeout)
+#   # request_timeout: 30s
+#
+#   # Buffer size in bytes (optional)
+#   # Type: uint64
+#   # buffer_size: 65536
+#
+#   # Additional HTTP headers (optional)
+#   # Type: map[string]string
+#   # headers:
+#   #   X-Custom-Header: "value"
+#   #   X-Another-Header: "another-value"
+#
+#   # Arbitrary user metadata as JSON string (optional)
+#   # Type: string
+#   # metadata: '{"environment":"production","region":"us-east-1"}'
+
+# ============================================================================
+# TLS CONFIGURATION
+# ============================================================================
+
+# connection-config:
+#   tls:
+#     # Disable TLS (use plain HTTP) (optional)
+#     # Type: bool
+#     # Default: false
+#     # insecure: true
+#
+#     # TLS version constraint (optional)
+#     # Type: string
+#     # Options: "tls1.2", "tls1.3"
+#     # Default: "tls1.3"
+#     # tls_version: "tls1.3"
+#
+#     # Include system CA certificates pool (optional)
+#     # Type: bool
+#     # Default: true
+#     # include_system_ca_certs_pool: true
+#
+#     # Skip server certificate verification (INSECURE - do not use in production) (optional)
+#     # Type: bool
+#     # Default: false
+#     # insecure_skip_verify: false
+#
+#     # CA certificate source for server verification (optional)
+#     # Only one of path or data should be set
+#     # ca_source:
+#       # Option 1: Load CA from file
+#       # path: "./certs/ca-cert.pem"
+#
+#       # Option 2: Use inline PEM data
+#       # data: |
+#       #   -----BEGIN CERTIFICATE-----
+#       #   MIIDXTCCAkWgAwIBAgIJAK...
+#       #   -----END CERTIFICATE-----
+#
+#       # If both are omitted, no CA verification is performed
+#
+#     # Client certificate for mTLS (optional)
+#     # Only one of file or PEM source should be specified
+#     # source:
+#       # Option 1: Load from files
+#       # cert_file: "./certs/client-cert.pem"
+#       # key_file: "./certs/client-key.pem"
+#
+#       # Option 2: Use inline PEM data
+#       # cert_data: |
+#       #   -----BEGIN CERTIFICATE-----
+#       #   MIIDXTCCAkWgAwIBAgIJAK...
+#       #   -----END CERTIFICATE-----
+#       # key_data: |
+#       #   -----BEGIN PRIVATE KEY-----
+#       #   MIIEvQIBADANBgkqhkiG9w...
+#       #   -----END PRIVATE KEY-----
+
+# ============================================================================
+# AUTHENTICATION
+# ============================================================================
+
+# connection-config:
+#   auth:
+#     # -------------------------
+#     # Basic Authentication
+#     # -------------------------
+#     # type: basic
+#     # basic:
+#     #   username: "myuser"
+#     #   password: "mypassword"
+#
+#     # -------------------------
+#     # Static JWT (from file)
+#     # -------------------------
+#     # type: static_jwt
+#     # static_jwt:
+#     #   # Path to file containing the JWT token (required)
+#     #   token_file: "/run/secrets/jwt-token"
+#     #   # Cache duration before re-reading file (optional)
+#     #   # Type: duration
+#     #   # Default: 0 (no caching)
+#     #   duration: 1h
+#
+#     # -------------------------
+#     # Dynamic JWT (self-signed)
+#     # -------------------------
+#     # type: jwt
+#     # jwt:
+#     #   # Token validity duration (optional)
+#     #   # Type: duration
+#     #   # Default: 1h
+#     #   duration: 1h
+#     #
+#     #   # JWT audience claim (optional)
+#     #   # Type: []string
+#     #   audience: ["slim", "api"]
+#     #
+#     #   # JWT issuer claim (optional)
+#     #   # Type: string
+#     #   issuer: "otel-receiver"
+#     #
+#     #   # JWT subject claim (optional)
+#     #   # Type: string
+#     #   subject: "telemetry"
+#     #
+#     #   # Key configuration (required)
+#     #   key:
+#     #     # Algorithm (required)
+#     #     # Type: string
+#     #     # Options: ES256, ES384, ES512, RS256, RS384, RS512, PS256, PS384, PS512, HS256, HS384, HS512, EdDSA
+#     #     algorithm: "ES256"
+#     #
+#     #     # Key format (optional)
+#     #     # Type: string
+#     #     # Options: "pem", "jwk", "jwks"
+#     #     # Default: "pem"
+#     #     format: pem
+#     #
+#     #     key:
+#     #       # Option 1: Inline key data
+#     #       data: |
+#     #         -----BEGIN PRIVATE KEY-----
+#     #         MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg...
+#     #         -----END PRIVATE KEY-----
+#     #
+#     #       # Option 2: Load from file
+#     #       # file: "./keys/jwt-private.pem"
+#
+#     # -------------------------
+#     # No Authentication
+#     # -------------------------
+#     # type: none
+
+# ============================================================================
+# ADVANCED OPTIONS
+# ============================================================================
+
+# connection-config:
+#   # Keepalive configuration (optional)
+#   # keepalive:
+#   #   # TCP keepalive interval (optional)
+#   #   # Type: duration
+#   #   tcp_keepalive: 30s
+#   #
+#   #   # HTTP/2 keepalive ping interval (optional)
+#   #   # Type: duration
+#   #   http2_keepalive: 30s
+#   #
+#   #   # Keepalive timeout (optional)
+#   #   # Type: duration
+#   #   timeout: 20s
+#   #
+#   #   # Allow keepalive without active streams (optional)
+#   #   # Type: bool
+#   #   keep_alive_while_idle: true
+#
+#   # HTTP proxy configuration (optional)
+#   # proxy:
+#   #   # Proxy URL (optional)
+#   #   # Type: string
+#   #   url: "http://proxy.example.com:8080"
+#   #
+#   #   # Proxy authentication (optional)
+#   #   # Type: string
+#   #   username: "proxy-user"
+#   #   password: "proxy-pass"
+#   #
+#   #   # Additional proxy headers (optional)
+#   #   # Type: map[string]string
+#   #   headers:
+#   #     Proxy-Authorization: "Bearer token"
+#   #
+#   #   # Proxy TLS configuration (optional)
+#   #   tls:
+#   #     insecure: false
+#   #     ca_source:
+#   #       path: "./certs/proxy-ca.pem"
+#
+#   # Retry backoff configuration (optional)
+#   # backoff:
+#   #   # Exponential backoff strategy
+#   #   type: exponential
+#   #   exponential:
+#   #     # Initial delay (required)
+#   #     # Type: duration
+#   #     base: 1s
+#   #
+#   #     # Multiplier for each retry (optional)
+#   #     # Type: uint64
+#   #     # Default: 2
+#   #     factor: 2
+#   #
+#   #     # Maximum delay between retries (optional)
+#   #     # Type: duration
+#   #     max_delay: 30s
+#   #
+#   #     # Maximum retry attempts (optional)
+#   #     # Type: uint64
+#   #     # Default: 0 (unlimited)
+#   #     max_attempts: 5
+#   #
+#   #     # Add random jitter (optional)
+#   #     # Type: bool
+#   #     # Default: false
+#   #     jitter: true
+#
+#   #   # Or use fixed interval backoff
+#   #   # type: fixed_interval
+#   #   # fixed_interval:
+#   #   #   # Retry interval (required)
+#   #   #   # Type: duration
+#   #   #   interval: 5s
+#   #   #
+#   #   #   # Maximum retry attempts (optional)
+#   #   #   # Type: uint64
+#   #   #   max_attempts: 3

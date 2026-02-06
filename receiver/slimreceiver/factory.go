@@ -33,10 +33,7 @@ func NewFactory() receiver.Factory {
 
 // createDefaultConfig creates the default configuration for the receiver
 func createDefaultConfig() component.Config {
-	return &Config{
-		SlimEndpoint: "http://127.0.0.1:46357",
-		ReceiverName: "agntcy/otel/receiver",
-	}
+	return &Config{}
 }
 
 // createTracesReceiver creates a trace receiver based on the config

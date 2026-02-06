@@ -2,12 +2,14 @@ package slimreceiver
 
 import (
 	"errors"
+
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
 // Config represents the receiver config settings in the Collector config.yaml
 type Config struct {
-	// Slim endpoint where to connect
-	SlimEndpoint string `mapstructure:"endpoint"`
+	// Connection configuration for the SLIM server
+	ConnectionConfig *slimcommon.ConnectionConfig `mapstructure:"connection-config"`
 
 	// Receiver name for different signals
 	ReceiverName string `mapstructure:"receiver-name"`
@@ -18,18 +20,20 @@ type Config struct {
 
 // Validate checks if the receiver configuration is valid
 func (cfg *Config) Validate() error {
-	defaultCfg := createDefaultConfig().(*Config)
-	if cfg.SlimEndpoint == "" {
-		cfg.SlimEndpoint = defaultCfg.SlimEndpoint
+	if cfg.ConnectionConfig == nil {
+		return errors.New("missing connection config")
 	}
 
-	// Set default receiver name if not provided
-	if cfg.ReceiverName == "" {
-		cfg.ReceiverName = defaultCfg.ReceiverName
+	if err := cfg.ConnectionConfig.Validate(); err != nil {
+		return errors.New("invalid connection config: " + err.Error())
 	}
 
 	if cfg.SharedSecret == "" {
 		return errors.New("shared secret cannot be empty")
+	}
+
+	if cfg.ReceiverName == "" {
+		return errors.New("receiver name cannot be empty")
 	}
 
 	return nil

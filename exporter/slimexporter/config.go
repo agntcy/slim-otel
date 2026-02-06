@@ -9,11 +9,11 @@ import (
 
 // Config defines configuration for the Slim exporter
 type Config struct {
-	// Slim endpoint where to connect
-	SlimEndpoint string `mapstructure:"endpoint"`
+	// Connection configuration for the SLIM server
+	ConnectionConfig *slimcommon.ConnectionConfig `mapstructure:"connection-config"`
 
 	// exporter names
-	ExporterNames SignalNames `mapstructure:"exporter-names"`
+	ExporterNames *SignalNames `mapstructure:"exporter-names"`
 
 	// Shared Secret
 	SharedSecret string `mapstructure:"shared-secret"`
@@ -25,23 +25,23 @@ type Config struct {
 // SignalNames holds the SLIM names of an app or channel for each signal type
 type SignalNames struct {
 	// name for metrics in the SLIM format
-	Metrics string `mapstructure:"metrics"`
+	Metrics *string `mapstructure:"metrics"`
 
 	// name for traces in the SLIM format
-	Traces string `mapstructure:"traces"`
+	Traces *string `mapstructure:"traces"`
 
 	// name for logs in the SLIM format
-	Logs string `mapstructure:"logs"`
+	Logs *string `mapstructure:"logs"`
 }
 
 func (nps *SignalNames) GetNameForSignal(signal string) (string, error) {
 	switch signal {
 	case "metrics":
-		return nps.Metrics, nil
+		return *nps.Metrics, nil
 	case "traces":
-		return nps.Traces, nil
+		return *nps.Traces, nil
 	case "logs":
-		return nps.Logs, nil
+		return *nps.Logs, nil
 	default:
 		return "", fmt.Errorf("unknown signal type: %s", signal)
 	}
@@ -50,11 +50,11 @@ func (nps *SignalNames) GetNameForSignal(signal string) (string, error) {
 func (nps *SignalNames) IsSignalNameSet(signal string) bool {
 	switch signal {
 	case "metrics":
-		return nps.Metrics != ""
+		return nps.Metrics != nil
 	case "traces":
-		return nps.Traces != ""
+		return nps.Traces != nil
 	case "logs":
-		return nps.Logs != ""
+		return nps.Logs != nil
 	default:
 		return false
 	}
@@ -81,20 +81,20 @@ func (cfg *Config) Validate() error {
 		return errors.New("missing shared secret")
 	}
 
-	defaultCfg := createDefaultConfig().(*Config)
-	if cfg.SlimEndpoint == "" {
-		cfg.SlimEndpoint = defaultCfg.SlimEndpoint
+	if cfg.ConnectionConfig == nil {
+		return errors.New("missing connection config")
 	}
 
-	// Set default exporter names if not provided
-	if cfg.ExporterNames.Metrics == "" {
-		cfg.ExporterNames.Metrics = defaultCfg.ExporterNames.Metrics
+	if err := cfg.ConnectionConfig.Validate(); err != nil {
+		return fmt.Errorf("invalid connection config: %w", err)
 	}
-	if cfg.ExporterNames.Traces == "" {
-		cfg.ExporterNames.Traces = defaultCfg.ExporterNames.Traces
+
+	// expoter names must be set
+	if cfg.ExporterNames == nil {
+		return errors.New("exporter names cannot be nil")
 	}
-	if cfg.ExporterNames.Logs == "" {
-		cfg.ExporterNames.Logs = defaultCfg.ExporterNames.Logs
+	if cfg.ExporterNames.Metrics == nil || cfg.ExporterNames.Traces == nil || cfg.ExporterNames.Logs == nil {
+		return errors.New("exporter names cannot be nil")
 	}
 
 	// Validate each channel (the list can be empty)

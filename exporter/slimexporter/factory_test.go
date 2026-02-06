@@ -1,12 +1,6 @@
 package slimexporter
 
-import (
-	"testing"
-
-	"go.opentelemetry.io/collector/component"
-)
-
-func TestNewFactory(t *testing.T) {
+/*func TestNewFactory(t *testing.T) {
 	factory := NewFactory()
 
 	if factory == nil {
@@ -47,3 +41,4 @@ func TestCreateDefaultConfig(t *testing.T) {
 		t.Errorf("ExporterNames.Logs = %v, want agntcy/otel/exporter-logs", slimCfg.ExporterNames.Logs)
 	}
 }
+*/

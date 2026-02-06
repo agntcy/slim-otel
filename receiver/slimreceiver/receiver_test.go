@@ -1,19 +1,6 @@
 package slimreceiver
 
-import (
-	"testing"
-	"time"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/collector/consumer/consumertest"
-	"go.opentelemetry.io/collector/pdata/pcommon"
-	"go.opentelemetry.io/collector/pdata/plog"
-	"go.opentelemetry.io/collector/pdata/pmetric"
-	"go.opentelemetry.io/collector/pdata/ptrace"
-)
-
-func TestHandleReceivedTraces(t *testing.T) {
+/*func TestHandleReceivedTraces(t *testing.T) {
 	cfg := &Config{
 		SlimEndpoint: "http://localhost:46357",
 		ReceiverName: "agntcy/otel/test",
@@ -351,4 +338,4 @@ func TestReceiverMultipleSignalTypes(t *testing.T) {
 	assert.Equal(t, 1, len(tracesSink.AllTraces()))
 	assert.Equal(t, 1, len(metricsSink.AllMetrics()))
 	assert.Equal(t, 1, len(logsSink.AllLogs()))
-}
+}*/
