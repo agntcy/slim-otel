@@ -3,7 +3,7 @@
 
 # Build stage
 ARG BUILDPLATFORM
-FROM --platform=$BUILDPLATFORM golang:1.25.5-bookworm AS builder
+FROM --platform=$BUILDPLATFORM golang:1.25.7-bookworm AS builder
 
 # Install required packages
 RUN apt-get update && apt-get install -y \

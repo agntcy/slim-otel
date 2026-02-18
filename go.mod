@@ -1,6 +1,6 @@
 module github.com/agntcy/slim/otel
 
-go 1.25.6
+go 1.25.7
 
 require (
 	github.com/agntcy/slim-bindings-go v1.0.0

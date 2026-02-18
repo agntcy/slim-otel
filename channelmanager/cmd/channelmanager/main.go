@@ -58,6 +58,7 @@ func main() {
 
 	// connect to slim and start the local app
 	connID, err := slimcommon.InitAndConnect(*cfg.Manager.ConnectionConfig)
+
 	if err != nil {
 		logger.Fatal("Failed to connect to SLIM server", zap.Error(err))
 	}
