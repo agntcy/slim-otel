@@ -173,13 +173,13 @@ tasks:
     desc: Run the SLIM OpenTelemetry Collector Exporter
     cmds:
       - echo "Running SLIM OpenTelemetry Collector Exporter..."
-      - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/exporter/slimexporter/example-exporter-collector-config.yaml"
+      - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/tests/config/base/exporter.yaml"
 
   collector:run:receiver:
     desc: Run the SLIM OpenTelemetry Collector Receiver
     cmds:
       - echo "Running SLIM OpenTelemetry Collector Receiver..."
-      - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/receiver/slimreceiver/example-receiver-collector-config.yaml"
+      - "{{.COLLECTOR_OUTPUT}}/slim-otelcol --config {{.ROOT_DIR}}/tests/config/base/receiver.yaml"
 
   # channel manager tasks
   channelmanager:proto:install:
@@ -261,5 +261,5 @@ tasks:
     cmds:
       - >
         docker run -it
-        -v ./slim-test-config.yaml:/config.yaml -p 46357:46357
-        ghcr.io/agntcy/slim:1.0.0 /slim --config /config.yaml
+        -v {{.ROOT_DIR}}/tests/config/base/slim.yaml:/config.yaml -p 46357:46357
+        ghcr.io/agntcy/slim:1.0.2 /slim --config /config.yaml

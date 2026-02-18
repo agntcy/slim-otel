@@ -21,12 +21,7 @@ exporters:
       traces: "agntcy/otel/exporter-traces"
       logs: "agntcy/otel/exporter-logs"
 
-    channels:
-      - channel-name: "agntcy/otel/channel-traces"
-        signal: traces
-        participants:
-          - "agntcy/otel/receiver"
-        mls-enabled: true
+    channels: []
 
 service:
   telemetry:
