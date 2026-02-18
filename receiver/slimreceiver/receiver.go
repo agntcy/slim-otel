@@ -211,7 +211,7 @@ func handleSession(
 	logger.Info("Handling new session")
 	defer func() {
 		// the session may be already removed from sessions.DeleteAll in Shutdown
-		_ = r.sessions.RemoveSession(ctx, id)
+		_, _ = r.sessions.RemoveSessionByID(ctx, id)
 		_ = r.app.DeleteSessionAndWait(session)
 		logger.Info("Session closed")
 	}()

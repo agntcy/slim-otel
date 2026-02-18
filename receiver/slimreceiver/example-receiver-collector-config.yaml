@@ -21,6 +21,8 @@ exporters:
 
 service:
   telemetry:
+    logs:
+      level: info
     metrics:
       level: none
 

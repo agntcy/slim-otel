@@ -35,8 +35,8 @@ exporters:
     # channels configuration
     # if no channel is defiend the exporter will listen for invitation
     # to join channels sent from other participants
-    channels: 
-        # names of the SLIM channels to create.
+    channels:
+      # names of the SLIM channels to create.
       - channel-name: "agntcy/otel/channel-metrics"
         # sigal type for this channel: metrics, traces, or logs
         signal: metrics
@@ -55,6 +55,9 @@ service:
   telemetry:
     logs:
       level: info
+    metrics:
+      level: none
+
   pipelines:
     traces:
       receivers: [otlp]
