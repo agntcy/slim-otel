@@ -32,22 +32,22 @@ func NewChannelManagerServer(app *slim.App, connID uint64, channels *slimcommon.
 }
 
 // Command handles incoming control messages
-func (s *Server) Command(ctx context.Context, req *ControlMessage) (*ControlMessage, error) {
+func (s *Server) Command(ctx context.Context, req *ControlRequest) (*ControlResponse, error) {
 	logger := slimcommon.LoggerFromContextOrDefault(ctx)
 	logger.Info("Received command", zap.Uint64("msg_id", req.MgsId))
 
 	switch payload := req.Payload.(type) {
-	case *ControlMessage_CreateChannelRequest:
+	case *ControlRequest_CreateChannelRequest:
 		return s.handleCreateChannel(ctx, req.MgsId, payload.CreateChannelRequest)
-	case *ControlMessage_DeleteChannelRequest:
+	case *ControlRequest_DeleteChannelRequest:
 		return s.handleDeleteChannel(ctx, req.MgsId, payload.DeleteChannelRequest)
-	case *ControlMessage_AddParticipantRequest:
+	case *ControlRequest_AddParticipantRequest:
 		return s.handleAddParticipant(ctx, req.MgsId, payload.AddParticipantRequest)
-	case *ControlMessage_DeleteParticipantRequest:
+	case *ControlRequest_DeleteParticipantRequest:
 		return s.handleDeleteParticipant(ctx, req.MgsId, payload.DeleteParticipantRequest)
-	case *ControlMessage_ListChannelRequest:
+	case *ControlRequest_ListChannelRequest:
 		return s.handleListChannels(ctx, req.MgsId, payload.ListChannelRequest)
-	case *ControlMessage_ListParticipantsRequest:
+	case *ControlRequest_ListParticipantsRequest:
 		return s.handleListParticipants(ctx, req.MgsId, payload.ListParticipantsRequest)
 	default:
 		return s.errorResponse(req.MgsId, "unknown command type")
@@ -57,7 +57,7 @@ func (s *Server) Command(ctx context.Context, req *ControlMessage) (*ControlMess
 // handleCreateChannel creates a new channel
 func (s *Server) handleCreateChannel(
 	ctx context.Context, msgID uint64, req *CreateChannelRequest,
-) (*ControlMessage, error) {
+) (*ControlResponse, error) {
 	// check if the channel already exists
 	channel, err := slimcommon.SplitID(req.ChannelName)
 	if err != nil {
@@ -99,7 +99,7 @@ func (s *Server) handleCreateChannel(
 // handleDeleteChannel deletes a channel
 func (s *Server) handleDeleteChannel(
 	ctx context.Context, msgID uint64, req *DeleteChannelRequest,
-) (*ControlMessage, error) {
+) (*ControlResponse, error) {
 	channel, err := slimcommon.SplitID(req.ChannelName)
 	if err != nil {
 		return s.errorResponse(msgID, fmt.Sprintf("invalid channel name: %s", req.ChannelName))
@@ -123,7 +123,7 @@ func (s *Server) handleDeleteChannel(
 // handleAddParticipant adds a participant to a channel
 func (s *Server) handleAddParticipant(
 	ctx context.Context, msgID uint64, req *AddParticipantRequest,
-) (*ControlMessage, error) {
+) (*ControlResponse, error) {
 	channel, err := slimcommon.SplitID(req.ChannelName)
 	if err != nil {
 		return s.errorResponse(msgID, fmt.Sprintf("invalid channel name: %s", req.ChannelName))
@@ -161,7 +161,7 @@ func (s *Server) handleAddParticipant(
 // handleDeleteParticipant removes a participant from a channel
 func (s *Server) handleDeleteParticipant(
 	ctx context.Context, msgID uint64, req *DeleteParticipantRequest,
-) (*ControlMessage, error) {
+) (*ControlResponse, error) {
 	channel, err := slimcommon.SplitID(req.ChannelName)
 	if err != nil {
 		return s.errorResponse(msgID, fmt.Sprintf("invalid channel name: %s", req.ChannelName))
@@ -195,7 +195,7 @@ func (s *Server) handleDeleteParticipant(
 // handleListChannels returns a list of all channels
 func (s *Server) handleListChannels(
 	ctx context.Context, msgID uint64, _ *ListChannelsRequest,
-) (*ControlMessage, error) {
+) (*ControlResponse, error) {
 	channels := s.channels.ListSessionNames(ctx)
 
 	slimcommon.LoggerFromContextOrDefault(ctx).Info("Listing channels",
@@ -207,7 +207,7 @@ func (s *Server) handleListChannels(
 // handleListParticipants returns a list of participants in a channel
 func (s *Server) handleListParticipants(
 	ctx context.Context, msgID uint64, req *ListParticipantsRequest,
-) (*ControlMessage, error) {
+) (*ControlResponse, error) {
 	channel, err := slimcommon.SplitID(req.ChannelName)
 	if err != nil {
 		return s.errorResponse(msgID, fmt.Sprintf("invalid channel name: %s", req.ChannelName))
@@ -240,10 +240,10 @@ func (s *Server) handleListParticipants(
 // listChannelResponse creates a list channels response
 func (s *Server) listChannelResponse(
 	msgID uint64, channelNames []string,
-) (*ControlMessage, error) {
-	return &ControlMessage{
+) (*ControlResponse, error) {
+	return &ControlResponse{
 		MgsId: msgID,
-		Payload: &ControlMessage_ListChannelResponse{
+		Payload: &ControlResponse_ListChannelResponse{
 			ListChannelResponse: &ListChannelsResponse{
 				MsgId:       msgID,
 				ChannelName: channelNames,
@@ -255,10 +255,10 @@ func (s *Server) listChannelResponse(
 // listParticipantResponse creates a list participants response
 func (s *Server) listParticipantResponse(
 	msgID uint64, participantNames []string,
-) (*ControlMessage, error) {
-	return &ControlMessage{
+) (*ControlResponse, error) {
+	return &ControlResponse{
 		MgsId: msgID,
-		Payload: &ControlMessage_ListParticipantsResponse{
+		Payload: &ControlResponse_ListParticipantsResponse{
 			ListParticipantsResponse: &ListParticipantsResponse{
 				MsgId:           msgID,
 				ParticipantName: participantNames,
@@ -268,10 +268,10 @@ func (s *Server) listParticipantResponse(
 }
 
 // successResponse creates a success response
-func (s *Server) successResponse(msgID uint64) (*ControlMessage, error) {
-	return &ControlMessage{
+func (s *Server) successResponse(msgID uint64) (*ControlResponse, error) {
+	return &ControlResponse{
 		MgsId: msgID,
-		Payload: &ControlMessage_CommandResponse{
+		Payload: &ControlResponse_CommandResponse{
 			CommandResponse: &CommandResponse{
 				MsgId:   msgID,
 				Success: true,
@@ -281,10 +281,10 @@ func (s *Server) successResponse(msgID uint64) (*ControlMessage, error) {
 }
 
 // errorResponse creates an error response
-func (s *Server) errorResponse(msgID uint64, errMsg string) (*ControlMessage, error) {
-	return &ControlMessage{
+func (s *Server) errorResponse(msgID uint64, errMsg string) (*ControlResponse, error) {
+	return &ControlResponse{
 		MgsId: msgID,
-		Payload: &ControlMessage_CommandResponse{
+		Payload: &ControlResponse_CommandResponse{
 			CommandResponse: &CommandResponse{
 				MsgId:    msgID,
 				Success:  false,

@@ -96,7 +96,7 @@ func main() {
 	defer cancel()
 
 	// Create and send the command
-	var req *pb.ControlMessage
+	var req *pb.ControlRequest
 
 	// Generate a random message ID using crypto/rand
 	var msgIDBytes [8]byte
@@ -110,9 +110,9 @@ func main() {
 		if channelName == "" {
 			logger.Fatal("Channel name is required for create-channel command")
 		}
-		req = &pb.ControlMessage{
+		req = &pb.ControlRequest{
 			MgsId: msgID,
-			Payload: &pb.ControlMessage_CreateChannelRequest{
+			Payload: &pb.ControlRequest_CreateChannelRequest{
 				CreateChannelRequest: &pb.CreateChannelRequest{
 					ChannelName: channelName,
 					MlsEnabled:  !*mlsDisabled,
@@ -124,9 +124,9 @@ func main() {
 		if channelName == "" {
 			logger.Fatal("Channel name is required for delete-channel command")
 		}
-		req = &pb.ControlMessage{
+		req = &pb.ControlRequest{
 			MgsId: msgID,
-			Payload: &pb.ControlMessage_DeleteChannelRequest{
+			Payload: &pb.ControlRequest_DeleteChannelRequest{
 				DeleteChannelRequest: &pb.DeleteChannelRequest{
 					ChannelName: channelName,
 				},
@@ -137,9 +137,9 @@ func main() {
 		if channelName == "" || participantName == "" {
 			logger.Fatal("Channel name and participant name are required for add-participant command")
 		}
-		req = &pb.ControlMessage{
+		req = &pb.ControlRequest{
 			MgsId: msgID,
-			Payload: &pb.ControlMessage_AddParticipantRequest{
+			Payload: &pb.ControlRequest_AddParticipantRequest{
 				AddParticipantRequest: &pb.AddParticipantRequest{
 					ChannelName:     channelName,
 					ParticipantName: participantName,
@@ -151,9 +151,9 @@ func main() {
 		if channelName == "" || participantName == "" {
 			logger.Fatal("Channel name and participant name are required for delete-participant command")
 		}
-		req = &pb.ControlMessage{
+		req = &pb.ControlRequest{
 			MgsId: msgID,
-			Payload: &pb.ControlMessage_DeleteParticipantRequest{
+			Payload: &pb.ControlRequest_DeleteParticipantRequest{
 				DeleteParticipantRequest: &pb.DeleteParticipantRequest{
 					ChannelName:     channelName,
 					ParticipantName: participantName,
@@ -162,9 +162,9 @@ func main() {
 		}
 
 	case "list-channels":
-		req = &pb.ControlMessage{
+		req = &pb.ControlRequest{
 			MgsId: msgID,
-			Payload: &pb.ControlMessage_ListChannelRequest{
+			Payload: &pb.ControlRequest_ListChannelRequest{
 				ListChannelRequest: &pb.ListChannelsRequest{},
 			},
 		}
@@ -173,9 +173,9 @@ func main() {
 		if channelName == "" {
 			logger.Fatal("Channel name is required for list-participants command")
 		}
-		req = &pb.ControlMessage{
+		req = &pb.ControlRequest{
 			MgsId: msgID,
-			Payload: &pb.ControlMessage_ListParticipantsRequest{
+			Payload: &pb.ControlRequest_ListParticipantsRequest{
 				ListParticipantsRequest: &pb.ListParticipantsRequest{
 					ChannelName: channelName,
 				},
@@ -199,21 +199,21 @@ func main() {
 	printResponse(logger, resp)
 }
 
-func printResponse(logger *zap.Logger, resp *pb.ControlMessage) {
+func printResponse(logger *zap.Logger, resp *pb.ControlResponse) {
 	logger.Info("Message ID", zap.Uint64("msg_id", resp.MgsId))
 
 	switch payload := resp.Payload.(type) {
-	case *pb.ControlMessage_ListChannelResponse:
+	case *pb.ControlResponse_ListChannelResponse:
 		logger.Info("List Channels Response",
 			zap.Int("count", len(payload.ListChannelResponse.ChannelName)),
 			zap.Strings("channels", payload.ListChannelResponse.ChannelName))
 
-	case *pb.ControlMessage_ListParticipantsResponse:
+	case *pb.ControlResponse_ListParticipantsResponse:
 		logger.Info("List Participants Response",
 			zap.Int("count", len(payload.ListParticipantsResponse.ParticipantName)),
 			zap.Strings("participants", payload.ListParticipantsResponse.ParticipantName))
 
-	case *pb.ControlMessage_CommandResponse:
+	case *pb.ControlResponse_CommandResponse:
 		if payload.CommandResponse.Success {
 			logger.Info("Command Response", zap.Bool("success", true))
 		} else {

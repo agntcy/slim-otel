@@ -7,10 +7,10 @@ package controller.proto.v1;
 option go_package = "github.com/agntcy/slim/otel/channelmanager/internal/channelmanager";
 
 service ChannelManagerService {
-  rpc Command(ControlMessage) returns (ControlMessage) {}
+  rpc Command(ControlRequest) returns (ControlResponse) {}
 }
 
-message ControlMessage {
+message ControlRequest {
     uint64 mgs_id = 1;
     oneof payload {
         CreateChannelRequest create_channel_request = 2;
@@ -18,10 +18,16 @@ message ControlMessage {
         AddParticipantRequest add_participant_request = 4;
         DeleteParticipantRequest delete_participant_request = 5;
         ListChannelsRequest list_channel_request = 6;
-        ListChannelsResponse list_channel_response = 7;
-        ListParticipantsRequest list_participants_request = 8;
-        ListParticipantsResponse list_participants_response = 9;
-        CommandResponse command_response = 10;
+        ListParticipantsRequest list_participants_request = 7;
+    }
+}
+
+message ControlResponse {
+    uint64 mgs_id = 1;
+    oneof payload {
+        CommandResponse command_response = 2;
+        ListChannelsResponse list_channel_response = 3;
+        ListParticipantsResponse list_participants_response = 4;
     }
 }
 
