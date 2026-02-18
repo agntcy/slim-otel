@@ -14,7 +14,7 @@ vars:
   ROOT_DIR:
     sh: pwd
   # OpenTelemetry Collector Builder settings
-  OCB_VERSION: 0.142.0
+  OCB_VERSION: 0.145.0
   GOOS:
     sh: go env GOOS
   GOARCH:
@@ -143,8 +143,8 @@ tasks:
     internal: true
     desc: Download OpenTelemetry Collector Builder for current architecture
     cmds:
-      - echo "Downloading OCB {{.OCB_VERSION}} for {{.GOOS}}/{{.GOARCH}}..."
-      - curl -L -o ocb "{{.OCB_URL}}"
+      - echo "Downloading OCB {{.OCB_VERSION}} for {{.GOOS}}/{{.GOARCH}} from {{.OCB_URL}}..."
+      - curl --proto '=https' --tlsv1.2 -fL -o ocb "{{.OCB_URL}}"
       - chmod +x ocb
       - echo "OCB downloaded successfully"
     status:
