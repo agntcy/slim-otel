@@ -1,11 +1,22 @@
 package slimexporter
 
+import (
+	"testing"
+
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
+	"go.opentelemetry.io/collector/pdata/plog"
+	"go.opentelemetry.io/collector/pdata/pmetric"
+	"go.opentelemetry.io/collector/pdata/ptrace"
+)
+
 // TestSlimExporter_PublishData tests the publishData method
-/*func TestSlimExporter_PublishData(t *testing.T) {
+func TestSlimExporter_PublishData(t *testing.T) {
 	t.Run("publish data with empty sessions list", func(t *testing.T) {
 		exporter := &slimExporter{
 			config: &Config{
-				SlimEndpoint: "test-endpoint",
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://test-endpoint",
+				},
 			},
 			signalType: slimcommon.SignalTraces,
 			sessions:   slimcommon.NewSessionsList(slimcommon.SignalTraces),
@@ -22,7 +33,9 @@ package slimexporter
 	t.Run("publish data handles nil data", func(t *testing.T) {
 		exporter := &slimExporter{
 			config: &Config{
-				SlimEndpoint: "test-endpoint",
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://test-endpoint",
+				},
 			},
 			signalType: slimcommon.SignalTraces,
 			sessions:   slimcommon.NewSessionsList(slimcommon.SignalTraces),
@@ -42,7 +55,9 @@ func TestSlimExporter_PushTraces(t *testing.T) {
 	t.Run("push empty traces without panic", func(t *testing.T) {
 		exporter := &slimExporter{
 			config: &Config{
-				SlimEndpoint: "test-endpoint",
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://test-endpoint",
+				},
 			},
 			signalType: slimcommon.SignalTraces,
 			sessions:   slimcommon.NewSessionsList(slimcommon.SignalTraces),
@@ -60,7 +75,9 @@ func TestSlimExporter_PushTraces(t *testing.T) {
 	t.Run("push traces with spans", func(t *testing.T) {
 		exporter := &slimExporter{
 			config: &Config{
-				SlimEndpoint: "test-endpoint",
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://test-endpoint",
+				},
 			},
 			signalType: slimcommon.SignalTraces,
 			sessions:   slimcommon.NewSessionsList(slimcommon.SignalTraces),
@@ -85,7 +102,9 @@ func TestSlimExporter_PushMetrics(t *testing.T) {
 	t.Run("push empty metrics without panic", func(t *testing.T) {
 		exporter := &slimExporter{
 			config: &Config{
-				SlimEndpoint: "test-endpoint",
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://test-endpoint",
+				},
 			},
 			signalType: slimcommon.SignalMetrics,
 			sessions:   slimcommon.NewSessionsList(slimcommon.SignalMetrics),
@@ -106,7 +125,9 @@ func TestSlimExporter_PushLogs(t *testing.T) {
 	t.Run("push empty logs without panic", func(t *testing.T) {
 		exporter := &slimExporter{
 			config: &Config{
-				SlimEndpoint: "test-endpoint",
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://test-endpoint",
+				},
 			},
 			signalType: slimcommon.SignalLogs,
 			sessions:   slimcommon.NewSessionsList(slimcommon.SignalLogs),
@@ -121,4 +142,3 @@ func TestSlimExporter_PushLogs(t *testing.T) {
 		}
 	})
 }
-*/

@@ -1,8 +1,24 @@
 package slimreceiver
 
-/*func TestHandleReceivedTraces(t *testing.T) {
+import (
+	"testing"
+	"time"
+
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/collector/consumer/consumertest"
+	"go.opentelemetry.io/collector/pdata/pcommon"
+	"go.opentelemetry.io/collector/pdata/plog"
+	"go.opentelemetry.io/collector/pdata/pmetric"
+	"go.opentelemetry.io/collector/pdata/ptrace"
+)
+
+func TestHandleReceivedTraces(t *testing.T) {
 	cfg := &Config{
-		SlimEndpoint: "http://localhost:46357",
+		ConnectionConfig: &slimcommon.ConnectionConfig{
+			Address: "http://localhost:46357",
+		},
 		ReceiverName: "agntcy/otel/test",
 		SharedSecret: "test-secret",
 	}
@@ -36,7 +52,9 @@ package slimreceiver
 
 func TestHandleReceivedMetrics(t *testing.T) {
 	cfg := &Config{
-		SlimEndpoint: "http://localhost:46357",
+		ConnectionConfig: &slimcommon.ConnectionConfig{
+			Address: "http://localhost:46357",
+		},
 		ReceiverName: "agntcy/otel/test",
 		SharedSecret: "test-secret",
 	}
@@ -72,7 +90,9 @@ func TestHandleReceivedMetrics(t *testing.T) {
 
 func TestHandleReceivedLogs(t *testing.T) {
 	cfg := &Config{
-		SlimEndpoint: "http://localhost:46357",
+		ConnectionConfig: &slimcommon.ConnectionConfig{
+			Address: "http://localhost:46357",
+		},
 		ReceiverName: "agntcy/otel/test",
 		SharedSecret: "test-secret",
 	}
@@ -106,7 +126,9 @@ func TestHandleReceivedLogs(t *testing.T) {
 
 func TestDetectAndHandleMessage_Traces(t *testing.T) {
 	cfg := &Config{
-		SlimEndpoint: "http://localhost:46357",
+		ConnectionConfig: &slimcommon.ConnectionConfig{
+			Address: "http://localhost:46357",
+		},
 		ReceiverName: "agntcy/otel/test",
 		SharedSecret: "test-secret",
 	}
@@ -143,7 +165,9 @@ func TestDetectAndHandleMessage_Traces(t *testing.T) {
 
 func TestDetectAndHandleMessage_Metrics(t *testing.T) {
 	cfg := &Config{
-		SlimEndpoint: "http://localhost:46357",
+		ConnectionConfig: &slimcommon.ConnectionConfig{
+			Address: "http://localhost:46357",
+		},
 		ReceiverName: "agntcy/otel/test",
 		SharedSecret: "test-secret",
 	}
@@ -182,7 +206,9 @@ func TestDetectAndHandleMessage_Metrics(t *testing.T) {
 
 func TestDetectAndHandleMessage_Logs(t *testing.T) {
 	cfg := &Config{
-		SlimEndpoint: "http://localhost:46357",
+		ConnectionConfig: &slimcommon.ConnectionConfig{
+			Address: "http://localhost:46357",
+		},
 		ReceiverName: "agntcy/otel/test",
 		SharedSecret: "test-secret",
 	}
@@ -219,7 +245,9 @@ func TestDetectAndHandleMessage_Logs(t *testing.T) {
 
 func TestDetectAndHandleMessage_InvalidPayload(t *testing.T) {
 	cfg := &Config{
-		SlimEndpoint: "http://localhost:46357",
+		ConnectionConfig: &slimcommon.ConnectionConfig{
+			Address: "http://localhost:46357",
+		},
 		ReceiverName: "agntcy/otel/test",
 		SharedSecret: "test-secret",
 	}
@@ -252,7 +280,9 @@ func TestDetectAndHandleMessage_InvalidPayload(t *testing.T) {
 
 func TestDetectAndHandleMessage_NoConsumers(t *testing.T) {
 	cfg := &Config{
-		SlimEndpoint: "http://localhost:46357",
+		ConnectionConfig: &slimcommon.ConnectionConfig{
+			Address: "http://localhost:46357",
+		},
 		ReceiverName: "agntcy/otel/test",
 		SharedSecret: "test-secret",
 	}
@@ -284,7 +314,9 @@ func TestDetectAndHandleMessage_NoConsumers(t *testing.T) {
 
 func TestReceiverMultipleSignalTypes(t *testing.T) {
 	cfg := &Config{
-		SlimEndpoint: "http://localhost:46357",
+		ConnectionConfig: &slimcommon.ConnectionConfig{
+			Address: "http://localhost:46357",
+		},
 		ReceiverName: "agntcy/otel/test",
 		SharedSecret: "test-secret",
 	}
@@ -338,4 +370,4 @@ func TestReceiverMultipleSignalTypes(t *testing.T) {
 	assert.Equal(t, 1, len(tracesSink.AllTraces()))
 	assert.Equal(t, 1, len(metricsSink.AllMetrics()))
 	assert.Equal(t, 1, len(logsSink.AllLogs()))
-}*/
+}
