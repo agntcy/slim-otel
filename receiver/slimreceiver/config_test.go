@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

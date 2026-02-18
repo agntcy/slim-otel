@@ -182,10 +182,10 @@ type JWTKeySource struct {
 // KeepaliveConfig defines keepalive configuration
 type KeepaliveConfig struct {
 	// TCP keepalive duration
-	TcpKeepalive time.Duration `mapstructure:"tcp_keepalive"`
+	TCPKeepalive time.Duration `mapstructure:"tcp_keepalive"`
 
 	// HTTP/2 keepalive duration
-	Http2Keepalive time.Duration `mapstructure:"http2_keepalive"`
+	HTTP2Keepalive time.Duration `mapstructure:"http2_keepalive"`
 
 	// Keepalive timeout
 	Timeout time.Duration `mapstructure:"timeout"`
@@ -197,10 +197,10 @@ type KeepaliveConfig struct {
 // ProxyConfig defines proxy configuration
 type ProxyConfig struct {
 	// URL of the proxy server (optional)
-	Url *string `mapstructure:"url"`
+	URL *string `mapstructure:"url"`
 
 	// TLS configuration for the proxy connection
-	Tls *TLSConfig `mapstructure:"tls"`
+	TLS *TLSConfig `mapstructure:"tls"`
 
 	// Username for proxy authentication (optional)
 	Username *string `mapstructure:"username"`
@@ -353,25 +353,24 @@ func validateTLSSource(cfg *TLSCertKeySource) error {
 	hasFile := cfg.CertFile != nil || cfg.KeyFile != nil
 	hasPEM := cfg.CertData != nil || cfg.KeyData != nil
 
-	if hasFile && hasPEM {
+	switch {
+	case hasFile && hasPEM:
 		return errors.New("cannot specify both file and PEM sources for TLS certificate")
-	}
-
-	if hasFile {
+	case hasFile:
 		if cfg.CertFile == nil || *cfg.CertFile == "" {
 			return errors.New("cert_file is required for file-based TLS source")
 		}
 		if cfg.KeyFile == nil || *cfg.KeyFile == "" {
 			return errors.New("key_file is required for file-based TLS source")
 		}
-	} else if hasPEM {
+	case hasPEM:
 		if cfg.CertData == nil || *cfg.CertData == "" {
 			return errors.New("cert_data is required for PEM-based TLS source")
 		}
 		if cfg.KeyData == nil || *cfg.KeyData == "" {
 			return errors.New("key_data is required for PEM-based TLS source")
 		}
-	} else {
+	default:
 		return errors.New("either file or PEM source must be specified for TLS certificate")
 	}
 
@@ -474,13 +473,13 @@ func validateBackoffConfig(cfg *BackoffConfig) error {
 
 // validateProxyConfig validates proxy configuration
 func validateProxyConfig(cfg *ProxyConfig) error {
-	if cfg.Url == nil && (cfg.Username != nil || cfg.Password != nil) {
+	if cfg.URL == nil && (cfg.Username != nil || cfg.Password != nil) {
 		return errors.New("proxy URL is required when username or password is specified")
 	}
 
 	// Recursively validate proxy TLS configuration
-	if cfg.Tls != nil {
-		if err := validateTLSConfig(cfg.Tls); err != nil {
+	if cfg.TLS != nil {
+		if err := validateTLSConfig(cfg.TLS); err != nil {
 			return fmt.Errorf("invalid proxy TLS config: %w", err)
 		}
 	}
@@ -735,8 +734,8 @@ func (cfg *TLSCertKeySource) toSlimTLSSource() (slim.TlsSource, error) {
 // toSlimKeepaliveConfig converts KeepaliveConfig to *slim.KeepaliveConfig
 func (cfg *KeepaliveConfig) toSlimKeepaliveConfig() *slim.KeepaliveConfig {
 	return &slim.KeepaliveConfig{
-		TcpKeepalive:       cfg.TcpKeepalive,
-		Http2Keepalive:     cfg.Http2Keepalive,
+		TcpKeepalive:       cfg.TCPKeepalive,
+		Http2Keepalive:     cfg.HTTP2Keepalive,
 		Timeout:            cfg.Timeout,
 		KeepAliveWhileIdle: cfg.KeepAliveWhileIdle,
 	}
@@ -745,14 +744,14 @@ func (cfg *KeepaliveConfig) toSlimKeepaliveConfig() *slim.KeepaliveConfig {
 // toSlimProxyConfig converts ProxyConfig to slim.ProxyConfig
 func (cfg *ProxyConfig) toSlimProxyConfig() (slim.ProxyConfig, error) {
 	proxyCfg := slim.ProxyConfig{
-		Url:      cfg.Url,
+		Url:      cfg.URL,
 		Username: cfg.Username,
 		Password: cfg.Password,
 		Headers:  cfg.Headers,
 	}
 
-	if cfg.Tls != nil {
-		tlsCfg, err := cfg.Tls.toSlimTLSConfig()
+	if cfg.TLS != nil {
+		tlsCfg, err := cfg.TLS.toSlimTLSConfig()
 		if err != nil {
 			return proxyCfg, fmt.Errorf("failed to convert proxy TLS config: %w", err)
 		}
@@ -894,7 +893,12 @@ func parseJWTKeyFormat(format string) (slim.JwtKeyFormat, error) {
 }
 
 // parseJWTKeyType converts string key type and key config to slim.JwtKeyType interface
-func parseJWTKeyType(keyType string, algorithm slim.JwtAlgorithm, format slim.JwtKeyFormat, keyData slim.JwtKeyData) (slim.JwtKeyType, error) {
+func parseJWTKeyType(
+	keyType string,
+	algorithm slim.JwtAlgorithm,
+	format slim.JwtKeyFormat,
+	keyData slim.JwtKeyData,
+) (slim.JwtKeyType, error) {
 	jwtKeyConfig := slim.JwtKeyConfig{
 		Algorithm: algorithm,
 		Format:    format,

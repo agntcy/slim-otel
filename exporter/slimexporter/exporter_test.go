@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
+
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/pdata/ptrace"

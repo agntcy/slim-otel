@@ -8,6 +8,7 @@ import (
 	"time"
 
 	slim "github.com/agntcy/slim-bindings-go"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -548,14 +549,14 @@ func TestProxyConfig_Validate(t *testing.T) {
 		{
 			name: "valid proxy with URL",
 			config: ProxyConfig{
-				Url: strPtr("http://proxy.example.com:8080"),
+				URL: strPtr("http://proxy.example.com:8080"),
 			},
 			wantErr: false,
 		},
 		{
 			name: "valid proxy with auth",
 			config: ProxyConfig{
-				Url:      strPtr("http://proxy.example.com:8080"),
+				URL:      strPtr("http://proxy.example.com:8080"),
 				Username: strPtr("user"),
 				Password: strPtr("pass"),
 			},
@@ -573,8 +574,8 @@ func TestProxyConfig_Validate(t *testing.T) {
 		{
 			name: "valid proxy with TLS",
 			config: ProxyConfig{
-				Url: strPtr("https://proxy.example.com:8443"),
-				Tls: &TLSConfig{
+				URL: strPtr("https://proxy.example.com:8443"),
+				TLS: &TLSConfig{
 					Insecure: false,
 				},
 			},
@@ -988,8 +989,8 @@ func TestConnectionConfig_ToSlimClientConfig(t *testing.T) {
 				Insecure: true,
 			},
 			Keepalive: &KeepaliveConfig{
-				TcpKeepalive:       30 * time.Second,
-				Http2Keepalive:     60 * time.Second,
+				TCPKeepalive:       30 * time.Second,
+				HTTP2Keepalive:     60 * time.Second,
 				Timeout:            10 * time.Second,
 				KeepAliveWhileIdle: true,
 			},
@@ -1111,14 +1112,14 @@ func TestConnectionConfig_ToSlimClientConfig(t *testing.T) {
 	})
 
 	t.Run("config with proxy", func(t *testing.T) {
-		proxyUrl := "http://proxy.example.com:8080"
+		proxyURL := "http://proxy.example.com:8080"
 		config := ConnectionConfig{
 			Address: "http://localhost:8080",
 			TLS: &TLSConfig{
 				Insecure: true,
 			},
 			Proxy: &ProxyConfig{
-				Url:      &proxyUrl,
+				URL:      &proxyURL,
 				Username: strPtr("proxyuser"),
 				Password: strPtr("proxypass"),
 			},
@@ -1128,7 +1129,7 @@ func TestConnectionConfig_ToSlimClientConfig(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, clientCfg.Proxy)
 		assert.NotNil(t, clientCfg.Proxy.Url)
-		assert.Equal(t, proxyUrl, *clientCfg.Proxy.Url)
+		assert.Equal(t, proxyURL, *clientCfg.Proxy.Url)
 		assert.NotNil(t, clientCfg.Proxy.Username)
 		assert.Equal(t, "proxyuser", *clientCfg.Proxy.Username)
 	})
@@ -1349,7 +1350,7 @@ func TestProxyConfig_ToSlimProxyConfig(t *testing.T) {
 	t.Run("basic proxy config", func(t *testing.T) {
 		url := "http://proxy.example.com:8080"
 		config := ProxyConfig{
-			Url: &url,
+			URL: &url,
 		}
 
 		result, err := config.toSlimProxyConfig()
@@ -1361,7 +1362,7 @@ func TestProxyConfig_ToSlimProxyConfig(t *testing.T) {
 	t.Run("proxy with auth", func(t *testing.T) {
 		url := "http://proxy.example.com:8080"
 		config := ProxyConfig{
-			Url:      &url,
+			URL:      &url,
 			Username: strPtr("proxyuser"),
 			Password: strPtr("proxypass"),
 		}
@@ -1377,8 +1378,8 @@ func TestProxyConfig_ToSlimProxyConfig(t *testing.T) {
 	t.Run("proxy with TLS", func(t *testing.T) {
 		url := "https://proxy.example.com:8443"
 		config := ProxyConfig{
-			Url: &url,
-			Tls: &TLSConfig{
+			URL: &url,
+			TLS: &TLSConfig{
 				Insecure:   false,
 				TLSVersion: "tls1.3",
 			},
@@ -1393,8 +1394,8 @@ func TestProxyConfig_ToSlimProxyConfig(t *testing.T) {
 
 func TestKeepaliveConfig_ToSlimKeepaliveConfig(t *testing.T) {
 	config := KeepaliveConfig{
-		TcpKeepalive:       30 * time.Second,
-		Http2Keepalive:     60 * time.Second,
+		TCPKeepalive:       30 * time.Second,
+		HTTP2Keepalive:     60 * time.Second,
 		Timeout:            10 * time.Second,
 		KeepAliveWhileIdle: true,
 	}

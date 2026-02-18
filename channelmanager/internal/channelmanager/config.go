@@ -9,6 +9,7 @@ import (
 	"os"
 
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
+
 	"gopkg.in/yaml.v3"
 )
 

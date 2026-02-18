@@ -44,7 +44,10 @@ func CreateApp(
 		return nil, 0, err
 	}
 
-	logger.Info("connected to SLIM server", zap.String("endpoint", cfg.ConnectionConfig.Address), zap.Uint64("connection_id", connID))
+	logger.Info("connected to SLIM server",
+		zap.String("endpoint", cfg.ConnectionConfig.Address),
+		zap.Uint64("connection_id", connID),
+	)
 
 	exporterName, err := cfg.ExporterNames.GetNameForSignal(string(signalType))
 	if err != nil {
