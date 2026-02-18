@@ -4,8 +4,6 @@ import (
 	"testing"
 	"time"
 
-	slimcommon "github.com/agntcy/slim/otel/internal/slim"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/consumer/consumertest"
@@ -13,6 +11,8 @@ import (
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/pdata/ptrace"
+
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
 func TestHandleReceivedTraces(t *testing.T) {

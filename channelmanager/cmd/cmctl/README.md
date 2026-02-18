@@ -78,12 +78,12 @@ Connect to a different server:
 Create a channel and add participants:
 ```bash
 # Create channel with MLS enabled (default)
-./cmctl create-channel team-chat
+./cmctl create-channel org/ns/team-chat
 
 # Add participants
-./cmctl add-participant org/ns/channel org/ns/participant-1
-./cmctl add-participant org/ns/channel org/ns/participant-2
+./cmctl add-participant org/ns/team-chat org/ns/participant-1
+./cmctl add-participant org/ns/team-chat org/ns/participant-2
 
 # List participants
-./cmctl list-participants org/ns/channel
+./cmctl list-participants org/ns/team-chat
 ```

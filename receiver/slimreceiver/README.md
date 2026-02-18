@@ -6,12 +6,10 @@ The SLIM receiver receives OpenTelemetry traces, metrics, and logs from [SLIM](h
 
 The following settings are required:
 
-- `endpoint` (default = `http://127.0.0.1:46357`): The address of the SLIM node to connect to.
-- `shared-secret` (no default): The shared secret used for MLS and identity provider authentication.
-
-The following settings can be optionally configured:
-
-- `receiver-name` (default = `agntcy/otel/receiver`): Name for the receiver to be used in SLIM channels. This is the identifier that other participants use to establish sessions with this receiver.
+- `connection-config`: Connection configuration for the SLIM node. This can include comprehensive gRPC settings such as TLS/mTLS, authentication (basic, JWT, static JWT), keepalive, proxy configuration, compression, rate limiting, and more. See [reference-config.yaml](reference-config.yaml) for all available options.
+  - `address` (required): The address of the SLIM node to connect to.
+- `shared-secret` (required): The shared secret used for MLS and identity provider authentication.
+- `receiver-name` (required): Name for the receiver to be used in SLIM channels. This is the identifier that other participants use to establish sessions with this receiver.
 
 ## Example configuration
 
@@ -20,7 +18,8 @@ Example receiver configuration:
 ```yaml
 receivers:
   slim:
-    endpoint: "http://127.0.0.1:46357"
+    connection-config:
+      address: "http://127.0.0.1:46357"
     receiver-name: "agntcy/otel/receiver"
     shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
 
@@ -58,7 +57,8 @@ Example with custom receiver name:
 ```yaml
 receivers:
   slim:
-    endpoint: "http://127.0.0.1:46357"
+    connection-config:
+      address: "http://127.0.0.1:46357"
     receiver-name: "my-org/my-app/telemetry-receiver"
     shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
 ```
@@ -68,7 +68,8 @@ Complete pipeline configuration with multiple exporters:
 ```yaml
 receivers:
   slim:
-    endpoint: "http://127.0.0.1:46357"
+    connection-config:
+      address: "http://127.0.0.1:46357"
     receiver-name: "agntcy/otel/receiver"
     shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
 
@@ -111,7 +112,7 @@ service:
 
 The SLIM receiver:
 
-1. **Connects** to a SLIM node using the configured endpoint and authenticates using the shared secret.
+1. **Connects** to a SLIM node using the configured connection settings and authenticates using the shared secret.
 2. **Registers** as an application with the configured `receiver-name`, making it discoverable to other SLIM participants.
 3. **Listens** for incoming SLIM sessions from any participant that wants to send telemetry data.
 4. **Detects signal type** automatically by attempting to unmarshal received data as traces, metrics, or logs.

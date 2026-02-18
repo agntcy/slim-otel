@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	slim "github.com/agntcy/slim-bindings-go"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	slim "github.com/agntcy/slim-bindings-go"
 )
 
 // Helper functions for creating pointer values

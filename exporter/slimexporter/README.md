@@ -6,16 +6,17 @@ The SLIM exporter sends OpenTelemetry traces, metrics, and logs to a [SLIM](http
 
 The following settings are required:
 
-- `endpoint` (default = `http://127.0.0.1:46357`): The address of the SLIM node to connect to.
-- `shared-secret` (no default): The shared secret used for MLS and identity provider authentication.
+- `connection-config`: Connection configuration for the SLIM node. This can include comprehensive gRPC settings such as TLS/mTLS, authentication (basic, JWT, static JWT), keepalive, proxy configuration, compression, rate limiting, and more. See [reference-config.yaml](reference-config.yaml) for all available options.
+  - `address` (required): The address of the SLIM node to connect to.
+- `shared-secret` (required): The shared secret used for MLS and identity provider authentication.
+- `exporter-names` (required): Names for each signal type exporter. Each exporter name identifies this collector instance in SLIM channels.
+  - `metrics` (required): Name for the metrics exporter.
+  - `traces` (required): Name for the traces exporter.
+  - `logs` (required): Name for the logs exporter.
 
 The following settings can be optionally configured:
 
-- `exporter-names`: Names for each signal type exporter. Each exporter name identifies this collector instance in SLIM channels.
-  - `metrics` (default = `agntcy/otel/exporter-metrics`): Name for the metrics exporter.
-  - `traces` (default = `agntcy/otel/exporter-traces`): Name for the traces exporter.
-  - `logs` (default = `agntcy/otel/exporter-logs`): Name for the logs exporter.
-- `channels` (default = `[]`): A list of channel configurations to create. When the list is empty, the exporter operates in passive mode, only listening for invitations from other participants. When channels are configured, the exporter actively creates those channels and invites participants, while also continuing to listen for incoming invitations from other participants.
+- `channels` (optional, default = `[]`): A list of channel configurations to create. When the list is empty, the exporter operates in passive mode, only listening for invitations from other participants. When channels are configured, the exporter actively creates those channels and invites participants, while also continuing to listen for incoming invitations from other participants.
 
 ### Channel Configuration
 
@@ -33,7 +34,8 @@ Example configuration with multiple channels:
 ```yaml
 exporters:
   slim:
-    endpoint: "http://127.0.0.1:46357"
+    connection-config:
+      address: "http://127.0.0.1:46357"
     exporter-names:
       metrics: "agntcy/otel/exporter-metrics"
       traces: "agntcy/otel/exporter-traces"
@@ -64,7 +66,8 @@ Example configuration listening for invitations:
 ```yaml
 exporters:
   slim:
-    endpoint: "http://127.0.0.1:46357"
+    connection-config:
+      address: "http://127.0.0.1:46357"
     exporter-names:
       metrics: "agntcy/otel/passive-exporter-metrics"
       traces: "agntcy/otel/passive-exporter-traces"
@@ -91,7 +94,8 @@ processors:
 
 exporters:
   slim:
-    endpoint: "http://127.0.0.1:46357"
+    connection-config:
+      address: "http://127.0.0.1:46357"
     exporter-names:
       metrics: "agntcy/otel/exporter-metrics"
       traces: "agntcy/otel/exporter-traces"
@@ -138,7 +142,7 @@ service:
 
 The SLIM exporter:
 
-1. **Connects** to a SLIM node using the configured endpoint and authenticates using the shared secret.
+1. **Connects** to a SLIM node using the configured connection settings and authenticates using the shared secret.
 2. **Creates channels** based on the `channels` configuration. Each channel is created with its specified name and handles one signal type.
 3. **Invites participants** to the created channels if configured.
 4. **Publishes** OpenTelemetry data (serialized as protobuf) to the appropriate SLIM channels based on signal type.

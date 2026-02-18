@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"os"
 
-	slimcommon "github.com/agntcy/slim/otel/internal/slim"
-
 	"gopkg.in/yaml.v3"
+
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
 // Config represents the channel manager configuration
