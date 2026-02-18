@@ -16,7 +16,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require github.com/agntcy/slim-bindings-go v1.0.0
+require github.com/agntcy/slim-bindings-go v1.1.1
 
 require (
 	go.uber.org/multierr v1.11.0 // indirect

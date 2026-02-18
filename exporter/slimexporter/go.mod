@@ -5,7 +5,7 @@ go 1.25.7
 replace github.com/agntcy/slim/otel => ../../
 
 require (
-	github.com/agntcy/slim-bindings-go v1.0.0
+	github.com/agntcy/slim-bindings-go v1.1.1
 	github.com/agntcy/slim/otel v0.0.0
 	go.opentelemetry.io/collector/component v1.48.0
 	go.opentelemetry.io/collector/exporter v1.48.0

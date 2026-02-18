@@ -3,7 +3,7 @@ module github.com/agntcy/slim/otel
 go 1.25.7
 
 require (
-	github.com/agntcy/slim-bindings-go v1.0.0
+	github.com/agntcy/slim-bindings-go v1.1.1
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.1
 )
