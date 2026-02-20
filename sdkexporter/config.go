@@ -14,8 +14,8 @@ type Config struct {
 	// Connection configuration for the SLIM server
 	ConnectionConfig *slimcommon.ConnectionConfig `mapstructure:"connection-config"`
 
-	// Exporter name
-	ExporterName string `mapstructure:"exporter-name"`
+	// Exporter names
+	ExporterNames *slimcommon.SignalNames `mapstructure:"exporter-names"`
 
 	// Shared Secret
 	SharedSecret string `mapstructure:"shared-secret"`
@@ -31,8 +31,12 @@ func (c *Config) Validate() error {
 		return errors.New("invalid connection config: " + err.Error())
 	}
 
-	if c.ExporterName == "" {
-		return errors.New("exporter name cannot be empty")
+	// expoter names must be set
+	if c.ExporterNames == nil {
+		return errors.New("exporter names cannot be nil")
+	}
+	if c.ExporterNames.Metrics == nil || c.ExporterNames.Traces == nil || c.ExporterNames.Logs == nil {
+		return errors.New("exporter names cannot be nil")
 	}
 
 	if c.SharedSecret == "" {
