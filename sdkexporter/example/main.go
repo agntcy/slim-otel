@@ -33,6 +33,18 @@ func strPtr(s string) *string {
 	return &s
 }
 
+// This example demonstrates a unified OpenTelemetry SDK exporter that sends
+// traces, metrics, and logs over a single SLIM connection.
+//
+// Telemetry Produced:
+// - TRACES: Parent span with 3 child spans (authenticate, database-query, render-response)
+// - METRICS: Counter (requests), Histogram (duration), UpDownCounter (connections)
+// - LOGS: 3 log records per request (info, debug, warn/error) with trace context correlation
+//
+// Expected Output:
+// - Receiver will show all 3 signals correlated by trace ID
+// - Logs will include trace_id and span_id for distributed tracing
+// - Metrics will show request counts, latencies, and active connections
 func main() {
 	ctx := context.Background()
 
@@ -60,20 +72,17 @@ func main() {
 		SharedSecret: "a-very-long-shared-secret-0123456789-abcdefg",
 	}
 
-	// Create the exporter
+	// Create the unified SLIM exporter
+	// This single exporter handles all three signals (traces, metrics, logs) over one connection
 	exporter, err := sdkexporter.New(ctx, config)
 	if err != nil {
 		log.Fatalf("failed to create SLIM exporter: %v", err)
 	}
-	defer func() {
-		if err := exporter.Shutdown(ctx); err != nil {
-			log.Printf("failed to shutdown exporter: %v", err)
-		}
-	}()
 
-	// Create tracer provider with the exporter
+	// Create tracer provider with the trace exporter
+	// Traces show request flow with parent-child span relationships
 	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter,
+		sdktrace.WithBatcher(exporter.TraceExporter(),
 			sdktrace.WithBatchTimeout(1*time.Second),
 		),
 		sdktrace.WithResource(res),
@@ -88,10 +97,11 @@ func main() {
 	// Set global tracer provider
 	otel.SetTracerProvider(tp)
 
-	// Create meter provider
+	// Create meter provider with the metric exporter
+	// Metrics are exported every 1 second
 	mp := sdkmetric.NewMeterProvider(
-		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter.AsMetricExporter(),
-			sdkmetric.WithInterval(2*time.Second),
+		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter.MetricExporter(),
+			sdkmetric.WithInterval(1*time.Second),
 		)),
 		sdkmetric.WithResource(res),
 	)
@@ -102,9 +112,11 @@ func main() {
 	}()
 	otel.SetMeterProvider(mp)
 
-	// Create logger provider
+	// Create logger provider with the log exporter
+	// Logs are batched and exported every 1 second
+	// Log records automatically include trace context (trace_id, span_id) for correlation
 	lp := sdklog.NewLoggerProvider(
-		sdklog.WithProcessor(sdklog.NewBatchProcessor(exporter.AsLogExporter(),
+		sdklog.WithProcessor(sdklog.NewBatchProcessor(exporter.LogExporter(),
 			sdklog.WithExportInterval(1*time.Second),
 		)),
 		sdklog.WithResource(res),
@@ -164,7 +176,7 @@ func main() {
 		cancel()
 	}()
 
-	log.Println("Starting to send traces and metrics to SLIM... (Press Ctrl+C to stop)")
+	log.Println("Starting to send traces, metrics, and logs to SLIM... (Press Ctrl+C to stop)")
 
 	// Send telemetry periodically until interrupted
 	i := 0
@@ -201,6 +213,10 @@ shutdown:
 	time.Sleep(3 * time.Second)
 }
 
+// handleRequest simulates an HTTP request and generates telemetry for all three signals:
+// - TRACE: Parent span "handle-http-request" with 3 child spans
+// - LOGS: 3 log records (request start, auth complete, request result) with trace context
+// - METRICS: Request count, duration, and connection changes
 func handleRequest(
 	ctx context.Context,
 	tracer trace.Tracer,
@@ -221,7 +237,8 @@ func handleRequest(
 	)
 	defer span.End()
 
-	// Log request start with trace context
+	// LOG 1: Request received (Info level)
+	// The SDK automatically captures trace_id and span_id from spanCtx for correlation
 	logRecord := otellog.Record{}
 	logRecord.SetTimestamp(time.Now())
 	logRecord.SetSeverity(otellog.SeverityInfo)
@@ -230,29 +247,21 @@ func handleRequest(
 		otellog.String("http.method", method),
 		otellog.String("http.route", endpoint),
 	)
-	// Add trace context to correlate logs with traces
-	if span.SpanContext().HasTraceID() {
-		logRecord.SetTraceID(span.SpanContext().TraceID())
-		logRecord.SetSpanID(span.SpanContext().SpanID())
-	}
 	logger.Emit(spanCtx, logRecord)
 
-	// Simulate request processing with child spans
+	// CHILD SPAN 1: Authentication
 	_, authSpan := tracer.Start(spanCtx, "authenticate")
 	time.Sleep(5 * time.Millisecond)
 	authSpan.End()
 
-	// Log debug message
+	// LOG 2: Authentication complete (Debug level)
 	debugLog := otellog.Record{}
 	debugLog.SetTimestamp(time.Now())
 	debugLog.SetSeverity(otellog.SeverityDebug)
 	debugLog.SetBody(otellog.StringValue("Authentication completed"))
-	if span.SpanContext().HasTraceID() {
-		debugLog.SetTraceID(span.SpanContext().TraceID())
-		debugLog.SetSpanID(span.SpanContext().SpanID())
-	}
 	logger.Emit(spanCtx, debugLog)
 
+	// CHILD SPAN 2: Database query with attributes
 	_, dbSpan := tracer.Start(spanCtx, "database-query",
 		trace.WithAttributes(
 			attribute.String("db.system", "postgresql"),
@@ -262,12 +271,14 @@ func handleRequest(
 	time.Sleep(10 * time.Millisecond)
 	dbSpan.End()
 
+	// CHILD SPAN 3: Render response
 	_, renderSpan := tracer.Start(spanCtx, "render-response")
 	time.Sleep(3 * time.Millisecond)
 	renderSpan.SetStatus(codes.Ok, "completed successfully")
 	renderSpan.End()
 
-	// Log based on status code
+	// LOG 3: Request result (severity varies by status code)
+	// Error (500+), Warn (400+), or Info (200+)
 	resultLog := otellog.Record{}
 	resultLog.SetTimestamp(time.Now())
 	if statusCode >= 500 {
@@ -288,25 +299,24 @@ func handleRequest(
 		otellog.String("http.method", method),
 		otellog.String("http.route", endpoint),
 	)
-	if span.SpanContext().HasTraceID() {
-		resultLog.SetTraceID(span.SpanContext().TraceID())
-		resultLog.SetSpanID(span.SpanContext().SpanID())
-	}
 	logger.Emit(spanCtx, resultLog)
 
-	// Record metrics
+	// METRICS: Record request count, duration, and connection changes
+	// These are tagged with http.method, http.route, and http.status_code
 	attrs := []attribute.KeyValue{
 		attribute.String("http.method", method),
 		attribute.String("http.route", endpoint),
 		attribute.Int("http.status_code", statusCode),
 	}
 
+	// Counter: Total requests
 	counter.Add(ctx, 1, metric.WithAttributes(attrs...))
 
+	// Histogram: Request duration distribution
 	requestTime := 10.0 + rand.Float64()*500.0
 	duration.Record(ctx, requestTime, metric.WithAttributes(attrs...))
 
-	// Simulate connections going up and down
+	// UpDownCounter: Active connections (can go up or down)
 	if rand.Float32() > 0.5 {
 		connections.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("server", "web-1"),

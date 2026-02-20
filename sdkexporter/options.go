@@ -8,20 +8,20 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
 
-// Option applies a configuration option to the exporter
-type Option func(*Exporter)
+// Option applies a configuration option to the metric exporter
+type Option func(*MetricExporter)
 
 // WithTemporalitySelector sets the temporality selector for metrics
 func WithTemporalitySelector(selector sdkmetric.TemporalitySelector) Option {
-	return func(e *Exporter) {
-		e.temporalitySelector = selector
+	return func(me *MetricExporter) {
+		me.temporalitySelector = selector
 	}
 }
 
 // WithAggregationSelector sets the aggregation selector for metrics
 func WithAggregationSelector(selector sdkmetric.AggregationSelector) Option {
-	return func(e *Exporter) {
-		e.aggregationSelector = selector
+	return func(me *MetricExporter) {
+		me.aggregationSelector = selector
 	}
 }
 

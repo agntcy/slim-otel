@@ -6,61 +6,26 @@ package sdkexporter
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
-	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	collectorlogs "go.opentelemetry.io/proto/otlp/collector/logs/v1"
-	collectormetrics "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
-	collectortrace "go.opentelemetry.io/proto/otlp/collector/trace/v1"
-	mpb "go.opentelemetry.io/proto/otlp/metrics/v1"
-	"google.golang.org/protobuf/proto"
 
 	slim "github.com/agntcy/slim-bindings-go"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
-	"github.com/agntcy/slim/otel/sdkexporter/internal/otlp/logtransform"
-	"github.com/agntcy/slim/otel/sdkexporter/internal/otlp/metrictransform"
-	"github.com/agntcy/slim/otel/sdkexporter/internal/otlp/tracetransform"
 )
 
 const (
 	sessionTimeoutMs = 1000
 )
 
-type SignalState struct {
-	App      *slim.App
-	Sessions *slimcommon.SessionsList
-}
-
-// Exporter is an OpenTelemetry exporter that sends traces, metrics, and logs to SLIM
+// Exporter coordinates trace, metric, and log exporters over a shared SLIM connection
 type Exporter struct {
-	config *Config
-	apps   map[slimcommon.SignalType]*SignalState
-	connID uint64
-
-	// Metrics configuration
-	temporalitySelector sdkmetric.TemporalitySelector
-	aggregationSelector sdkmetric.AggregationSelector
-
-	// Shutdown state
-	// the mutex is needed because Shoutdown close the Apps that
-	// are used in PublishToAll
-	mu         sync.RWMutex
-	cancelFunc context.CancelFunc
-	stopped    bool
-}
-
-// MetricExporter wraps Exporter to implement sdkmetric.Exporter interface
-type MetricExporter struct {
-	*Exporter
-}
-
-// LogExporter wraps Exporter to implement sdklog.Exporter interface
-type LogExporter struct {
-	*Exporter
+	config         *Config
+	connID         uint64
+	traceExporter  *TraceExporter
+	metricExporter *MetricExporter
+	logExporter    *LogExporter
 }
 
 // New creates a new SLIM exporter for traces, metrics, and logs
@@ -93,257 +58,71 @@ func New(ctx context.Context, config Config, opts ...Option) (*Exporter, error) 
 		return nil, fmt.Errorf("failed to create SLIM app for logs: %w", err)
 	}
 
-	apps := map[slimcommon.SignalType]*SignalState{
-		slimcommon.SignalTraces:  {App: traceApp, Sessions: slimcommon.NewSessionsList(slimcommon.SignalTraces)},
-		slimcommon.SignalMetrics: {App: metricApp, Sessions: slimcommon.NewSessionsList(slimcommon.SignalMetrics)},
-		slimcommon.SignalLogs:    {App: logApp, Sessions: slimcommon.NewSessionsList(slimcommon.SignalLogs)},
+	// Create individual exporters
+	traceListenerCtx, cancel := context.WithCancel(context.Background())
+	traceExporter := &TraceExporter{
+		connID:     connID,
+		app:        traceApp,
+		sessions:   slimcommon.NewSessionsList(slimcommon.SignalTraces),
+		cancelFunc: cancel,
+	}
+
+	metricListenerCtx, cancel := context.WithCancel(context.Background())
+	metricExporter := &MetricExporter{
+		connID:              connID,
+		app:                 metricApp,
+		sessions:            slimcommon.NewSessionsList(slimcommon.SignalMetrics),
+		temporalitySelector: func(sdkmetric.InstrumentKind) metricdata.Temporality { return metricdata.CumulativeTemporality },
+		aggregationSelector: func(sdkmetric.InstrumentKind) sdkmetric.Aggregation { return nil },
+		cancelFunc:          cancel,
+	}
+
+	logListenerCtx, cancel := context.WithCancel(context.Background())
+	logExporter := &LogExporter{
+		connID:     connID,
+		app:        logApp,
+		sessions:   slimcommon.NewSessionsList(slimcommon.SignalLogs),
+		cancelFunc: cancel,
+	}
+
+	// Apply options to metric exporter
+	for _, opt := range opts {
+		opt(metricExporter)
 	}
 
 	exp := &Exporter{
-		config:              &config,
-		apps:                apps,
-		connID:              connID,
-		temporalitySelector: func(sdkmetric.InstrumentKind) metricdata.Temporality { return metricdata.CumulativeTemporality },
-		aggregationSelector: func(sdkmetric.InstrumentKind) sdkmetric.Aggregation { return nil },
+		config:         &config,
+		connID:         connID,
+		traceExporter:  traceExporter,
+		metricExporter: metricExporter,
+		logExporter:    logExporter,
 	}
 
-	// Apply options
-	for _, opt := range opts {
-		opt(exp)
-	}
-
-	// Create a shared cancellable context for all session listeners
-	listenerCtx, cancel := context.WithCancel(context.Background())
-	exp.cancelFunc = cancel
-
-	// Start listening for incoming sessions in background for each signal type
-	for _, signalType := range []slimcommon.SignalType{slimcommon.SignalTraces, slimcommon.SignalMetrics, slimcommon.SignalLogs} {
-		exp.startSessionListener(listenerCtx, apps[signalType])
-	}
+	// Start listening for incoming sessions in background for each exporter
+	exp.startSessionListener(traceListenerCtx, traceExporter.app, traceExporter.sessions)
+	exp.startSessionListener(metricListenerCtx, metricExporter.app, metricExporter.sessions)
+	exp.startSessionListener(logListenerCtx, logExporter.app, logExporter.sessions)
 
 	return exp, nil
 }
 
-// AsMetricExporter returns a MetricExporter that shares the same connection
-func (e *Exporter) AsMetricExporter() *MetricExporter {
-	return &MetricExporter{Exporter: e}
+// TraceExporter returns the trace exporter
+func (e *Exporter) TraceExporter() *TraceExporter {
+	return e.traceExporter
 }
 
-// AsLogExporter returns a LogExporter that shares the same connection
-func (e *Exporter) AsLogExporter() *LogExporter {
-	return &LogExporter{Exporter: e}
+// MetricExporter returns the metric exporter
+func (e *Exporter) MetricExporter() *MetricExporter {
+	return e.metricExporter
 }
 
-// ExportSpans exports a batch of spans to SLIM
-// This implements the sdktrace.SpanExporter interface (for traces)
-func (e *Exporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
-
-	if e.stopped {
-		return nil
-	}
-
-	if len(spans) == 0 {
-		return nil
-	}
-
-	// Convert SDK spans to OTLP protobuf ResourceSpans format
-	resourceSpans := tracetransform.Spans(spans)
-	if len(resourceSpans) == 0 {
-		return nil
-	}
-
-	// Create OTLP ExportTraceServiceRequest with all ResourceSpans
-	req := &collectortrace.ExportTraceServiceRequest{
-		ResourceSpans: resourceSpans,
-	}
-
-	// Marshal to protobuf bytes
-	data, err := proto.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("failed to marshal trace request: %w", err)
-	}
-
-	// Publish to all traces sessions
-	state := e.apps[slimcommon.SignalTraces]
-	closedSessions, err := state.Sessions.PublishToAll(ctx, data)
-	if err != nil {
-		return fmt.Errorf("failed to publish data: %w", err)
-	}
-
-	// Remove closed sessions
-	if len(closedSessions) > 0 {
-		for _, sessionID := range closedSessions {
-			state.Sessions.RemoveSessionByID(ctx, sessionID)
-		}
-	}
-
-	return nil
-}
-
-// exportMetrics exports metrics data to SLIM (internal implementation)
-func (e *Exporter) exportMetrics(ctx context.Context, rm *metricdata.ResourceMetrics) error {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
-
-	if e.stopped {
-		return nil
-	}
-
-	// Transform metrics to OTLP format
-	protoMetrics, err := metrictransform.ResourceMetrics(rm)
-	if err != nil {
-		return fmt.Errorf("failed to transform metrics: %w", err)
-	}
-
-	// Create OTLP ExportMetricsServiceRequest
-	req := &collectormetrics.ExportMetricsServiceRequest{
-		ResourceMetrics: []*mpb.ResourceMetrics{protoMetrics},
-	}
-
-	// Marshal to protobuf bytes
-	data, err := proto.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("failed to marshal metrics request: %w", err)
-	}
-
-	// Publish to all metrics sessions
-	state := e.apps[slimcommon.SignalMetrics]
-	closedSessions, err := state.Sessions.PublishToAll(ctx, data)
-	if err != nil {
-		return fmt.Errorf("failed to publish data: %w", err)
-	}
-
-	// Remove closed sessions
-	if len(closedSessions) > 0 {
-		for _, sessionID := range closedSessions {
-			state.Sessions.RemoveSessionByID(ctx, sessionID)
-		}
-	}
-
-	return nil
-}
-
-// Export exports metrics data to SLIM
-// This implements the sdkmetric.Exporter interface
-func (me *MetricExporter) Export(ctx context.Context, rm *metricdata.ResourceMetrics) error {
-	return me.Exporter.exportMetrics(ctx, rm)
-}
-
-// Temporality returns the Temporality to use for an instrument kind
-// This implements the sdkmetric.Exporter interface
-func (me *MetricExporter) Temporality(kind sdkmetric.InstrumentKind) metricdata.Temporality {
-	return me.Exporter.temporalitySelector(kind)
-}
-
-// Aggregation returns the Aggregation to use for an instrument kind
-// This implements the sdkmetric.Exporter interface
-func (me *MetricExporter) Aggregation(kind sdkmetric.InstrumentKind) sdkmetric.Aggregation {
-	return me.Exporter.aggregationSelector(kind)
-}
-
-// ForceFlush flushes any pending metrics
-// This implements the sdkmetric.Exporter interface
-func (me *MetricExporter) ForceFlush(ctx context.Context) error {
-	// SLIM publishes immediately, no buffering to flush
-	return nil
-}
-
-// Shutdown shuts down the metric exporter
-// This implements the sdkmetric.Exporter interface
-func (me *MetricExporter) Shutdown(ctx context.Context) error {
-	return me.Exporter.Shutdown(ctx)
-}
-
-// exportLogs exports log records to SLIM (internal implementation)
-func (e *Exporter) exportLogs(ctx context.Context, records []sdklog.Record) error {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
-
-	if e.stopped {
-		return nil
-	}
-
-	if len(records) == 0 {
-		return nil
-	}
-
-	// Convert SDK log records to OTLP protobuf ResourceLogs format
-	resourceLogs := logtransform.ResourceLogs(records)
-	if len(resourceLogs) == 0 {
-		return nil
-	}
-
-	// Create OTLP ExportLogsServiceRequest with all ResourceLogs
-	req := &collectorlogs.ExportLogsServiceRequest{
-		ResourceLogs: resourceLogs,
-	}
-
-	// Marshal to protobuf bytes
-	data, err := proto.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("failed to marshal logs request: %w", err)
-	}
-
-	// Publish to all logs sessions
-	state := e.apps[slimcommon.SignalLogs]
-	closedSessions, err := state.Sessions.PublishToAll(ctx, data)
-	if err != nil {
-		return fmt.Errorf("failed to publish data: %w", err)
-	}
-
-	// Remove closed sessions
-	if len(closedSessions) > 0 {
-		for _, sessionID := range closedSessions {
-			state.Sessions.RemoveSessionByID(ctx, sessionID)
-		}
-	}
-
-	return nil
-}
-
-// Export exports log records to SLIM
-// This implements the sdklog.Exporter interface
-func (le *LogExporter) Export(ctx context.Context, records []sdklog.Record) error {
-	return le.Exporter.exportLogs(ctx, records)
-}
-
-// Shutdown shuts down the log exporter
-// This implements the sdklog.Exporter interface
-func (le *LogExporter) Shutdown(ctx context.Context) error {
-	return le.Exporter.Shutdown(ctx)
-}
-
-// Shutdown closes the exporter and cleans up resources
-// This implements the sdktrace.SpanExporter interface (for traces)
-// Safe to call multiple times - subsequent calls are no-ops
-func (e *Exporter) Shutdown(ctx context.Context) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	if e.stopped {
-		return nil // Already shutdown
-	}
-	e.stopped = true
-
-	// Stop the session listener
-	if e.cancelFunc != nil {
-		e.cancelFunc()
-	}
-
-	for _, state := range e.apps {
-		// Remove all sessions
-		state.Sessions.DeleteAll(ctx, state.App)
-		// Destroy the app
-		state.App.Destroy()
-	}
-
-	return nil
+// LogExporter returns the log exporter
+func (e *Exporter) LogExporter() *LogExporter {
+	return e.logExporter
 }
 
 // startSessionListener starts a goroutine to listen for incoming sessions
-func (e *Exporter) startSessionListener(listenerCtx context.Context, app *SignalState) {
+func (e *Exporter) startSessionListener(listenerCtx context.Context, app *slim.App, sessions *slimcommon.SessionsList) {
 	go func() {
 		for {
 			select {
@@ -353,14 +132,14 @@ func (e *Exporter) startSessionListener(listenerCtx context.Context, app *Signal
 			}
 
 			timeout := time.Millisecond * sessionTimeoutMs
-			session, err := app.App.ListenForSession(&timeout)
+			session, err := app.ListenForSession(&timeout)
 			if err != nil {
 				// Timeout is expected, just continue
 				continue
 			}
 
 			// Add the new session
-			if err := app.Sessions.AddSession(listenerCtx, session); err != nil {
+			if err := sessions.AddSession(listenerCtx, session); err != nil {
 				// Log error but continue listening
 				continue
 			}
