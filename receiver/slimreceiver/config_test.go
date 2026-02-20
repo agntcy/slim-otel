@@ -1,3 +1,6 @@
+// Copyright AGNTCY Contributors (https://github.com/agntcy)
+// SPDX-License-Identifier: Apache-2.0
+
 package slimreceiver
 
 import (
@@ -5,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
 
 func TestConfigValidate(t *testing.T) {
@@ -18,59 +23,61 @@ func TestConfigValidate(t *testing.T) {
 		{
 			name: "valid configuration",
 			config: &Config{
-				SlimEndpoint: "http://localhost:46357",
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://localhost:46357",
+				},
 				ReceiverName: "agntcy/otel/test-receiver",
 				SharedSecret: "test-secret-0123456789-abcdefg",
 			},
 			expectError: false,
 			checkFields: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, "http://localhost:46357", cfg.SlimEndpoint)
+				assert.Equal(t, "http://localhost:46357", cfg.ConnectionConfig.Address)
 				assert.Equal(t, "agntcy/otel/test-receiver", cfg.ReceiverName)
 				assert.Equal(t, "test-secret-0123456789-abcdefg", cfg.SharedSecret)
 			},
 		},
 		{
-			name: "missing endpoint uses default",
+			name: "valid config with default endpoint address",
 			config: &Config{
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://127.0.0.1:46357",
+				},
 				ReceiverName: "agntcy/otel/test-receiver",
 				SharedSecret: "test-secret-0123456789-abcdefg",
 			},
 			expectError: false,
 			checkFields: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, "http://127.0.0.1:46357", cfg.SlimEndpoint)
+				assert.Equal(t, "http://127.0.0.1:46357", cfg.ConnectionConfig.Address)
 				assert.Equal(t, "agntcy/otel/test-receiver", cfg.ReceiverName)
 				assert.Equal(t, "test-secret-0123456789-abcdefg", cfg.SharedSecret)
 			},
 		},
 		{
-			name: "missing receiver name uses default",
+			name: "missing receiver name returns error",
 			config: &Config{
-				SlimEndpoint: "http://localhost:46357",
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://localhost:46357",
+				},
 				SharedSecret: "test-secret-0123456789-abcdefg",
 			},
-			expectError: false,
-			checkFields: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, "http://localhost:46357", cfg.SlimEndpoint)
-				assert.Equal(t, "agntcy/otel/receiver", cfg.ReceiverName)
-				assert.Equal(t, "test-secret-0123456789-abcdefg", cfg.SharedSecret)
-			},
+			expectError: true,
+			errorMsg:    "receiver name cannot be empty",
 		},
 		{
-			name: "both endpoint and receiver name missing use defaults",
+			name: "missing connection config returns error",
 			config: &Config{
+				ReceiverName: "agntcy/otel/test-receiver",
 				SharedSecret: "test-secret-0123456789-abcdefg",
 			},
-			expectError: false,
-			checkFields: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, "http://127.0.0.1:46357", cfg.SlimEndpoint)
-				assert.Equal(t, "agntcy/otel/receiver", cfg.ReceiverName)
-				assert.Equal(t, "test-secret-0123456789-abcdefg", cfg.SharedSecret)
-			},
+			expectError: true,
+			errorMsg:    "missing connection config",
 		},
 		{
 			name: "missing shared secret returns error",
 			config: &Config{
-				SlimEndpoint: "http://localhost:46357",
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://localhost:46357",
+				},
 				ReceiverName: "agntcy/otel/test-receiver",
 			},
 			expectError: true,
@@ -79,7 +86,9 @@ func TestConfigValidate(t *testing.T) {
 		{
 			name: "empty shared secret returns error",
 			config: &Config{
-				SlimEndpoint: "http://localhost:46357",
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://localhost:46357",
+				},
 				ReceiverName: "agntcy/otel/test-receiver",
 				SharedSecret: "",
 			},
@@ -87,16 +96,12 @@ func TestConfigValidate(t *testing.T) {
 			errorMsg:    "shared secret cannot be empty",
 		},
 		{
-			name: "all fields empty except shared secret uses defaults",
+			name: "missing receiver name and connection config returns error",
 			config: &Config{
 				SharedSecret: "test-secret-0123456789-abcdefg",
 			},
-			expectError: false,
-			checkFields: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, "http://127.0.0.1:46357", cfg.SlimEndpoint)
-				assert.Equal(t, "agntcy/otel/receiver", cfg.ReceiverName)
-				assert.Equal(t, "test-secret-0123456789-abcdefg", cfg.SharedSecret)
-			},
+			expectError: true,
+			errorMsg:    "missing connection config",
 		},
 	}
 
@@ -121,7 +126,7 @@ func TestDefaultConfig(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
 
 	assert.NotNil(t, cfg)
-	assert.Equal(t, "http://127.0.0.1:46357", cfg.SlimEndpoint)
-	assert.Equal(t, "agntcy/otel/receiver", cfg.ReceiverName)
+	assert.Nil(t, cfg.ConnectionConfig, "default config should not have connection config")
+	assert.Empty(t, cfg.ReceiverName, "default config should not have a receiver name")
 	assert.Empty(t, cfg.SharedSecret, "default config should not have a shared secret")
 }

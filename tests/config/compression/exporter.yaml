@@ -1,0 +1,54 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+exporters:
+  slim:
+    connection-config:
+      address: "http://localhost:46357"
+      compression: "gzip"
+
+    shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
+    exporter-names:
+      metrics: "agntcy/otel/exporter-metrics"
+      traces: "agntcy/otel/exporter-traces"
+      logs: "agntcy/otel/exporter-logs"
+
+    channels:
+      - channel-name: "agntcy/otel/channel-traces"
+        signal: traces
+        participants:
+          - "agntcy/otel/receiver"
+        mls-enabled: true
+
+service:
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: none
+
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [slim]
+    
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [slim]
+    
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [slim]

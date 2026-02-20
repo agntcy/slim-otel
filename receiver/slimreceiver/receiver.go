@@ -1,3 +1,6 @@
+// Copyright AGNTCY Contributors (https://github.com/agntcy)
+// SPDX-License-Identifier: Apache-2.0
+
 package slimreceiver
 
 import (
@@ -40,7 +43,7 @@ func CreateApp(
 	ctx context.Context,
 	cfg *Config,
 ) (*slim.App, uint64, error) {
-	connID, err := slimcommon.InitAndConnect(cfg.SlimEndpoint)
+	connID, err := slimcommon.InitAndConnect(*cfg.ConnectionConfig)
 	if err != nil {
 		return nil, 0, err
 	}

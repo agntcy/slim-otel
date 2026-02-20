@@ -3,7 +3,8 @@
 
 channel-manager:
   # address of the SLIM node where to connect
-  endpoint: "http://127.0.0.1:46357"
+  connection-config:
+    address: "http://127.0.0.1:46357"
   # grpc service to get commands
   service-address: "127.0.0.1:46358"
   # name of the channel manager to be used in SLIM channels

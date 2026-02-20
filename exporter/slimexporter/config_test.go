@@ -1,9 +1,19 @@
+// Copyright AGNTCY Contributors (https://github.com/agntcy)
+// SPDX-License-Identifier: Apache-2.0
+
 package slimexporter
 
 import (
 	"strings"
 	"testing"
+
+	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 )
+
+// Helper function to create string pointers
+func strPtr(s string) *string {
+	return &s
+}
 
 func TestConfig_Validate(t *testing.T) {
 	tests := []struct {
@@ -15,11 +25,13 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "valid config with all fields",
 			config: &Config{
-				SlimEndpoint: "http://localhost:46357",
-				ExporterNames: SignalNames{
-					Metrics: "agntcy/test/exporter-metrics",
-					Traces:  "agntcy/test/exporter-traces",
-					Logs:    "agntcy/test/exporter-logs",
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://localhost:46357",
+				},
+				ExporterNames: &SignalNames{
+					Metrics: strPtr("agntcy/test/exporter-metrics"),
+					Traces:  strPtr("agntcy/test/exporter-traces"),
+					Logs:    strPtr("agntcy/test/exporter-logs"),
 				},
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
@@ -36,6 +48,14 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "valid config with minimal fields",
 			config: &Config{
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://localhost:46357",
+				},
+				ExporterNames: &SignalNames{
+					Metrics: strPtr("test/metrics"),
+					Traces:  strPtr("test/traces"),
+					Logs:    strPtr("test/logs"),
+				},
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
@@ -50,11 +70,13 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "valid config with empty channels",
 			config: &Config{
-				SlimEndpoint: "http://localhost:46357",
-				ExporterNames: SignalNames{
-					Metrics: "agntcy/test/exporter-metrics",
-					Traces:  "agntcy/test/exporter-traces",
-					Logs:    "agntcy/test/exporter-logs",
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://localhost:46357",
+				},
+				ExporterNames: &SignalNames{
+					Metrics: strPtr("agntcy/test/exporter-metrics"),
+					Traces:  strPtr("agntcy/test/exporter-traces"),
+					Logs:    strPtr("agntcy/test/exporter-logs"),
 				},
 				SharedSecret: "test-secret",
 				Channels:     []ChannelsConfig{},
@@ -64,9 +86,13 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "missing shared secret",
 			config: &Config{
-				SlimEndpoint: "http://localhost:46357",
-				ExporterNames: SignalNames{
-					Metrics: "agntcy/test/exporter-metrics",
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://localhost:46357",
+				},
+				ExporterNames: &SignalNames{
+					Metrics: strPtr("agntcy/test/exporter-metrics"),
+					Traces:  strPtr("agntcy/test/exporter-traces"),
+					Logs:    strPtr("agntcy/test/exporter-logs"),
 				},
 				Channels: []ChannelsConfig{
 					{
@@ -80,8 +106,61 @@ func TestConfig_Validate(t *testing.T) {
 			errMsg:  "missing shared secret",
 		},
 		{
+			name: "missing connection config",
+			config: &Config{
+				ConnectionConfig: nil,
+				ExporterNames: &SignalNames{
+					Metrics: strPtr("test/metrics"),
+					Traces:  strPtr("test/traces"),
+					Logs:    strPtr("test/logs"),
+				},
+				SharedSecret: "test-secret",
+				Channels:     []ChannelsConfig{},
+			},
+			wantErr: true,
+			errMsg:  "missing connection config",
+		},
+		{
+			name: "nil exporter names",
+			config: &Config{
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://localhost:46357",
+				},
+				ExporterNames: nil,
+				SharedSecret:  "test-secret",
+				Channels:      []ChannelsConfig{},
+			},
+			wantErr: true,
+			errMsg:  "exporter names cannot be nil",
+		},
+		{
+			name: "nil metrics in exporter names",
+			config: &Config{
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://localhost:46357",
+				},
+				ExporterNames: &SignalNames{
+					Metrics: nil,
+					Traces:  strPtr("test/traces"),
+					Logs:    strPtr("test/logs"),
+				},
+				SharedSecret: "test-secret",
+				Channels:     []ChannelsConfig{},
+			},
+			wantErr: true,
+			errMsg:  "exporter names cannot be nil",
+		},
+		{
 			name: "channel with missing channel name",
 			config: &Config{
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://localhost:46357",
+				},
+				ExporterNames: &SignalNames{
+					Metrics: strPtr("test/metrics"),
+					Traces:  strPtr("test/traces"),
+					Logs:    strPtr("test/logs"),
+				},
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
@@ -97,6 +176,14 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "channel with missing signal",
 			config: &Config{
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://localhost:46357",
+				},
+				ExporterNames: &SignalNames{
+					Metrics: strPtr("test/metrics"),
+					Traces:  strPtr("test/traces"),
+					Logs:    strPtr("test/logs"),
+				},
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
@@ -112,6 +199,14 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "channel with empty participants",
 			config: &Config{
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://localhost:46357",
+				},
+				ExporterNames: &SignalNames{
+					Metrics: strPtr("test/metrics"),
+					Traces:  strPtr("test/traces"),
+					Logs:    strPtr("test/logs"),
+				},
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
@@ -127,6 +222,14 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "multiple valid channels",
 			config: &Config{
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://localhost:46357",
+				},
+				ExporterNames: &SignalNames{
+					Metrics: strPtr("test/metrics"),
+					Traces:  strPtr("test/traces"),
+					Logs:    strPtr("test/logs"),
+				},
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
@@ -154,6 +257,14 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "valid config with traces signal",
 			config: &Config{
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://localhost:46357",
+				},
+				ExporterNames: &SignalNames{
+					Metrics: strPtr("test/metrics"),
+					Traces:  strPtr("test/traces"),
+					Logs:    strPtr("test/logs"),
+				},
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
@@ -168,6 +279,14 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "invalid signal type",
 			config: &Config{
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://localhost:46357",
+				},
+				ExporterNames: &SignalNames{
+					Metrics: strPtr("test/metrics"),
+					Traces:  strPtr("test/traces"),
+					Logs:    strPtr("test/logs"),
+				},
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
@@ -199,7 +318,17 @@ func TestConfig_Validate(t *testing.T) {
 }
 
 func TestConfig_Validate_DefaultValues(t *testing.T) {
+	// This test validates that the config structure is correct
+	// Default values are now set by the factory, not by Validate()
 	config := &Config{
+		ConnectionConfig: &slimcommon.ConnectionConfig{
+			Address: "http://localhost:46357",
+		},
+		ExporterNames: &SignalNames{
+			Metrics: strPtr("test/metrics"),
+			Traces:  strPtr("test/traces"),
+			Logs:    strPtr("test/logs"),
+		},
 		SharedSecret: "test-secret",
 		Channels:     []ChannelsConfig{},
 	}
@@ -208,29 +337,19 @@ func TestConfig_Validate_DefaultValues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Config.Validate() unexpected error = %v", err)
 	}
-
-	// Check that default values are applied
-	defaultCfg := createDefaultConfig().(*Config)
-	if config.SlimEndpoint != defaultCfg.SlimEndpoint {
-		t.Errorf("SlimEndpoint = %v, want %v", config.SlimEndpoint, defaultCfg.SlimEndpoint)
-	}
-	if config.ExporterNames.Metrics != defaultCfg.ExporterNames.Metrics {
-		t.Errorf("ExporterNames.Metrics = %v, want %v", config.ExporterNames.Metrics, defaultCfg.ExporterNames.Metrics)
-	}
-	if config.ExporterNames.Traces != defaultCfg.ExporterNames.Traces {
-		t.Errorf("ExporterNames.Traces = %v, want %v", config.ExporterNames.Traces, defaultCfg.ExporterNames.Traces)
-	}
-	if config.ExporterNames.Logs != defaultCfg.ExporterNames.Logs {
-		t.Errorf("ExporterNames.Logs = %v, want %v", config.ExporterNames.Logs, defaultCfg.ExporterNames.Logs)
-	}
 }
 
 func TestConfig_Validate_PartialDefaults(t *testing.T) {
+	// This test validates that custom values work correctly
+	// Partial defaults are now set by the factory, not by Validate()
 	config := &Config{
-		SlimEndpoint: "http://custom:8080",
-		ExporterNames: SignalNames{
-			Metrics: "custom/metrics",
-			// Traces and Logs should be filled with defaults
+		ConnectionConfig: &slimcommon.ConnectionConfig{
+			Address: "http://custom:8080",
+		},
+		ExporterNames: &SignalNames{
+			Metrics: strPtr("custom/metrics"),
+			Traces:  strPtr("custom/traces"),
+			Logs:    strPtr("custom/logs"),
 		},
 		SharedSecret: "test-secret",
 		Channels:     []ChannelsConfig{},
@@ -242,28 +361,19 @@ func TestConfig_Validate_PartialDefaults(t *testing.T) {
 	}
 
 	// Check that custom values are preserved
-	if config.SlimEndpoint != "http://custom:8080" {
-		t.Errorf("SlimEndpoint = %v, want http://custom:8080", config.SlimEndpoint)
+	if config.ConnectionConfig.Address != "http://custom:8080" {
+		t.Errorf("ConnectionConfig.Address = %v, want http://custom:8080", config.ConnectionConfig.Address)
 	}
-	if config.ExporterNames.Metrics != "custom/metrics" {
-		t.Errorf("ExporterNames.Metrics = %v, want custom/metrics", config.ExporterNames.Metrics)
-	}
-
-	// Check that defaults are applied for missing values
-	defaultCfg := createDefaultConfig().(*Config)
-	if config.ExporterNames.Traces != defaultCfg.ExporterNames.Traces {
-		t.Errorf("ExporterNames.Traces = %v, want %v", config.ExporterNames.Traces, defaultCfg.ExporterNames.Traces)
-	}
-	if config.ExporterNames.Logs != defaultCfg.ExporterNames.Logs {
-		t.Errorf("ExporterNames.Logs = %v, want %v", config.ExporterNames.Logs, defaultCfg.ExporterNames.Logs)
+	if *config.ExporterNames.Metrics != "custom/metrics" {
+		t.Errorf("ExporterNames.Metrics = %v, want custom/metrics", *config.ExporterNames.Metrics)
 	}
 }
 
 func TestSignalNames_GetNameForSignal(t *testing.T) {
 	names := SignalNames{
-		Metrics: "test/metrics",
-		Traces:  "test/traces",
-		Logs:    "test/logs",
+		Metrics: strPtr("test/metrics"),
+		Traces:  strPtr("test/traces"),
+		Logs:    strPtr("test/logs"),
 	}
 
 	tests := []struct {
@@ -320,9 +430,9 @@ func TestSignalNames_GetNameForSignal(t *testing.T) {
 
 func TestSignalNames_GetNameForSignal_EmptyValues(t *testing.T) {
 	names := SignalNames{
-		Metrics: "",
-		Traces:  "test/traces",
-		Logs:    "",
+		Metrics: strPtr(""),
+		Traces:  strPtr("test/traces"),
+		Logs:    strPtr(""),
 	}
 
 	tests := []struct {
@@ -367,9 +477,9 @@ func TestSignalNames_GetNameForSignal_EmptyValues(t *testing.T) {
 
 func TestSignalNames_IsSignalNameSet(t *testing.T) {
 	names := SignalNames{
-		Metrics: "test/metrics",
-		Traces:  "",
-		Logs:    "test/logs",
+		Metrics: strPtr("test/metrics"),
+		Traces:  nil,
+		Logs:    strPtr("test/logs"),
 	}
 
 	tests := []struct {
@@ -423,6 +533,14 @@ func TestConfig_Validate_MultipleChannelsWithError(t *testing.T) {
 		{
 			name: "second channel has no channel name",
 			config: &Config{
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://localhost:46357",
+				},
+				ExporterNames: &SignalNames{
+					Metrics: strPtr("test/metrics"),
+					Traces:  strPtr("test/traces"),
+					Logs:    strPtr("test/logs"),
+				},
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
@@ -443,6 +561,14 @@ func TestConfig_Validate_MultipleChannelsWithError(t *testing.T) {
 		{
 			name: "second channel has no signal",
 			config: &Config{
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://localhost:46357",
+				},
+				ExporterNames: &SignalNames{
+					Metrics: strPtr("test/metrics"),
+					Traces:  strPtr("test/traces"),
+					Logs:    strPtr("test/logs"),
+				},
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{
@@ -463,6 +589,14 @@ func TestConfig_Validate_MultipleChannelsWithError(t *testing.T) {
 		{
 			name: "third channel has no participants",
 			config: &Config{
+				ConnectionConfig: &slimcommon.ConnectionConfig{
+					Address: "http://localhost:46357",
+				},
+				ExporterNames: &SignalNames{
+					Metrics: strPtr("test/metrics"),
+					Traces:  strPtr("test/traces"),
+					Logs:    strPtr("test/logs"),
+				},
 				SharedSecret: "test-secret",
 				Channels: []ChannelsConfig{
 					{

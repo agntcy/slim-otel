@@ -36,7 +36,7 @@ var (
 //	uint64: Connection ID for the established connection
 //	error: If initialization or connection fails
 func InitAndConnect(
-	endpoint string,
+	cfg ConnectionConfig,
 ) (uint64, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -47,7 +47,10 @@ func InitAndConnect(
 		slim.InitializeWithDefaults()
 
 		// Connect to SLIM server (returns connection ID)
-		config := slim.NewInsecureClientConfig(endpoint)
+		config, err := cfg.ToSlimClientConfig()
+		if err != nil {
+			return 0, fmt.Errorf("failed to convert connection config: %w", err)
+		}
 		connIDValue, err := slim.GetGlobalService().Connect(config)
 		if err != nil {
 			return 0, fmt.Errorf("failed to connect to SLIM server: %w", err)

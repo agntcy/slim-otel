@@ -1,3 +1,6 @@
+// Copyright AGNTCY Contributors (https://github.com/agntcy)
+// SPDX-License-Identifier: Apache-2.0
+
 package slimexporter
 
 import (
@@ -32,14 +35,7 @@ func NewFactory() exporter.Factory {
 
 // createDefaultConfig creates the default configuration for the exporter
 func createDefaultConfig() component.Config {
-	return &Config{
-		SlimEndpoint: "http://127.0.0.1:46357",
-		ExporterNames: SignalNames{
-			Metrics: "agntcy/otel/exporter-metrics",
-			Traces:  "agntcy/otel/exporter-traces",
-			Logs:    "agntcy/otel/exporter-logs",
-		},
-	}
+	return &Config{}
 }
 
 // createTracesExporter creates a trace exporter based on the config
