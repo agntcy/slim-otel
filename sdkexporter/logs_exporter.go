@@ -67,7 +67,7 @@ func (le *LogExporter) Export(ctx context.Context, records []sdklog.Record) erro
 	// Remove closed sessions
 	if len(closedSessions) > 0 {
 		for _, sessionID := range closedSessions {
-			le.sessions.RemoveSessionByID(ctx, sessionID)
+			_, _ = le.sessions.RemoveSessionByID(ctx, sessionID)
 		}
 	}
 
@@ -76,7 +76,7 @@ func (le *LogExporter) Export(ctx context.Context, records []sdklog.Record) erro
 
 // ForceFlush flushes any pending logs
 // This implements the sdklog.Exporter interface
-func (le *LogExporter) ForceFlush(ctx context.Context) error {
+func (le *LogExporter) ForceFlush(_ context.Context) error {
 	// SLIM publishes immediately, no buffering to flush
 	return nil
 }

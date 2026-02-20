@@ -6,7 +6,7 @@ package main
 import (
 	"context"
 	"log"
-	"math/rand"
+	"math/rand/v2"
 	"os"
 	"os/signal"
 	"syscall"
@@ -89,8 +89,8 @@ func main() {
 	)
 
 	defer func() {
-		if err := tp.Shutdown(ctx); err != nil {
-			log.Printf("failed to shutdown tracer provider: %v", err)
+		if shutdownErr := tp.Shutdown(ctx); shutdownErr != nil {
+			log.Printf("failed to shutdown tracer provider: %v", shutdownErr)
 		}
 	}()
 
@@ -106,8 +106,8 @@ func main() {
 		sdkmetric.WithResource(res),
 	)
 	defer func() {
-		if err := mp.Shutdown(ctx); err != nil {
-			log.Printf("failed to shutdown meter provider: %v", err)
+		if shutdownErr := mp.Shutdown(ctx); shutdownErr != nil {
+			log.Printf("failed to shutdown meter provider: %v", shutdownErr)
 		}
 	}()
 	otel.SetMeterProvider(mp)
@@ -122,8 +122,8 @@ func main() {
 		sdklog.WithResource(res),
 	)
 	defer func() {
-		if err := lp.Shutdown(ctx); err != nil {
-			log.Printf("failed to shutdown logger provider: %v", err)
+		if shutdownErr := lp.Shutdown(ctx); shutdownErr != nil {
+			log.Printf("failed to shutdown logger provider: %v", shutdownErr)
 		}
 	}()
 	global.SetLoggerProvider(lp)
@@ -140,7 +140,8 @@ func main() {
 		metric.WithUnit("1"),
 	)
 	if err != nil {
-		log.Fatalf("failed to create counter: %v", err)
+		log.Printf("failed to create counter: %v", err)
+		return
 	}
 
 	requestDuration, err := meter.Float64Histogram(
@@ -149,7 +150,8 @@ func main() {
 		metric.WithUnit("ms"),
 	)
 	if err != nil {
-		log.Fatalf("failed to create histogram: %v", err)
+		log.Printf("failed to create histogram: %v", err)
+		return
 	}
 
 	activeConnections, err := meter.Int64UpDownCounter(
@@ -158,7 +160,8 @@ func main() {
 		metric.WithUnit("1"),
 	)
 	if err != nil {
-		log.Fatalf("failed to create updown counter: %v", err)
+		log.Printf("failed to create updown counter: %v", err)
+		return
 	}
 
 	// Set up signal handling for graceful shutdown
@@ -194,9 +197,9 @@ func main() {
 			goto shutdown
 		case <-ticker.C:
 			// Simulate an HTTP request with traces and metrics
-			endpoint := endpoints[rand.Intn(len(endpoints))]
-			method := methods[rand.Intn(len(methods))]
-			statusCode := statusCodes[rand.Intn(len(statusCodes))]
+			endpoint := endpoints[rand.IntN(len(endpoints))]       //nolint:gosec
+			method := methods[rand.IntN(len(methods))]             //nolint:gosec
+			statusCode := statusCodes[rand.IntN(len(statusCodes))] //nolint:gosec
 
 			handleRequest(ctx, tracer, logger, requestCounter, requestDuration, activeConnections,
 				endpoint, method, statusCode)
@@ -281,15 +284,16 @@ func handleRequest(
 	// Error (500+), Warn (400+), or Info (200+)
 	resultLog := otellog.Record{}
 	resultLog.SetTimestamp(time.Now())
-	if statusCode >= 500 {
+	switch {
+	case statusCode >= 500:
 		resultLog.SetSeverity(otellog.SeverityError)
 		resultLog.SetBody(otellog.StringValue("Request failed with server error"))
 		span.SetStatus(codes.Error, "server error")
-	} else if statusCode >= 400 {
+	case statusCode >= 400:
 		resultLog.SetSeverity(otellog.SeverityWarn)
 		resultLog.SetBody(otellog.StringValue("Request failed with client error"))
 		span.SetStatus(codes.Error, "client error")
-	} else {
+	default:
 		resultLog.SetSeverity(otellog.SeverityInfo)
 		resultLog.SetBody(otellog.StringValue("Request completed successfully"))
 		span.SetStatus(codes.Ok, "request completed")
@@ -313,11 +317,11 @@ func handleRequest(
 	counter.Add(ctx, 1, metric.WithAttributes(attrs...))
 
 	// Histogram: Request duration distribution
-	requestTime := 10.0 + rand.Float64()*500.0
+	requestTime := 10.0 + rand.Float64()*500.0 //nolint:gosec
 	duration.Record(ctx, requestTime, metric.WithAttributes(attrs...))
 
 	// UpDownCounter: Active connections (can go up or down)
-	if rand.Float32() > 0.5 {
+	if rand.Float32() > 0.5 { //nolint:gosec
 		connections.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("server", "web-1"),
 		))

@@ -67,7 +67,7 @@ func (me *MetricExporter) Export(ctx context.Context, rm *metricdata.ResourceMet
 	// Remove closed sessions
 	if len(closedSessions) > 0 {
 		for _, sessionID := range closedSessions {
-			me.sessions.RemoveSessionByID(ctx, sessionID)
+			_, _ = me.sessions.RemoveSessionByID(ctx, sessionID)
 		}
 	}
 
@@ -88,7 +88,7 @@ func (me *MetricExporter) Aggregation(kind sdkmetric.InstrumentKind) sdkmetric.A
 
 // ForceFlush flushes any pending metrics
 // This implements the sdkmetric.Exporter interface
-func (me *MetricExporter) ForceFlush(ctx context.Context) error {
+func (me *MetricExporter) ForceFlush(_ context.Context) error {
 	// SLIM publishes immediately, no buffering to flush
 	return nil
 }

@@ -67,7 +67,7 @@ func (te *TraceExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadO
 	// Remove closed sessions
 	if len(closedSessions) > 0 {
 		for _, sessionID := range closedSessions {
-			te.sessions.RemoveSessionByID(ctx, sessionID)
+			_, _ = te.sessions.RemoveSessionByID(ctx, sessionID)
 		}
 	}
 

@@ -29,7 +29,7 @@ type Exporter struct {
 }
 
 // New creates a new SLIM exporter for traces, metrics, and logs
-func New(ctx context.Context, config Config, opts ...Option) (*Exporter, error) {
+func New(_ context.Context, config Config, opts ...Option) (*Exporter, error) {
 	if err := config.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
@@ -69,10 +69,12 @@ func New(ctx context.Context, config Config, opts ...Option) (*Exporter, error) 
 
 	metricListenerCtx, cancel := context.WithCancel(context.Background())
 	metricExporter := &MetricExporter{
-		connID:              connID,
-		app:                 metricApp,
-		sessions:            slimcommon.NewSessionsList(slimcommon.SignalMetrics),
-		temporalitySelector: func(sdkmetric.InstrumentKind) metricdata.Temporality { return metricdata.CumulativeTemporality },
+		connID:   connID,
+		app:      metricApp,
+		sessions: slimcommon.NewSessionsList(slimcommon.SignalMetrics),
+		temporalitySelector: func(sdkmetric.InstrumentKind) metricdata.Temporality {
+			return metricdata.CumulativeTemporality
+		},
 		aggregationSelector: func(sdkmetric.InstrumentKind) sdkmetric.Aggregation { return nil },
 		cancelFunc:          cancel,
 	}

@@ -27,6 +27,11 @@ issues:
     - third-party
   # do not skip anything
   skip-dirs-use-default: false
+  exclude-rules:
+    # URL-only comments frequently exceed line length limit; exempt them
+    - linters:
+        - lll
+      source: "^\\s*// https?://"
 
 # output configuration
 output:
