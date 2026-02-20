@@ -17,5 +17,6 @@ channels:
   - name: "agntcy/otel/channel"
     participants:
       - "sdk/exporter/metrics"
+      - "sdk/exporter/traces"
       - "agntcy/otel/receiver"
     mls-enabled: true

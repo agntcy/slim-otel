@@ -9,9 +9,11 @@ import (
 	"sync"
 	"time"
 
+	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	collectorlogs "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	collectormetrics "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	collectortrace "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 	mpb "go.opentelemetry.io/proto/otlp/metrics/v1"
@@ -19,6 +21,7 @@ import (
 
 	slim "github.com/agntcy/slim-bindings-go"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
+	"github.com/agntcy/slim/otel/sdkexporter/internal/otlp/logtransform"
 	"github.com/agntcy/slim/otel/sdkexporter/internal/otlp/metrictransform"
 	"github.com/agntcy/slim/otel/sdkexporter/internal/otlp/tracetransform"
 )
@@ -48,6 +51,16 @@ type Exporter struct {
 	mu         sync.RWMutex
 	cancelFunc context.CancelFunc
 	stopped    bool
+}
+
+// MetricExporter wraps Exporter to implement sdkmetric.Exporter interface
+type MetricExporter struct {
+	*Exporter
+}
+
+// LogExporter wraps Exporter to implement sdklog.Exporter interface
+type LogExporter struct {
+	*Exporter
 }
 
 // New creates a new SLIM exporter for traces, metrics, and logs
@@ -111,6 +124,16 @@ func New(ctx context.Context, config Config, opts ...Option) (*Exporter, error) 
 	return exp, nil
 }
 
+// AsMetricExporter returns a MetricExporter that shares the same connection
+func (e *Exporter) AsMetricExporter() *MetricExporter {
+	return &MetricExporter{Exporter: e}
+}
+
+// AsLogExporter returns a LogExporter that shares the same connection
+func (e *Exporter) AsLogExporter() *LogExporter {
+	return &LogExporter{Exporter: e}
+}
+
 // ExportSpans exports a batch of spans to SLIM
 // This implements the sdktrace.SpanExporter interface (for traces)
 func (e *Exporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
@@ -159,9 +182,8 @@ func (e *Exporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpa
 	return nil
 }
 
-// Export exports metrics data to SLIM
-// This implements the sdkmetric.Exporter interface (for metrics)
-func (e *Exporter) Export(ctx context.Context, rm *metricdata.ResourceMetrics) error {
+// exportMetrics exports metrics data to SLIM (internal implementation)
+func (e *Exporter) exportMetrics(ctx context.Context, rm *metricdata.ResourceMetrics) error {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
@@ -203,28 +225,98 @@ func (e *Exporter) Export(ctx context.Context, rm *metricdata.ResourceMetrics) e
 	return nil
 }
 
+// Export exports metrics data to SLIM
+// This implements the sdkmetric.Exporter interface
+func (me *MetricExporter) Export(ctx context.Context, rm *metricdata.ResourceMetrics) error {
+	return me.Exporter.exportMetrics(ctx, rm)
+}
+
 // Temporality returns the Temporality to use for an instrument kind
-// This implements the sdkmetric.Exporter interface (for metrics)
-func (e *Exporter) Temporality(kind sdkmetric.InstrumentKind) metricdata.Temporality {
-	return e.temporalitySelector(kind)
+// This implements the sdkmetric.Exporter interface
+func (me *MetricExporter) Temporality(kind sdkmetric.InstrumentKind) metricdata.Temporality {
+	return me.Exporter.temporalitySelector(kind)
 }
 
 // Aggregation returns the Aggregation to use for an instrument kind
-// This implements the sdkmetric.Exporter interface (for metrics)
-func (e *Exporter) Aggregation(kind sdkmetric.InstrumentKind) sdkmetric.Aggregation {
-	return e.aggregationSelector(kind)
+// This implements the sdkmetric.Exporter interface
+func (me *MetricExporter) Aggregation(kind sdkmetric.InstrumentKind) sdkmetric.Aggregation {
+	return me.Exporter.aggregationSelector(kind)
 }
 
 // ForceFlush flushes any pending metrics
-// This implements the sdkmetric.Exporter interface (for metrics)
-func (e *Exporter) ForceFlush(ctx context.Context) error {
+// This implements the sdkmetric.Exporter interface
+func (me *MetricExporter) ForceFlush(ctx context.Context) error {
 	// SLIM publishes immediately, no buffering to flush
 	return nil
 }
 
+// Shutdown shuts down the metric exporter
+// This implements the sdkmetric.Exporter interface
+func (me *MetricExporter) Shutdown(ctx context.Context) error {
+	return me.Exporter.Shutdown(ctx)
+}
+
+// exportLogs exports log records to SLIM (internal implementation)
+func (e *Exporter) exportLogs(ctx context.Context, records []sdklog.Record) error {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	if e.stopped {
+		return nil
+	}
+
+	if len(records) == 0 {
+		return nil
+	}
+
+	// Convert SDK log records to OTLP protobuf ResourceLogs format
+	resourceLogs := logtransform.ResourceLogs(records)
+	if len(resourceLogs) == 0 {
+		return nil
+	}
+
+	// Create OTLP ExportLogsServiceRequest with all ResourceLogs
+	req := &collectorlogs.ExportLogsServiceRequest{
+		ResourceLogs: resourceLogs,
+	}
+
+	// Marshal to protobuf bytes
+	data, err := proto.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("failed to marshal logs request: %w", err)
+	}
+
+	// Publish to all logs sessions
+	state := e.apps[slimcommon.SignalLogs]
+	closedSessions, err := state.Sessions.PublishToAll(ctx, data)
+	if err != nil {
+		return fmt.Errorf("failed to publish data: %w", err)
+	}
+
+	// Remove closed sessions
+	if len(closedSessions) > 0 {
+		for _, sessionID := range closedSessions {
+			state.Sessions.RemoveSessionByID(ctx, sessionID)
+		}
+	}
+
+	return nil
+}
+
+// Export exports log records to SLIM
+// This implements the sdklog.Exporter interface
+func (le *LogExporter) Export(ctx context.Context, records []sdklog.Record) error {
+	return le.Exporter.exportLogs(ctx, records)
+}
+
+// Shutdown shuts down the log exporter
+// This implements the sdklog.Exporter interface
+func (le *LogExporter) Shutdown(ctx context.Context) error {
+	return le.Exporter.Shutdown(ctx)
+}
+
 // Shutdown closes the exporter and cleans up resources
 // This implements the sdktrace.SpanExporter interface (for traces)
-// and sdkmetric.Exporter interface (for metrics)
 // Safe to call multiple times - subsequent calls are no-ops
 func (e *Exporter) Shutdown(ctx context.Context) error {
 	e.mu.Lock()

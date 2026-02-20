@@ -15,7 +15,10 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	otellog "go.opentelemetry.io/otel/log"
+	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/metric"
+	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -87,7 +90,7 @@ func main() {
 
 	// Create meter provider
 	mp := sdkmetric.NewMeterProvider(
-		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter,
+		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter.AsMetricExporter(),
 			sdkmetric.WithInterval(2*time.Second),
 		)),
 		sdkmetric.WithResource(res),
@@ -99,9 +102,24 @@ func main() {
 	}()
 	otel.SetMeterProvider(mp)
 
-	// Get a tracer and meter
+	// Create logger provider
+	lp := sdklog.NewLoggerProvider(
+		sdklog.WithProcessor(sdklog.NewBatchProcessor(exporter.AsLogExporter(),
+			sdklog.WithExportInterval(1*time.Second),
+		)),
+		sdklog.WithResource(res),
+	)
+	defer func() {
+		if err := lp.Shutdown(ctx); err != nil {
+			log.Printf("failed to shutdown logger provider: %v", err)
+		}
+	}()
+	global.SetLoggerProvider(lp)
+
+	// Get a tracer, meter, and logger
 	tracer := otel.Tracer("example-service")
 	meter := otel.Meter("example-service")
+	logger := global.GetLoggerProvider().Logger("example-service")
 
 	// Create metrics
 	requestCounter, err := meter.Int64Counter(
@@ -168,7 +186,7 @@ func main() {
 			method := methods[rand.Intn(len(methods))]
 			statusCode := statusCodes[rand.Intn(len(statusCodes))]
 
-			handleRequest(ctx, tracer, requestCounter, requestDuration, activeConnections,
+			handleRequest(ctx, tracer, logger, requestCounter, requestDuration, activeConnections,
 				endpoint, method, statusCode)
 
 			i++
@@ -186,6 +204,7 @@ shutdown:
 func handleRequest(
 	ctx context.Context,
 	tracer trace.Tracer,
+	logger otellog.Logger,
 	counter metric.Int64Counter,
 	duration metric.Float64Histogram,
 	connections metric.Int64UpDownCounter,
@@ -202,10 +221,37 @@ func handleRequest(
 	)
 	defer span.End()
 
+	// Log request start with trace context
+	logRecord := otellog.Record{}
+	logRecord.SetTimestamp(time.Now())
+	logRecord.SetSeverity(otellog.SeverityInfo)
+	logRecord.SetBody(otellog.StringValue("HTTP request received"))
+	logRecord.AddAttributes(
+		otellog.String("http.method", method),
+		otellog.String("http.route", endpoint),
+	)
+	// Add trace context to correlate logs with traces
+	if span.SpanContext().HasTraceID() {
+		logRecord.SetTraceID(span.SpanContext().TraceID())
+		logRecord.SetSpanID(span.SpanContext().SpanID())
+	}
+	logger.Emit(spanCtx, logRecord)
+
 	// Simulate request processing with child spans
 	_, authSpan := tracer.Start(spanCtx, "authenticate")
 	time.Sleep(5 * time.Millisecond)
 	authSpan.End()
+
+	// Log debug message
+	debugLog := otellog.Record{}
+	debugLog.SetTimestamp(time.Now())
+	debugLog.SetSeverity(otellog.SeverityDebug)
+	debugLog.SetBody(otellog.StringValue("Authentication completed"))
+	if span.SpanContext().HasTraceID() {
+		debugLog.SetTraceID(span.SpanContext().TraceID())
+		debugLog.SetSpanID(span.SpanContext().SpanID())
+	}
+	logger.Emit(spanCtx, debugLog)
 
 	_, dbSpan := tracer.Start(spanCtx, "database-query",
 		trace.WithAttributes(
@@ -221,7 +267,32 @@ func handleRequest(
 	renderSpan.SetStatus(codes.Ok, "completed successfully")
 	renderSpan.End()
 
-	span.SetStatus(codes.Ok, "request completed")
+	// Log based on status code
+	resultLog := otellog.Record{}
+	resultLog.SetTimestamp(time.Now())
+	if statusCode >= 500 {
+		resultLog.SetSeverity(otellog.SeverityError)
+		resultLog.SetBody(otellog.StringValue("Request failed with server error"))
+		span.SetStatus(codes.Error, "server error")
+	} else if statusCode >= 400 {
+		resultLog.SetSeverity(otellog.SeverityWarn)
+		resultLog.SetBody(otellog.StringValue("Request failed with client error"))
+		span.SetStatus(codes.Error, "client error")
+	} else {
+		resultLog.SetSeverity(otellog.SeverityInfo)
+		resultLog.SetBody(otellog.StringValue("Request completed successfully"))
+		span.SetStatus(codes.Ok, "request completed")
+	}
+	resultLog.AddAttributes(
+		otellog.Int("http.status_code", statusCode),
+		otellog.String("http.method", method),
+		otellog.String("http.route", endpoint),
+	)
+	if span.SpanContext().HasTraceID() {
+		resultLog.SetTraceID(span.SpanContext().TraceID())
+		resultLog.SetSpanID(span.SpanContext().SpanID())
+	}
+	logger.Emit(spanCtx, resultLog)
 
 	// Record metrics
 	attrs := []attribute.KeyValue{
