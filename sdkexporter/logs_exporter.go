@@ -19,12 +19,20 @@ import (
 
 // LogExporter exports logs to SLIM
 type LogExporter struct {
-	connID     uint64
-	app        *slim.App
-	sessions   *slimcommon.SessionsList
-	mu         sync.RWMutex
-	stopped    bool
-	cancelFunc context.CancelFunc
+	app      *slim.App
+	sessions *slimcommon.SessionsList
+	provider *sdklog.LoggerProvider
+	mu       sync.RWMutex
+	stopped  bool
+}
+
+// SetProvider registers the LoggerProvider that owns this exporter.
+// When set, Shutdown() calls provider.Shutdown() first so that pending
+// batches are flushed before the SLIM connection is torn down.
+func (le *LogExporter) SetProvider(p *sdklog.LoggerProvider) {
+	le.mu.Lock()
+	defer le.mu.Unlock()
+	le.provider = p
 }
 
 // Export exports log records to SLIM
@@ -81,25 +89,32 @@ func (le *LogExporter) ForceFlush(_ context.Context) error {
 	return nil
 }
 
-// Shutdown shuts down the log exporter
-// This implements the sdklog.Exporter interface
+// Shutdown shuts down the log exporter.
+// This implements the sdklog.Exporter interface.
+//
+// If a LoggerProvider was registered via SetProvider, Shutdown() calls
+// provider.Shutdown() first so pending batches are flushed. The provider
+// internally calls Shutdown() again; that recursive call is a no-op because
+// stopped is already true, which breaks the cycle. SLIM teardown then
+// runs after the provider returns.
 func (le *LogExporter) Shutdown(ctx context.Context) error {
 	le.mu.Lock()
-	defer le.mu.Unlock()
-
 	if le.stopped {
+		le.mu.Unlock()
 		return nil
 	}
 	le.stopped = true
+	provider := le.provider
+	le.mu.Unlock()
 
-	// Stop the session listener
-	if le.cancelFunc != nil {
-		le.cancelFunc()
+	if provider != nil {
+		if err := provider.Shutdown(ctx); err != nil {
+			return err
+		}
 	}
 
-	// Remove all sessions
+	// Clean up SLIM resources.
 	le.sessions.DeleteAll(ctx, le.app)
-	// Destroy the app
 	le.app.Destroy()
 
 	return nil

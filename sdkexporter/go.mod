@@ -1,6 +1,6 @@
 module github.com/agntcy/slim/otel/sdkexporter
 
-go 1.25.7
+go 1.26.0
 
 replace github.com/agntcy/slim/otel => ../
 
@@ -14,6 +14,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.40.0
 	go.opentelemetry.io/otel/trace v1.40.0
 	go.opentelemetry.io/proto/otlp v1.9.0
+	go.uber.org/zap v1.27.1
 	google.golang.org/protobuf v1.36.11
 )
 
@@ -26,7 +27,6 @@ require (
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/metric v1.40.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.27.1 // indirect
 	golang.org/x/net v0.43.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
 	golang.org/x/text v0.28.0 // indirect

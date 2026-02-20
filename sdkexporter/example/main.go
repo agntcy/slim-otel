@@ -87,14 +87,6 @@ func main() {
 		),
 		sdktrace.WithResource(res),
 	)
-
-	defer func() {
-		if shutdownErr := tp.Shutdown(ctx); shutdownErr != nil {
-			log.Printf("failed to shutdown tracer provider: %v", shutdownErr)
-		}
-	}()
-
-	// Set global tracer provider
 	otel.SetTracerProvider(tp)
 
 	// Create meter provider with the metric exporter
@@ -105,11 +97,6 @@ func main() {
 		)),
 		sdkmetric.WithResource(res),
 	)
-	defer func() {
-		if shutdownErr := mp.Shutdown(ctx); shutdownErr != nil {
-			log.Printf("failed to shutdown meter provider: %v", shutdownErr)
-		}
-	}()
 	otel.SetMeterProvider(mp)
 
 	// Create logger provider with the log exporter
@@ -121,12 +108,16 @@ func main() {
 		)),
 		sdklog.WithResource(res),
 	)
+	global.SetLoggerProvider(lp)
+
+	// Register providers with the exporter so that exporter.Shutdown() flushes
+	// each provider's pipeline (batch processors) before closing sub-exporters.
+	exporter.RegisterProviders(tp, mp, lp)
 	defer func() {
-		if shutdownErr := lp.Shutdown(ctx); shutdownErr != nil {
-			log.Printf("failed to shutdown logger provider: %v", shutdownErr)
+		if shutdownErr := exporter.Shutdown(ctx); shutdownErr != nil {
+			log.Printf("failed to shutdown exporter: %v", shutdownErr)
 		}
 	}()
-	global.SetLoggerProvider(lp)
 
 	// Get a tracer, meter, and logger
 	tracer := otel.Tracer("example-service")

@@ -5,11 +5,14 @@ package sdkexporter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
-	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.uber.org/zap"
 
 	slim "github.com/agntcy/slim-bindings-go"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
@@ -26,6 +29,8 @@ type Exporter struct {
 	traceExporter  *TraceExporter
 	metricExporter *MetricExporter
 	logExporter    *LogExporter
+	// cancelFunc stops all session listener goroutines on Shutdown.
+	cancelFunc context.CancelFunc
 }
 
 // New creates a new SLIM exporter for traces, metrics, and logs
@@ -40,51 +45,56 @@ func New(_ context.Context, config Config, opts ...Option) (*Exporter, error) {
 		return nil, fmt.Errorf("failed to connect to SLIM: %w", err)
 	}
 
+	// createdApps tracks apps that have been successfully created so they can
+	// be destroyed if a later step fails (resource leak prevention).
+	var createdApps []*slim.App
+	cleanup := func() {
+		for _, app := range createdApps {
+			app.Destroy()
+		}
+	}
+
 	// Create SLIM app for traces
 	traceApp, err := slimcommon.CreateApp(*config.ExporterNames.Traces, config.SharedSecret, connID, slim.DirectionSend)
 	if err != nil {
+		cleanup()
 		return nil, fmt.Errorf("failed to create SLIM app for traces: %w", err)
 	}
+	createdApps = append(createdApps, traceApp)
 
 	// Create SLIM app for metrics
 	metricApp, err := slimcommon.CreateApp(*config.ExporterNames.Metrics, config.SharedSecret, connID, slim.DirectionSend)
 	if err != nil {
+		cleanup()
 		return nil, fmt.Errorf("failed to create SLIM app for metrics: %w", err)
 	}
+	createdApps = append(createdApps, metricApp)
 
 	// Create SLIM app for logs
 	logApp, err := slimcommon.CreateApp(*config.ExporterNames.Logs, config.SharedSecret, connID, slim.DirectionSend)
 	if err != nil {
+		cleanup()
 		return nil, fmt.Errorf("failed to create SLIM app for logs: %w", err)
 	}
 
+	listenerCtx, cancel := context.WithCancel(context.Background())
+
 	// Create individual exporters
-	traceListenerCtx, cancel := context.WithCancel(context.Background())
 	traceExporter := &TraceExporter{
-		connID:     connID,
-		app:        traceApp,
-		sessions:   slimcommon.NewSessionsList(slimcommon.SignalTraces),
-		cancelFunc: cancel,
+		app:      traceApp,
+		sessions: slimcommon.NewSessionsList(slimcommon.SignalTraces),
 	}
 
-	metricListenerCtx, cancel := context.WithCancel(context.Background())
 	metricExporter := &MetricExporter{
-		connID:   connID,
-		app:      metricApp,
-		sessions: slimcommon.NewSessionsList(slimcommon.SignalMetrics),
-		temporalitySelector: func(sdkmetric.InstrumentKind) metricdata.Temporality {
-			return metricdata.CumulativeTemporality
-		},
-		aggregationSelector: func(sdkmetric.InstrumentKind) sdkmetric.Aggregation { return nil },
-		cancelFunc:          cancel,
+		app:                 metricApp,
+		sessions:            slimcommon.NewSessionsList(slimcommon.SignalMetrics),
+		temporalitySelector: sdkmetric.DefaultTemporalitySelector,
+		aggregationSelector: sdkmetric.DefaultAggregationSelector,
 	}
 
-	logListenerCtx, cancel := context.WithCancel(context.Background())
 	logExporter := &LogExporter{
-		connID:     connID,
-		app:        logApp,
-		sessions:   slimcommon.NewSessionsList(slimcommon.SignalLogs),
-		cancelFunc: cancel,
+		app:      logApp,
+		sessions: slimcommon.NewSessionsList(slimcommon.SignalLogs),
 	}
 
 	// Apply options to metric exporter
@@ -98,12 +108,13 @@ func New(_ context.Context, config Config, opts ...Option) (*Exporter, error) {
 		traceExporter:  traceExporter,
 		metricExporter: metricExporter,
 		logExporter:    logExporter,
+		cancelFunc:     cancel,
 	}
 
-	// Start listening for incoming sessions in background for each exporter
-	exp.startSessionListener(traceListenerCtx, traceExporter.app, traceExporter.sessions)
-	exp.startSessionListener(metricListenerCtx, metricExporter.app, metricExporter.sessions)
-	exp.startSessionListener(logListenerCtx, logExporter.app, logExporter.sessions)
+	// Start a single shared listener context for all session listener goroutines.
+	exp.startSessionListener(listenerCtx, traceExporter.app, traceExporter.sessions)
+	exp.startSessionListener(listenerCtx, metricExporter.app, metricExporter.sessions)
+	exp.startSessionListener(listenerCtx, logExporter.app, logExporter.sessions)
 
 	return exp, nil
 }
@@ -121,6 +132,44 @@ func (e *Exporter) MetricExporter() *MetricExporter {
 // LogExporter returns the log exporter
 func (e *Exporter) LogExporter() *LogExporter {
 	return e.logExporter
+}
+
+// RegisterProviders registers the SDK providers with each sub-exporter so that
+// Shutdown() flushes pending telemetry through the full provider pipeline
+// (batch processors, periodic readers) before tearing down SLIM resources.
+// Call this after creating each provider with the respective sub-exporter.
+func (e *Exporter) RegisterProviders(
+	tp *sdktrace.TracerProvider,
+	mp *sdkmetric.MeterProvider,
+	lp *sdklog.LoggerProvider,
+) {
+	e.traceExporter.SetProvider(tp)
+	e.metricExporter.SetProvider(mp)
+	e.logExporter.SetProvider(lp)
+}
+
+// Shutdown stops all session listeners and flushes and shuts down all signals.
+// Each sub-exporter handles whether to flush via its registered provider
+// or shut down directly if no provider was registered.
+func (e *Exporter) Shutdown(ctx context.Context) error {
+	// Stop all session listener goroutines before tearing down SLIM resources.
+	if e.cancelFunc != nil {
+		e.cancelFunc()
+	}
+
+	var errs []error
+
+	if err := e.logExporter.Shutdown(ctx); err != nil {
+		errs = append(errs, fmt.Errorf("log exporter shutdown: %w", err))
+	}
+	if err := e.metricExporter.Shutdown(ctx); err != nil {
+		errs = append(errs, fmt.Errorf("metric exporter shutdown: %w", err))
+	}
+	if err := e.traceExporter.Shutdown(ctx); err != nil {
+		errs = append(errs, fmt.Errorf("trace exporter shutdown: %w", err))
+	}
+
+	return errors.Join(errs...)
 }
 
 // startSessionListener starts a goroutine to listen for incoming sessions
@@ -142,7 +191,10 @@ func (e *Exporter) startSessionListener(listenerCtx context.Context, app *slim.A
 
 			// Add the new session
 			if err := sessions.AddSession(listenerCtx, session); err != nil {
-				// Log error but continue listening
+				slimcommon.LoggerFromContextOrDefault(listenerCtx).Warn(
+					"failed to add session, continuing to listen",
+					zap.Error(err),
+				)
 				continue
 			}
 		}

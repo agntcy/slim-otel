@@ -31,11 +31,11 @@ func (c *Config) Validate() error {
 		return errors.New("invalid connection config: " + err.Error())
 	}
 
-	// expoter names must be set
-	if c.ExporterNames == nil {
-		return errors.New("exporter names cannot be nil")
-	}
-	if c.ExporterNames.Metrics == nil || c.ExporterNames.Traces == nil || c.ExporterNames.Logs == nil {
+	// exporter names must be set
+	if c.ExporterNames == nil ||
+		c.ExporterNames.Metrics == nil ||
+		c.ExporterNames.Traces == nil ||
+		c.ExporterNames.Logs == nil {
 		return errors.New("exporter names cannot be nil")
 	}
 

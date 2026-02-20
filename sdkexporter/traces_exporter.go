@@ -19,12 +19,18 @@ import (
 
 // TraceExporter exports traces to SLIM
 type TraceExporter struct {
-	connID     uint64
-	app        *slim.App
-	sessions   *slimcommon.SessionsList
-	mu         sync.RWMutex
-	stopped    bool
-	cancelFunc context.CancelFunc
+	app      *slim.App
+	sessions *slimcommon.SessionsList
+	provider *sdktrace.TracerProvider
+	mu       sync.RWMutex
+	stopped  bool
+}
+
+// SetProvider registers the TracerProvider that owns this exporter.
+func (te *TraceExporter) SetProvider(p *sdktrace.TracerProvider) {
+	te.mu.Lock()
+	defer te.mu.Unlock()
+	te.provider = p
 }
 
 // ExportSpans exports a batch of spans to SLIM
@@ -74,25 +80,32 @@ func (te *TraceExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadO
 	return nil
 }
 
-// Shutdown shuts down the trace exporter
-// This implements the sdktrace.SpanExporter interface
+// Shutdown shuts down the trace exporter.
+// This implements the sdktrace.SpanExporter interface.
+//
+// If a TracerProvider was registered via SetProvider, Shutdown() calls
+// provider.Shutdown() first so pending batches are flushed. The provider
+// internally calls Shutdown() again; that recursive call is a no-op because
+// stopped is already true, which breaks the cycle. SLIM teardown then
+// runs after the provider returns.
 func (te *TraceExporter) Shutdown(ctx context.Context) error {
 	te.mu.Lock()
-	defer te.mu.Unlock()
-
 	if te.stopped {
+		te.mu.Unlock()
 		return nil
 	}
 	te.stopped = true
+	provider := te.provider
+	te.mu.Unlock()
 
-	// Stop the session listener
-	if te.cancelFunc != nil {
-		te.cancelFunc()
+	if provider != nil {
+		if err := provider.Shutdown(ctx); err != nil {
+			return err
+		}
 	}
 
-	// Remove all sessions
+	// Clean up SLIM resources.
 	te.sessions.DeleteAll(ctx, te.app)
-	// Destroy the app
 	te.app.Destroy()
 
 	return nil

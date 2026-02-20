@@ -21,14 +21,22 @@ import (
 
 // MetricExporter exports metrics to SLIM
 type MetricExporter struct {
-	connID              uint64
 	app                 *slim.App
 	sessions            *slimcommon.SessionsList
+	provider            *sdkmetric.MeterProvider
 	temporalitySelector sdkmetric.TemporalitySelector
 	aggregationSelector sdkmetric.AggregationSelector
 	mu                  sync.RWMutex
 	stopped             bool
-	cancelFunc          context.CancelFunc
+}
+
+// SetProvider registers the MeterProvider that owns this exporter.
+// When set, Shutdown() calls provider.Shutdown() first so that pending
+// reads are flushed before the SLIM connection is torn down.
+func (me *MetricExporter) SetProvider(p *sdkmetric.MeterProvider) {
+	me.mu.Lock()
+	defer me.mu.Unlock()
+	me.provider = p
 }
 
 // Export exports metrics data to SLIM
@@ -93,25 +101,32 @@ func (me *MetricExporter) ForceFlush(_ context.Context) error {
 	return nil
 }
 
-// Shutdown shuts down the metric exporter
-// This implements the sdkmetric.Exporter interface
+// Shutdown shuts down the metric exporter.
+// This implements the sdkmetric.Exporter interface.
+//
+// If a MeterProvider was registered via SetProvider, Shutdown() calls
+// provider.Shutdown() first so pending reads are flushed. The provider
+// internally calls Shutdown() again; that recursive call is a no-op because
+// stopped is already true, which breaks the cycle. SLIM teardown then
+// runs after the provider returns.
 func (me *MetricExporter) Shutdown(ctx context.Context) error {
 	me.mu.Lock()
-	defer me.mu.Unlock()
-
 	if me.stopped {
+		me.mu.Unlock()
 		return nil
 	}
 	me.stopped = true
+	provider := me.provider
+	me.mu.Unlock()
 
-	// Stop the session listener
-	if me.cancelFunc != nil {
-		me.cancelFunc()
+	if provider != nil {
+		if err := provider.Shutdown(ctx); err != nil {
+			return err
+		}
 	}
 
-	// Remove all sessions
+	// Clean up SLIM resources.
 	me.sessions.DeleteAll(ctx, me.app)
-	// Destroy the app
 	me.app.Destroy()
 
 	return nil
