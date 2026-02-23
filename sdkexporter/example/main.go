@@ -5,12 +5,13 @@ package main
 
 import (
 	"context"
-	"log"
 	"math/rand/v2"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"go.uber.org/zap"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -48,6 +49,9 @@ func strPtr(s string) *string {
 func main() {
 	ctx := context.Background()
 
+	log := zap.Must(zap.NewDevelopment())
+	defer log.Sync() //nolint:errcheck
+
 	// Create resource with service information
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
@@ -56,7 +60,7 @@ func main() {
 		),
 	)
 	if err != nil {
-		log.Fatalf("failed to create resource: %v", err)
+		log.Fatal("failed to create resource", zap.Error(err))
 	}
 
 	// Configure the SLIM exporter
@@ -76,7 +80,7 @@ func main() {
 	// This single exporter handles all three signals (traces, metrics, logs) over one connection
 	exporter, err := sdkexporter.New(ctx, config)
 	if err != nil {
-		log.Fatalf("failed to create SLIM exporter: %v", err)
+		log.Fatal("failed to create SLIM exporter", zap.Error(err))
 	}
 
 	// Create tracer provider with the trace exporter
@@ -115,7 +119,7 @@ func main() {
 	exporter.RegisterProviders(tp, mp, lp)
 	defer func() {
 		if shutdownErr := exporter.Shutdown(ctx); shutdownErr != nil {
-			log.Printf("failed to shutdown exporter: %v", shutdownErr)
+			log.Error("failed to shutdown exporter", zap.Error(shutdownErr))
 		}
 	}()
 
@@ -131,7 +135,7 @@ func main() {
 		metric.WithUnit("1"),
 	)
 	if err != nil {
-		log.Printf("failed to create counter: %v", err)
+		log.Error("failed to create counter", zap.Error(err))
 		return
 	}
 
@@ -141,7 +145,7 @@ func main() {
 		metric.WithUnit("ms"),
 	)
 	if err != nil {
-		log.Printf("failed to create histogram: %v", err)
+		log.Error("failed to create histogram", zap.Error(err))
 		return
 	}
 
@@ -151,7 +155,7 @@ func main() {
 		metric.WithUnit("1"),
 	)
 	if err != nil {
-		log.Printf("failed to create updown counter: %v", err)
+		log.Error("failed to create updown counter", zap.Error(err))
 		return
 	}
 
@@ -166,11 +170,11 @@ func main() {
 	// Start a goroutine to handle shutdown signal
 	go func() {
 		<-sigCh
-		log.Println("\nReceived interrupt signal, shutting down gracefully...")
+		log.Info("received interrupt signal, shutting down gracefully")
 		cancel()
 	}()
 
-	log.Println("Starting to send traces, metrics, and logs to SLIM... (Press Ctrl+C to stop)")
+	log.Info("starting to send telemetry to SLIM, press Ctrl+C to stop")
 
 	// Send telemetry periodically until interrupted
 	i := 0
@@ -184,7 +188,7 @@ func main() {
 	for {
 		select {
 		case <-runCtx.Done():
-			log.Println("Stopping telemetry generation...")
+			log.Info("stopping telemetry generation")
 			goto shutdown
 		case <-ticker.C:
 			// Simulate an HTTP request with traces and metrics
@@ -196,12 +200,12 @@ func main() {
 				endpoint, method, statusCode)
 
 			i++
-			log.Printf("Sent telemetry batch %d\n", i)
+			log.Info("sent telemetry batch", zap.Int("batch", i))
 		}
 	}
 
 shutdown:
-	log.Println("Finished sending telemetry. Shutting down...")
+	log.Info("finished sending telemetry, shutting down")
 
 	// Give time for batched spans and metrics to be exported
 	time.Sleep(3 * time.Second)

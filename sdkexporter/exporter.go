@@ -77,6 +77,8 @@ func New(_ context.Context, config Config, opts ...Option) (*Exporter, error) {
 		return nil, fmt.Errorf("failed to create SLIM app for logs: %w", err)
 	}
 
+	createdApps = append(createdApps, logApp)
+
 	// Create individual exporters
 	traceExporter, err := newTraceExporter(traceApp)
 	if err != nil {

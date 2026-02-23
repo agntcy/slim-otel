@@ -101,6 +101,13 @@ func (te *TraceExporter) SetProvider(p *sdktrace.TracerProvider) {
 
 // ExportSpans exports a batch of spans to SLIM.
 func (te *TraceExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
+	te.mu.RLock()
+	defer te.mu.RUnlock()
+
+	if te.stopped {
+		return nil
+	}
+
 	return te.exporter.ExportSpans(ctx, spans)
 }
 
