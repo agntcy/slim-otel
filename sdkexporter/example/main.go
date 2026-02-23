@@ -11,8 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"go.uber.org/zap"
-
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -25,6 +23,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/zap"
 
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
 	sdkexporter "github.com/agntcy/slim/otel/sdkexporter"
@@ -60,7 +59,8 @@ func main() {
 		),
 	)
 	if err != nil {
-		log.Fatal("failed to create resource", zap.Error(err))
+		log.Error("failed to create resource", zap.Error(err))
+		return
 	}
 
 	// Configure the SLIM exporter
@@ -80,7 +80,8 @@ func main() {
 	// This single exporter handles all three signals (traces, metrics, logs) over one connection
 	exporter, err := sdkexporter.New(ctx, config)
 	if err != nil {
-		log.Fatal("failed to create SLIM exporter", zap.Error(err))
+		log.Error("failed to create SLIM exporter", zap.Error(err))
+		return
 	}
 
 	// Create tracer provider with the trace exporter
