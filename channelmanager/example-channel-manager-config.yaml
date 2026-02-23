@@ -16,8 +16,6 @@ channel-manager:
 channels:
   - name: "agntcy/otel/channel"
     participants:
-      #- "sdk/exporter/metrics"
-      - "sdk/exporter/traces"
-      #- "sdk/exporter/logs"
+      - "agntcy/otel/exporter-traces"
       - "agntcy/otel/receiver"
     mls-enabled: true
