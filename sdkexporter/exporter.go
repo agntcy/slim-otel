@@ -77,13 +77,14 @@ func New(_ context.Context, config Config, opts ...Option) (*Exporter, error) {
 		return nil, fmt.Errorf("failed to create SLIM app for logs: %w", err)
 	}
 
-	listenerCtx, cancel := context.WithCancel(context.Background())
-
 	// Create individual exporters
-	traceExporter := &TraceExporter{
-		app:      traceApp,
-		sessions: slimcommon.NewSessionsList(slimcommon.SignalTraces),
+	traceExporter, err := newTraceExporter(traceApp)
+	if err != nil {
+		cleanup()
+		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
 	}
+
+	listenerCtx, cancel := context.WithCancel(context.Background())
 
 	metricExporter := &MetricExporter{
 		app:                 metricApp,
@@ -112,7 +113,7 @@ func New(_ context.Context, config Config, opts ...Option) (*Exporter, error) {
 	}
 
 	// Start a single shared listener context for all session listener goroutines.
-	exp.startSessionListener(listenerCtx, traceExporter.app, traceExporter.sessions)
+	exp.startSessionListener(listenerCtx, traceExporter.client.app, traceExporter.client.sessions)
 	exp.startSessionListener(listenerCtx, metricExporter.app, metricExporter.sessions)
 	exp.startSessionListener(listenerCtx, logExporter.app, logExporter.sessions)
 
