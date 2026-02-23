@@ -1,7 +1,7 @@
 // Copyright AGNTCY Contributors (https://github.com/agntcy)
 // SPDX-License-Identifier: Apache-2.0
 
-// This file contains code copied from the OpenTelemetry Go project:
+// This file contains code from the OpenTelemetry Go project:
 // https://github.com/open-telemetry/opentelemetry-go/blob/v1.40.0/exporters/otlp/otlpmetric/otlpmetricgrpc/internal/transform/metricdata.go
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
