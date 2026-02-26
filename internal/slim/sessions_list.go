@@ -140,12 +140,13 @@ func (s *SessionsList) RemoveSessionByName(_ context.Context, name string) (*sli
 }
 
 func (s *SessionsList) ListSessionNames(_ context.Context) []string {
+	s.mutex.RLock()
 	if s.sessionsByID == nil {
+		s.mutex.RUnlock()
 		// nothing to do
 		return []string{}
 	}
 
-	s.mutex.RLock()
 	// get the keys to avoid holding the lock during PublishAndWait
 	keys := maps.Keys(s.sessionsByName)
 	s.mutex.RUnlock()
@@ -197,24 +198,24 @@ func (s *SessionsList) PublishToAll(ctx context.Context, data []byte) ([]uint32,
 		return nil, fmt.Errorf("missing data")
 	}
 
+	s.mutex.RLock()
 	if s.sessionsByID == nil {
 		// nothing to do
 		logger.Debug("No sessions to publish to", zap.String("signal_name", string(s.signalType)))
+		s.mutex.RUnlock()
 		return nil, nil
 	}
 
-	s.mutex.RLock()
-	// get the keys to avoid holding the lock during PublishAndWait
-	keys := maps.Keys(s.sessionsByID)
+	// Copy session pointers under the lock to avoid holding it during PublishAndWait (I/O).
+	// The snapshot may be stale: removed sessions are handled below, new ones are skipped.
+	snapshot := make(map[uint32]*slim.Session, len(s.sessionsByID))
+	for id, session := range s.sessionsByID {
+		snapshot[id] = session
+	}
 	s.mutex.RUnlock()
 
 	var closedSessions []uint32
-	for id := range keys {
-		session, ok := s.sessionsByID[id]
-		if !ok {
-			// the session is no longer in the map, skip it
-			continue
-		}
+	for id, session := range snapshot {
 
 		logger.Info("Publishing "+string(s.signalType)+" to session",
 			zap.Uint32("session_id", id))

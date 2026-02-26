@@ -35,7 +35,7 @@ vars:
         tr '\n' ' '
 
 env:
-  GOTOOLCHAIN: "go1.25.0+auto"
+  GOTOOLCHAIN: "go1.26.0+auto"
 
 tasks:
   default:

@@ -1,6 +1,6 @@
 module github.com/agntcy/slim/internal/tools
 
-go 1.25.7
+go 1.26.0
 
 require (
 	github.com/golangci/golangci-lint v1.64.8

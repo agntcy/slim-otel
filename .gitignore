@@ -14,6 +14,7 @@ slim-otelcol/
 testapp/testapp
 channelmanager/channelmanager
 channelmanager/cmd/cmctl/cmctl
+sdkexporter/example/example
 
 # Generated proto files
 channelmanager/internal/channelmanager/commands.pb.go
