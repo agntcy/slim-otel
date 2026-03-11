@@ -217,8 +217,6 @@ func (s *SessionsList) PublishToAll(ctx context.Context, data []byte) ([]uint32,
 	var closedSessions []uint32
 	for id, session := range snapshot {
 
-		logger.Info("Publishing "+string(s.signalType)+" to session",
-			zap.Uint32("session_id", id))
 		if err := session.PublishAndWait(data, nil, nil); err != nil {
 			if strings.Contains(err.Error(), "Session already closed or dropped") {
 				logger.Info("Session closed, marking for removal", zap.Uint32("session_id", id))
@@ -228,7 +226,6 @@ func (s *SessionsList) PublishToAll(ctx context.Context, data []byte) ([]uint32,
 			logger.Error("Error sending "+string(s.signalType)+" message", zap.Error(err))
 			return closedSessions, err
 		}
-		logger.Debug("Published "+string(s.signalType)+" to session", zap.Uint32("session_id", id))
 	}
 
 	return closedSessions, nil
