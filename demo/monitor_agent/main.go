@@ -13,6 +13,7 @@ import (
 
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	slim "github.com/agntcy/slim-bindings-go"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
@@ -25,26 +26,40 @@ const (
 	specialAgentAppName = "demo/telemetry/special_agent"
 	channelName         = "demo/telemetry/channel"
 	monitoredAppName    = "demo/telemetry/monitored_app_metrics"
+	collectorName       = "demo/telemetry/collector"
 	latencyThreshold    = 200.0 // milliseconds
 )
 
 func main() {
 	ctx := context.Background()
 
-	log := zap.Must(zap.NewDevelopment())
+	// Configure custom zap logger without caller info and stack traces
+	config := zap.NewDevelopmentConfig()
+	config.EncoderConfig.TimeKey = "time"
+	config.EncoderConfig.LevelKey = "level"
+	config.EncoderConfig.MessageKey = "msg"
+	config.EncoderConfig.CallerKey = ""     // Disable caller info
+	config.EncoderConfig.StacktraceKey = "" // Disable stack traces
+	config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("15:04:05.000")
+	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+
+	log, err := config.Build()
+	if err != nil {
+		panic(err)
+	}
 	defer log.Sync()
 
-	log.Info("Starting Monitor Agent")
+	log.Info("🤖 Starting Monitor Agent")
 
 	// Step 1: Initialize and connect to SLIM node
-	log.Info("Connecting to SLIM node", zap.String("address", slimNodeAddress))
+	//log.Info("Connecting to SLIM node", zap.String("address", slimNodeAddress))
 	connID, err := slimcommon.InitAndConnect(slimcommon.ConnectionConfig{
 		Address: slimNodeAddress,
 	})
 	if err != nil {
 		log.Fatal("failed to connect to SLIM node", zap.Error(err))
 	}
-	log.Info("Connection to SLIM node established")
+	//log.Info("Connection to SLIM node established")
 
 	// Step 2: Create SLIM app
 	app, err := slimcommon.CreateApp(monitorAppName, sharedSecret, connID, slim.DirectionRecv)
@@ -54,7 +69,7 @@ func main() {
 	defer app.Destroy()
 
 	// Step 3: Create a GROUP session (channel)
-	log.Info("Creating telemetry channel", zap.String("channel", channelName))
+	//log.Info("Creating telemetry channel", zap.String("channel", channelName))
 
 	channelNameParsed, err := slimcommon.SplitID(channelName)
 	if err != nil {
@@ -75,10 +90,10 @@ func main() {
 	if err != nil {
 		log.Fatal("failed to create session", zap.Error(err))
 	}
-	log.Info("Channel created successfully")
+	//log.Info("Channel created successfully")
 
 	// Step 4: Invite the monitored app to the channel
-	log.Info("Add monitored app to channel", zap.String("app", monitoredAppName))
+	//log.Info("Add monitored app to channel", zap.String("app", monitoredAppName))
 
 	monitoredAppNameParsed, err := slimcommon.SplitID(monitoredAppName)
 	if err != nil {
@@ -95,6 +110,27 @@ func main() {
 	if err != nil {
 		log.Fatal("failed to invite monitored app", zap.Error(err))
 	}
+	//log.Info("✅ Monitored app invited to channel")
+
+	// Step 5: Invite the collector to the channel so it receives metrics for Grafana
+	//log.Info("Inviting collector to channel", zap.String("collector", collectorName))
+
+	collectorNameParsed, err := slimcommon.SplitID(collectorName)
+	if err != nil {
+		log.Fatal("failed to parse collector name", zap.Error(err))
+	}
+
+	// Set route for the collector
+	err = app.SetRoute(collectorNameParsed, connID)
+	if err != nil {
+		log.Fatal("failed to set route for collector", zap.Error(err))
+	}
+
+	err = session.InviteAndWait(collectorNameParsed)
+	if err != nil {
+		log.Fatal("failed to invite collector", zap.Error(err))
+	}
+	//log.Info("✅ Collector invited to channel - metrics will flow to Grafana")
 
 	// Set up signal handling for graceful shutdown
 	sigCh := make(chan os.Signal, 1)
@@ -111,12 +147,13 @@ func main() {
 		cancel()
 	}()
 
-	log.Info("Monitoring telemetry stream...")
+	log.Info("✅ Telemetry channel created")
+	log.Info("🔍 Start to monitor telemetry stream")
 
 	alertFired := false
 	specialAgentInvited := false
 	samplesOverThreshold := 0
-	const samplesRequired = 3
+	const samplesRequired = 5
 	msgTimeout := time.Second * 5
 
 	// Parse special agent name once
@@ -145,14 +182,14 @@ func main() {
 				log.Info("📨 Received completion message from special agent")
 
 				if specialAgentInvited {
-					log.Info("🔄 Removing special agent from channel...")
+					log.Info("🔄 Removing special agent from channel")
 
 					// Remove special agent from the session
 					if removeErr := session.RemoveAndWait(specialAgentNameParsed); removeErr != nil {
 						log.Error("failed to remove special agent", zap.Error(removeErr))
-					} else {
-						log.Info("✅ Special agent removed successfully")
-					}
+					} //else {
+					//	log.Info("✅ Special agent removed successfully")
+					//}
 
 					// Reset flags so we can handle future alerts
 					// for the demo don't rest the flags to avoid for a flapping scenario
@@ -176,22 +213,20 @@ func main() {
 			if latency > latencyThreshold {
 				if !alertFired {
 					samplesOverThreshold++
-					log.Info("Latency threshold exceeded",
-						zap.Float64("current_latency_ms", latency),
-						zap.Float64("threshold_ms", latencyThreshold),
-						zap.Int("samples_collected", samplesOverThreshold),
-						zap.Int("samples_required", samplesRequired))
+					log.Warn("⚠️  Latency threshold exceeded",
+						zap.Int("current_latency_ms", int(latency)),
+						zap.Int("threshold_ms", int(latencyThreshold)))
 
 					// Fire alert after collecting required samples
 					if samplesOverThreshold >= samplesRequired {
-						log.Info("⚠️  ALERT: Latency threshold consistently exceeded!",
-							zap.Float64("current_latency_ms", latency),
-							zap.Float64("threshold_ms", latencyThreshold),
-							zap.Int("samples_over_threshold", samplesOverThreshold))
+						log.Error("🚨 Latency threshold consistently exceeded!")
+						//zap.Float64("current_latency_ms", latency),
+						//zap.Float64("threshold_ms", latencyThreshold),
+						//zap.Int("samples_over_threshold", samplesOverThreshold))
 						alertFired = true
 
 						// Invite the special agent to the channel
-						log.Info("📞 Inviting special agent to channel to detect the root cause...")
+						log.Info("📞 Inviting special agent to channel to detect the root cause")
 
 						// Set route for the special agent
 						if routeErr := app.SetRoute(specialAgentNameParsed, connID); routeErr != nil {
@@ -204,7 +239,7 @@ func main() {
 							if inviteErr := session.InviteAndWait(specialAgentNameParsed); inviteErr != nil {
 								log.Error("failed to invite special agent", zap.Error(inviteErr))
 							} else {
-								log.Info("✅ Special debug agent invited successfully")
+								//log.Info("✅ Special agent invited successfully")
 								specialAgentInvited = true
 							}
 						}()
@@ -214,7 +249,7 @@ func main() {
 				// Reset counter if latency drops below threshold (only if alert hasn't fired yet)
 				if samplesOverThreshold > 0 && !alertFired {
 					log.Info("Latency returned to normal, resetting counter",
-						zap.Float64("current_latency_ms", latency),
+						zap.Int("current_latency_ms", int(latency)),
 						zap.Int("previous_samples", samplesOverThreshold))
 					samplesOverThreshold = 0
 				}

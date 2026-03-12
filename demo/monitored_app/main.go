@@ -144,20 +144,20 @@ func main() {
 		case <-ticker.C:
 			elapsed := time.Since(startTime).Seconds()
 
-			if elapsed < 10 {
-				// Phase 1: Normal operation (0-10 seconds)
-				currentConnections = 5 + int64(rand.IntN(5))
+			if elapsed < 20 {
+				// Phase 1: Normal operation (0-20 seconds)
+				currentConnections = 50 + int64(rand.IntN(10)) - 5 // 45-54 connections
 				currentLatency = 50 + float64(rand.IntN(30))
 			} else {
-				// Phase 2: Increased load (10+ seconds)
-				progress := (elapsed - 10) / 10.0 // 0.0 to 1.0 over 10 seconds
+				// Phase 2: Increased load (20+ seconds)
+				progress := (elapsed - 20) / 20.0 // 0.0 to 1.0 over 20 seconds
 				if progress > 1.0 {
 					progress = 1.0
 				}
 
-				// Ramp up: connections 5→50, latency 50→800
-				currentConnections = int64(15 + progress*35)
-				currentLatency = 100 + progress*700
+				// Ramp up: connections 50→500, latency 50→800
+				currentConnections = int64(50 + progress*450)
+				currentLatency = 50 + progress*750
 			}
 		}
 	}

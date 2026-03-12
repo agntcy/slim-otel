@@ -13,6 +13,7 @@ import (
 
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	slim "github.com/agntcy/slim-bindings-go"
 	slimcommon "github.com/agntcy/slim/otel/internal/slim"
@@ -34,7 +35,20 @@ type MetricSnapshot struct {
 func main() {
 	ctx := context.Background()
 
-	log := zap.Must(zap.NewDevelopment())
+	// Configure custom zap logger without caller info and stack traces
+	config := zap.NewDevelopmentConfig()
+	config.EncoderConfig.TimeKey = "time"
+	config.EncoderConfig.LevelKey = "level"
+	config.EncoderConfig.MessageKey = "msg"
+	config.EncoderConfig.CallerKey = ""     // Disable caller info
+	config.EncoderConfig.StacktraceKey = "" // Disable stack traces
+	config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("15:04:05.000")
+	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+
+	log, err := config.Build()
+	if err != nil {
+		panic(err)
+	}
 	defer log.Sync()
 
 	log.Info("🤖 Starting Special Agent")
@@ -213,8 +227,8 @@ func analyzeMetrics(snapshots []MetricSnapshot) Diagnosis {
 	avgConnections := sumConns / float64(len(snapshots))
 
 	// Use reasonable baselines based on normal operation
-	baselineLatency := 60.0 // ~60ms normal latency
-	baselineConns := 8.0    // ~8 connections normally
+	baselineLatency := 50.0 // ~50ms normal latency
+	baselineConns := 50.0   // ~50 connections normally
 
 	latencyIncrease := avgLatency / baselineLatency
 	connIncrease := avgConnections / baselineConns
@@ -259,11 +273,11 @@ func printDiagnosis(log *zap.Logger, d Diagnosis) {
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println()
 
-	log.Info("Analysis summary",
-		zap.Float64("avg_latency_ms", d.avgLatency),
-		zap.Float64("avg_connections", d.avgConnections),
-		zap.Float64("connection_increase_factor", d.connIncrease),
-		zap.Float64("latency_increase_factor", d.latencyIncrease))
+	//log.Info("Analysis summary",
+	//	zap.Float64("avg_latency_ms", d.avgLatency),
+	//	zap.Float64("avg_connections", d.avgConnections),
+	//	zap.Float64("connection_increase_factor", d.connIncrease),
+	//	zap.Float64("latency_increase_factor", d.latencyIncrease))
 }
 
 // parseMetrics decodes OTLP metrics and extracts processing_latency_ms and active_connections

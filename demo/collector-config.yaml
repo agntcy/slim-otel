@@ -1,0 +1,43 @@
+# OpenTelemetry Collector Configuration for SLIM Demo
+# Receives metrics from SLIM channel and exports to Prometheus
+
+receivers:
+  slim:
+    connection-config:
+      address: "http://127.0.0.1:46357"
+    receiver-name: "demo/telemetry/collector"
+    shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
+
+processors:
+  batch:
+    timeout: 100ms
+    send_batch_size: 100
+
+exporters:
+  # Export metrics in Prometheus format
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: "slim_demo"
+    send_timestamps: true
+    metric_expiration: 5m
+    resource_to_telemetry_conversion:
+      enabled: true
+  
+  # Debug exporter for troubleshooting
+  # debug:
+  #  verbosity: detailed
+  #  sampling_initial: 5
+  #  sampling_thereafter: 200
+
+service:
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: none
+
+  pipelines:
+    metrics:
+      receivers: [slim]
+      processors: [batch]
+      exporters: [prometheus]
