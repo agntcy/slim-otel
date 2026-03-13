@@ -49,7 +49,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer log.Sync()
+	defer func() {
+		_ = log.Sync() // Ignore error on cleanup
+	}()
 
 	log.Info("🤖 Starting Special Agent")
 
@@ -58,13 +60,15 @@ func main() {
 		Address: slimNodeAddress,
 	})
 	if err != nil {
-		log.Fatal("failed to connect to SLIM node", zap.Error(err))
+		log.Error("failed to connect to SLIM node", zap.Error(err))
+		panic(err)
 	}
 
 	// Step 2: Create SLIM app
 	app, err := slimcommon.CreateApp(specialAgentAppName, sharedSecret, connID, slim.DirectionBidirectional)
 	if err != nil {
-		log.Fatal("failed to create SLIM app", zap.Error(err))
+		log.Error("failed to create SLIM app", zap.Error(err))
+		panic(err)
 	}
 	defer app.Destroy()
 
@@ -183,7 +187,9 @@ func main() {
 			}
 
 			// Wait a moment for message to be sent
-			handler.Wait()
+			if err := handler.Wait(); err != nil {
+				log.Error("failed to wait for message send", zap.Error(err))
+			}
 		}
 	}
 }
@@ -247,7 +253,7 @@ func analyzeMetrics(snapshots []MetricSnapshot) Diagnosis {
 }
 
 // printDiagnosis outputs the analysis in a formatted way
-func printDiagnosis(log *zap.Logger, d Diagnosis) {
+func printDiagnosis(_ *zap.Logger, d Diagnosis) {
 	fmt.Println()
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("🔍 Debug Analysis Complete")
@@ -273,7 +279,7 @@ func printDiagnosis(log *zap.Logger, d Diagnosis) {
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println()
 
-	//log.Info("Analysis summary",
+	// log.Info("Analysis summary",
 	//	zap.Float64("avg_latency_ms", d.avgLatency),
 	//	zap.Float64("avg_connections", d.avgConnections),
 	//	zap.Float64("connection_increase_factor", d.connIncrease),
@@ -302,8 +308,7 @@ func parseMetrics(payload []byte) (latency float64, connections int64, err error
 				name := metric.Name()
 
 				// Extract the metric values based on type
-				switch metric.Type() {
-				case pmetric.MetricTypeGauge:
+				if metric.Type() == pmetric.MetricTypeGauge {
 					gauge := metric.Gauge()
 					if gauge.DataPoints().Len() > 0 {
 						dp := gauge.DataPoints().At(0)

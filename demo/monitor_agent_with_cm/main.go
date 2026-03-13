@@ -25,7 +25,7 @@ const (
 	sharedSecret          = "a-very-long-shared-secret-0123456789-abcdefg"
 	channelManagerAddress = "localhost:46358"
 	monitorAppName        = "demo/telemetry/monitor_agent"
-	specialAgentAppName   = "demo/telemetry/special_agent_agentic" //"demo/telemetry/special_agent"
+	specialAgentAppName   = "demo/telemetry/special_agent_agentic" // "demo/telemetry/special_agent"
 	channelName           = "demo/telemetry/channel"
 	latencyThreshold      = 200.0 // milliseconds
 )
@@ -47,7 +47,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer log.Sync()
+	defer func() {
+		_ = log.Sync() // Ignore error on cleanup
+	}()
 
 	log.Info("🤖 Starting Monitor Agent")
 
@@ -56,13 +58,15 @@ func main() {
 		Address: slimNodeAddress,
 	})
 	if err != nil {
-		log.Fatal("failed to connect to SLIM node", zap.Error(err))
+		log.Error("failed to connect to SLIM node", zap.Error(err))
+		panic(err)
 	}
 
-	// Step 2: Create SLIM app (receive-only, will join existing channel)
+	// Step 2: Create SLIM app (receive-only app)
 	app, err := slimcommon.CreateApp(monitorAppName, sharedSecret, connID, slim.DirectionRecv)
 	if err != nil {
-		log.Fatal("failed to create SLIM app", zap.Error(err))
+		log.Error("failed to create SLIM app", zap.Error(err))
+		panic(err)
 	}
 	defer app.Destroy()
 
@@ -87,7 +91,8 @@ func main() {
 	log.Info("Connecting to Channel Manager", zap.String("address", channelManagerAddress))
 	cmClient, err := cmclient.New(channelManagerAddress)
 	if err != nil {
-		log.Fatal("failed to connect to channel manager", zap.Error(err))
+		log.Error("failed to connect to channel manager", zap.Error(err))
+		panic(err)
 	}
 	defer cmClient.Close()
 
@@ -218,8 +223,7 @@ func parseMetrics(payload []byte) (latency float64, connections int64, err error
 				name := metric.Name()
 
 				// Extract the metric values based on type
-				switch metric.Type() {
-				case pmetric.MetricTypeGauge:
+				if metric.Type() == pmetric.MetricTypeGauge {
 					gauge := metric.Gauge()
 					if gauge.DataPoints().Len() > 0 {
 						dp := gauge.DataPoints().At(0)

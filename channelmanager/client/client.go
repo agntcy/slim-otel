@@ -197,6 +197,8 @@ func generateMessageID() uint64 {
 	var msgIDBytes [8]byte
 	if _, err := rand.Read(msgIDBytes[:]); err != nil {
 		// Fallback to timestamp-based ID if random generation fails
+		// UnixNano returns a positive int64 (nanoseconds since epoch), safe to convert
+		// #nosec G115 -- UnixNano is always positive, no overflow possible
 		return uint64(time.Now().UnixNano())
 	}
 	return binary.BigEndian.Uint64(msgIDBytes[:])

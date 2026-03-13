@@ -30,7 +30,9 @@ func main() {
 	ctx := context.Background()
 
 	log := zap.Must(zap.NewDevelopment())
-	defer log.Sync()
+	defer func() {
+		_ = log.Sync() // Ignore error on cleanup
+	}()
 
 	// Create resource with service information
 	res, err := resource.New(ctx,
@@ -57,7 +59,7 @@ func main() {
 		SharedSecret: "a-very-long-shared-secret-0123456789-abcdefg",
 	}
 
-	// Create the SLIM exporter
+	// Create the SLIM exporter (this will connect to the SLIM node and register the app)
 	exporter, err := slimsdkexporter.New(ctx, config)
 	if err != nil {
 		log.Error("failed to create SLIM exporter", zap.Error(err))
@@ -118,10 +120,10 @@ func main() {
 
 	// Variables to hold current metric values
 	var currentConnections int64 = 7
-	var currentLatency float64 = 55.0
+	currentLatency := 55.0
 
 	// Register callbacks to report current values
-	_, err = meter.RegisterCallback(func(ctx context.Context, o metric.Observer) error {
+	_, err = meter.RegisterCallback(func(_ context.Context, o metric.Observer) error {
 		o.ObserveInt64(activeConnections, currentConnections)
 		o.ObserveFloat64(processingLatency, currentLatency)
 		return nil
@@ -146,7 +148,9 @@ func main() {
 
 			if elapsed < 20 {
 				// Phase 1: Normal operation (0-20 seconds)
+				// #nosec G404 -- Using weak random for demo telemetry generation, not security-sensitive
 				currentConnections = 50 + int64(rand.IntN(10)) - 5 // 45-54 connections
+				// #nosec G404 -- Using weak random for demo telemetry generation, not security-sensitive
 				currentLatency = 50 + float64(rand.IntN(30))
 			} else {
 				// Phase 2: Increased load (20+ seconds)

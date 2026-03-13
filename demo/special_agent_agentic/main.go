@@ -52,17 +52,21 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer log.Sync()
+	defer func() {
+		_ = log.Sync() // Ignore error on cleanup
+	}()
 
 	// Check for Azure API key and endpoint
 	apiKey := os.Getenv("AZURE_API_KEY")
 	if apiKey == "" {
-		log.Fatal("AZURE_API_KEY environment variable is required")
+		log.Error("AZURE_API_KEY environment variable is required")
+		panic("AZURE_API_KEY environment variable is required")
 	}
 
 	azureEndpoint := os.Getenv("AZURE_OPENAI_ENDPOINT")
 	if azureEndpoint == "" {
-		log.Fatal("AZURE_OPENAI_ENDPOINT environment variable is required")
+		log.Error("AZURE_OPENAI_ENDPOINT environment variable is required")
+		panic("AZURE_OPENAI_ENDPOINT environment variable is required")
 	}
 
 	// Get deployment name (model name in Azure)
@@ -82,13 +86,15 @@ func main() {
 		Address: slimNodeAddress,
 	})
 	if err != nil {
-		log.Fatal("failed to connect to SLIM node", zap.Error(err))
+		log.Error("failed to connect to SLIM node", zap.Error(err))
+		panic(err)
 	}
 
 	// Step 2: Create SLIM app
 	app, err := slimcommon.CreateApp(specialAgentAppName, sharedSecret, connID, slim.DirectionBidirectional)
 	if err != nil {
-		log.Fatal("failed to create SLIM app", zap.Error(err))
+		log.Error("failed to create SLIM app", zap.Error(err))
+		panic(err)
 	}
 	defer app.Destroy()
 
@@ -114,73 +120,23 @@ func main() {
 			log.Info("Shutting down special agent")
 			return
 		default:
-			// Wait for invitation and join session
-			sessionTimeout := time.Second * 1
-			var session *slim.Session
-
 			log.Info("⏳ Waiting for incoming telemetry for a new analysis...")
-		inviteLoop:
-			for {
-				select {
-				case <-runCtx.Done():
-					log.Info("Shutting down special agent while waiting for invitation")
-					return
-				default:
-					var err error
-					session, err = app.ListenForSession(&sessionTimeout)
-					if err != nil {
-						// Timeout is expected while waiting for invitation
-						continue
-					}
-					// Successfully received invitation
-					break inviteLoop
-				}
+
+			// Wait for invitation and join session
+			session, err := waitForInvitation(runCtx, app, log)
+			if err != nil {
+				// Context canceled, exit
+				return
 			}
 
 			log.Info("✅ Joined telemetry channel - starting analysis...")
-
-			// Collect metrics for analysis window
-			var snapshots []MetricSnapshot
-			startTime := time.Now()
-			msgTimeout := time.Second * 2
-
 			log.Info("📊 Collecting metrics...", zap.Float64("duration_sec", analysisWindowSec))
 
-		collectLoop:
-			for {
-				select {
-				case <-runCtx.Done():
-					log.Info("Shutting down special agent during analysis")
-					return
-
-				default:
-					elapsed := time.Since(startTime).Seconds()
-					if elapsed >= analysisWindowSec {
-						// Analysis window complete
-						break collectLoop
-					}
-
-					// Receive message from SLIM channel
-					msg, err := session.GetMessage(&msgTimeout)
-					if err != nil {
-						// Timeout is expected while waiting for messages
-						continue
-					}
-
-					// Parse the OTLP metrics
-					latency, connections, err := parseMetrics(msg.Payload)
-					if err != nil {
-						log.Warn("failed to parse metrics", zap.Error(err))
-						continue
-					}
-
-					// Store snapshot
-					snapshots = append(snapshots, MetricSnapshot{
-						latency:     latency,
-						connections: connections,
-						timestamp:   time.Now(),
-					})
-				}
+			// Collect metrics for analysis window
+			snapshots, err := collectMetrics(runCtx, session, log)
+			if err != nil {
+				// Context canceled, exit
+				return
 			}
 
 			// Analyze data with AI
@@ -188,7 +144,7 @@ func main() {
 				log.Error("No metrics collected during analysis window")
 				// Send completion message anyway
 				completionMsg := []byte("ANALYSIS_COMPLETE")
-				if _, err := session.Publish(completionMsg, nil, nil); err != nil {
+				if _, err = session.Publish(completionMsg, nil, nil); err != nil {
 					log.Error("failed to send completion message", zap.Error(err))
 				}
 				continue
@@ -197,11 +153,11 @@ func main() {
 			log.Info("🧠 Analyzing with AI...", zap.Int("samples", len(snapshots)))
 
 			// Analyze with Azure OpenAI
-			diagnosis, err := analyzeWithAI(ctx, client, deploymentName, snapshots, log)
+			diagnosis, err := analyzeWithAI(ctx, client, deploymentName, snapshots)
 			if err != nil {
 				log.Error("AI analysis failed", zap.Error(err))
 				log.Info("Falling back to basic analysis")
-				printBasicDiagnosis(log, snapshots)
+				printBasicDiagnosis(snapshots)
 			} else {
 				printAIDiagnosis(diagnosis)
 			}
@@ -216,13 +172,85 @@ func main() {
 			}
 
 			// Wait for message to be sent
-			handler.Wait()
+			if err := handler.Wait(); err != nil {
+				log.Error("failed to wait for message send", zap.Error(err))
+			}
+		}
+	}
+}
+
+// waitForInvitation waits for a session invitation and returns the session
+// Returns error only if context is canceled
+func waitForInvitation(ctx context.Context, app *slim.App, log *zap.Logger) (*slim.Session, error) {
+	sessionTimeout := time.Second * 1
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info("Shutting down special agent while waiting for invitation")
+			return nil, ctx.Err()
+		default:
+			session, err := app.ListenForSession(&sessionTimeout)
+			if err != nil {
+				// Timeout is expected while waiting for invitation
+				continue
+			}
+			// Successfully received invitation
+			return session, nil
+		}
+	}
+}
+
+// collectMetrics collects metric snapshots for the analysis window
+// Returns error only if context is canceled
+func collectMetrics(ctx context.Context, session *slim.Session, log *zap.Logger) ([]MetricSnapshot, error) {
+	var snapshots []MetricSnapshot
+	startTime := time.Now()
+	msgTimeout := time.Second * 2
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info("Shutting down special agent during analysis")
+			return nil, ctx.Err()
+		default:
+			elapsed := time.Since(startTime).Seconds()
+			if elapsed >= analysisWindowSec {
+				// Analysis window complete
+				return snapshots, nil
+			}
+
+			// Receive message from SLIM channel
+			msg, err := session.GetMessage(&msgTimeout)
+			if err != nil {
+				// Timeout is expected while waiting for messages
+				continue
+			}
+
+			// Parse the OTLP metrics
+			latency, connections, err := parseMetrics(msg.Payload)
+			if err != nil {
+				log.Warn("failed to parse metrics", zap.Error(err))
+				continue
+			}
+
+			// Store snapshot
+			snapshots = append(snapshots, MetricSnapshot{
+				latency:     latency,
+				connections: connections,
+				timestamp:   time.Now(),
+			})
 		}
 	}
 }
 
 // analyzeWithAI sends telemetry data to Azure OpenAI for intelligent root cause analysis
-func analyzeWithAI(ctx context.Context, client *openai.Client, deploymentName string, snapshots []MetricSnapshot, log *zap.Logger) (string, error) {
+func analyzeWithAI(
+	ctx context.Context,
+	client *openai.Client,
+	deploymentName string,
+	snapshots []MetricSnapshot,
+) (string, error) {
 	// Calculate basic statistics
 	var sumLatency, sumConns float64
 	var maxLatency float64
@@ -260,7 +288,8 @@ func analyzeWithAI(ctx context.Context, client *openai.Client, deploymentName st
 	}
 
 	// Create a detailed prompt for the AI
-	prompt := fmt.Sprintf(`You are an expert Site Reliability Engineer analyzing telemetry data from a production application.
+	prompt := fmt.Sprintf(
+		`You are an expert Site Reliability Engineer analyzing telemetry data from a production application.
 
 TELEMETRY DATA ANALYSIS:
 - Collection Period: %.1f seconds
@@ -320,8 +349,9 @@ Be concise but thorough. Focus on actionable insights.`,
 			Model: deploymentName,
 			Messages: []openai.ChatCompletionMessage{
 				{
-					Role:    openai.ChatMessageRoleSystem,
-					Content: "You are an expert SRE and performance analyst. Provide clear, actionable diagnoses based on telemetry data.",
+					Role: openai.ChatMessageRoleSystem,
+					Content: "You are an expert SRE and performance analyst. " +
+						"Provide clear, actionable diagnoses based on telemetry data.",
 				},
 				{
 					Role:    openai.ChatMessageRoleUser,
@@ -371,7 +401,7 @@ func printAIDiagnosis(diagnosis string) {
 }
 
 // printBasicDiagnosis is a fallback when AI analysis fails
-func printBasicDiagnosis(log *zap.Logger, snapshots []MetricSnapshot) {
+func printBasicDiagnosis(snapshots []MetricSnapshot) {
 	var sumLatency, sumConns float64
 	var maxLatency float64
 	var maxConnections int64
@@ -425,8 +455,7 @@ func parseMetrics(payload []byte) (latency float64, connections int64, err error
 				name := metric.Name()
 
 				// Extract the metric values based on type
-				switch metric.Type() {
-				case pmetric.MetricTypeGauge:
+				if metric.Type() == pmetric.MetricTypeGauge {
 					gauge := metric.Gauge()
 					if gauge.DataPoints().Len() > 0 {
 						dp := gauge.DataPoints().At(0)

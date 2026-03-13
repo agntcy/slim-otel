@@ -23,7 +23,7 @@ const (
 	slimNodeAddress     = "http://127.0.0.1:46357"
 	sharedSecret        = "a-very-long-shared-secret-0123456789-abcdefg"
 	monitorAppName      = "demo/telemetry/monitor_agent"
-	specialAgentAppName = "demo/telemetry/special_agent_agentic" //"demo/telemetry/special_agent"
+	specialAgentAppName = "demo/telemetry/special_agent_agentic" // "demo/telemetry/special_agent"
 	channelName         = "demo/telemetry/channel"
 	monitoredAppName    = "demo/telemetry/monitored_app_metrics"
 	collectorName       = "demo/telemetry/collector"
@@ -47,33 +47,34 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer log.Sync()
+	defer func() {
+		_ = log.Sync() // Ignore error on cleanup
+	}()
 
 	log.Info("🤖 Starting Monitor Agent")
 
 	// Step 1: Initialize and connect to SLIM node
-	//log.Info("Connecting to SLIM node", zap.String("address", slimNodeAddress))
 	connID, err := slimcommon.InitAndConnect(slimcommon.ConnectionConfig{
 		Address: slimNodeAddress,
 	})
 	if err != nil {
-		log.Fatal("failed to connect to SLIM node", zap.Error(err))
+		log.Error("failed to connect to SLIM node", zap.Error(err))
+		panic(err)
 	}
-	//log.Info("Connection to SLIM node established")
 
 	// Step 2: Create SLIM app
 	app, err := slimcommon.CreateApp(monitorAppName, sharedSecret, connID, slim.DirectionRecv)
 	if err != nil {
-		log.Fatal("failed to create SLIM app", zap.Error(err))
+		log.Error("failed to create SLIM app", zap.Error(err))
+		panic(err)
 	}
 	defer app.Destroy()
 
 	// Step 3: Create a GROUP session (channel)
-	//log.Info("Creating telemetry channel", zap.String("channel", channelName))
-
 	channelNameParsed, err := slimcommon.SplitID(channelName)
 	if err != nil {
-		log.Fatal("failed to parse channel name", zap.Error(err))
+		log.Error("failed to parse channel name", zap.Error(err))
+		panic(err)
 	}
 
 	interval := time.Millisecond * 1000
@@ -88,49 +89,49 @@ func main() {
 
 	session, err := app.CreateSessionAndWait(sessionConfig, channelNameParsed)
 	if err != nil {
-		log.Fatal("failed to create session", zap.Error(err))
+		log.Error("failed to create session", zap.Error(err))
+		panic(err)
 	}
-	//log.Info("Channel created successfully")
 
 	// Step 4: Invite the monitored app to the channel
-	//log.Info("Add monitored app to channel", zap.String("app", monitoredAppName))
-
 	monitoredAppNameParsed, err := slimcommon.SplitID(monitoredAppName)
 	if err != nil {
-		log.Fatal("failed to parse monitored app name", zap.Error(err))
+		log.Error("failed to parse monitored app name", zap.Error(err))
+		panic(err)
 	}
 
 	// Set route for the participant (needed for invitation)
 	err = app.SetRoute(monitoredAppNameParsed, connID)
 	if err != nil {
-		log.Fatal("failed to set route for monitored app", zap.Error(err))
+		log.Error("failed to set route for monitored app", zap.Error(err))
+		panic(err)
 	}
 
 	err = session.InviteAndWait(monitoredAppNameParsed)
 	if err != nil {
-		log.Fatal("failed to invite monitored app", zap.Error(err))
+		log.Error("failed to invite monitored app", zap.Error(err))
+		panic(err)
 	}
-	//log.Info("✅ Monitored app invited to channel")
 
 	// Step 5: Invite the collector to the channel so it receives metrics for Grafana
-	//log.Info("Inviting collector to channel", zap.String("collector", collectorName))
-
 	collectorNameParsed, err := slimcommon.SplitID(collectorName)
 	if err != nil {
-		log.Fatal("failed to parse collector name", zap.Error(err))
+		log.Error("failed to parse collector name", zap.Error(err))
+		panic(err)
 	}
 
 	// Set route for the collector
 	err = app.SetRoute(collectorNameParsed, connID)
 	if err != nil {
-		log.Fatal("failed to set route for collector", zap.Error(err))
+		log.Error("failed to set route for collector", zap.Error(err))
+		panic(err)
 	}
 
 	err = session.InviteAndWait(collectorNameParsed)
 	if err != nil {
-		log.Fatal("failed to invite collector", zap.Error(err))
+		log.Error("failed to invite collector", zap.Error(err))
+		panic(err)
 	}
-	//log.Info("✅ Collector invited to channel - metrics will flow to Grafana")
 
 	// Set up signal handling for graceful shutdown
 	sigCh := make(chan os.Signal, 1)
@@ -159,7 +160,8 @@ func main() {
 	// Parse special agent name once
 	specialAgentNameParsed, err := slimcommon.SplitID(specialAgentAppName)
 	if err != nil {
-		log.Fatal("failed to parse special agent name", zap.Error(err))
+		log.Error("failed to parse special agent name", zap.Error(err))
+		panic(err)
 	}
 
 	// Step 5 & 6: Receive and parse metrics, check threshold
@@ -187,9 +189,7 @@ func main() {
 					// Remove special agent from the session
 					if removeErr := session.RemoveAndWait(specialAgentNameParsed); removeErr != nil {
 						log.Error("failed to remove special agent", zap.Error(removeErr))
-					} //else {
-					//	log.Info("✅ Special agent removed successfully")
-					//}
+					}
 
 					// Reset flags so we can handle future alerts
 					// for the demo don't rest the flags to avoid for a flapping scenario
@@ -220,9 +220,6 @@ func main() {
 					// Fire alert after collecting required samples
 					if samplesOverThreshold >= samplesRequired {
 						log.Error("🚨 Latency threshold consistently exceeded!")
-						//zap.Float64("current_latency_ms", latency),
-						//zap.Float64("threshold_ms", latencyThreshold),
-						//zap.Int("samples_over_threshold", samplesOverThreshold))
 						alertFired = true
 
 						// Invite the special agent to the channel
@@ -239,7 +236,6 @@ func main() {
 							if inviteErr := session.InviteAndWait(specialAgentNameParsed); inviteErr != nil {
 								log.Error("failed to invite special agent", zap.Error(inviteErr))
 							} else {
-								//log.Info("✅ Special agent invited successfully")
 								specialAgentInvited = true
 							}
 						}()
@@ -280,8 +276,7 @@ func parseMetrics(payload []byte) (latency float64, connections int64, err error
 				name := metric.Name()
 
 				// Extract the metric values based on type
-				switch metric.Type() {
-				case pmetric.MetricTypeGauge:
+				if metric.Type() == pmetric.MetricTypeGauge {
 					gauge := metric.Gauge()
 					if gauge.DataPoints().Len() > 0 {
 						dp := gauge.DataPoints().At(0)
