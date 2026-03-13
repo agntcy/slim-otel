@@ -1,6 +1,6 @@
 module github.com/agntcy/slim/otel/channelmanager
 
-go 1.26.0
+go 1.26.1
 
 replace github.com/agntcy/slim/otel => ../
 

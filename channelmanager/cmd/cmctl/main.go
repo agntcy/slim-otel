@@ -7,7 +7,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"os"
 	"time"
 
 	"go.uber.org/zap"
@@ -77,7 +76,7 @@ func main() {
 	// Check if command is provided
 	if command == "" {
 		printUsage()
-		os.Exit(1)
+		return
 	}
 
 	// Connect to the channel manager using the client library
