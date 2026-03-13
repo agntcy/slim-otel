@@ -1,0 +1,22 @@
+# Copyright AGNTCY Contributors (https://github.com/agntcy)
+# SPDX-License-Identifier: Apache-2.0
+
+channel-manager:
+  # address of the SLIM node where to connect
+  connection-config:
+    address: "http://127.0.0.1:46357"
+  # grpc service to get commands
+  service-address: "127.0.0.1:46358"
+  # name of the channel manager to be used in SLIM channels
+  local-name: "demo/telemetry/channel-manager"
+  # shared secret used for MLS and identity provider
+  shared-secret: "a-very-long-shared-secret-0123456789-abcdefg"
+
+# channels to create
+channels:
+  - name: "demo/telemetry/channel"
+    participants:
+      - "demo/telemetry/monitor_agent"
+      - "demo/telemetry/monitored_app_metrics"
+      - "demo/telemetry/collector"
+    mls-enabled: true
