@@ -23,7 +23,7 @@ const (
 	slimNodeAddress     = "http://127.0.0.1:46357"
 	sharedSecret        = "a-very-long-shared-secret-0123456789-abcdefg"
 	monitorAppName      = "demo/telemetry/monitor_agent"
-	specialAgentAppName = "demo/telemetry/special_agent"
+	specialAgentAppName = "demo/telemetry/special_agent_agentic" //"demo/telemetry/special_agent"
 	channelName         = "demo/telemetry/channel"
 	monitoredAppName    = "demo/telemetry/monitored_app_metrics"
 	collectorName       = "demo/telemetry/collector"
