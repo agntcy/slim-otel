@@ -7,8 +7,8 @@ replace github.com/agntcy/slim-otel/sdkexporter => ../
 replace github.com/agntcy/slim-otel => ../../
 
 require (
-	github.com/agntcy/slim-otel v0.0.0
-	github.com/agntcy/slim-otel/sdkexporter v0.0.0-00010101000000-000000000000
+	github.com/agntcy/slim-otel v0.2.0
+	github.com/agntcy/slim-otel/sdkexporter v0.2.0
 	go.opentelemetry.io/otel v1.40.0
 	go.opentelemetry.io/otel/log v0.16.0
 	go.opentelemetry.io/otel/metric v1.40.0
