@@ -15,6 +15,7 @@ import (
 	slim "github.com/agntcy/slim-bindings-go"
 	slimcommon "github.com/agntcy/slim-otel/internal/slim"
 	"github.com/agntcy/slim-otel/sdkexporter/internal/otlp/logtransform"
+	"github.com/agntcy/slim-otel/slimconfig"
 )
 
 // LogExporter exports logs to SLIM

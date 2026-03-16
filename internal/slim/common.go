@@ -63,16 +63,6 @@ func InitAndConnect(
 	return connID, nil
 }
 
-type SignalType string
-
-// SignalType represents the type of signal to be exported
-const (
-	SignalTraces  SignalType = "traces"
-	SignalMetrics SignalType = "metrics"
-	SignalLogs    SignalType = "logs"
-	SignalUnknown SignalType = "unknown"
-)
-
 // SplitID splits an ID of form organization/namespace/application (or channel).
 //
 // Args:

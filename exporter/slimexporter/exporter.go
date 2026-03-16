@@ -16,6 +16,7 @@ import (
 
 	slim "github.com/agntcy/slim-bindings-go"
 	slimcommon "github.com/agntcy/slim-otel/internal/slim"
+	"github.com/agntcy/slim-otel/slimconfig"
 )
 
 const (
@@ -27,7 +28,7 @@ const (
 // slimExporter implements the exporter for traces, metrics, and logs
 type slimExporter struct {
 	config     *Config
-	signalType slimcommon.SignalType
+	signalType slimconfig.SignalType
 	app        *slim.App
 	connID     uint64
 	sessions   *slimcommon.SessionsList
@@ -39,7 +40,7 @@ type slimExporter struct {
 func CreateApp(
 	ctx context.Context,
 	cfg *Config,
-	signalType slimcommon.SignalType,
+	signalType slimconfig.SignalType,
 ) (*slim.App, uint64, error) {
 	logger := slimcommon.LoggerFromContextOrDefault(ctx)
 	connID, err := slimcommon.InitAndConnect(*cfg.ConnectionConfig)
@@ -168,7 +169,7 @@ func listenForSessions(ctx context.Context, e *slimExporter) {
 }
 
 // newSlimExporter creates a new instance of the slim exporter
-func newSlimExporter(ctx context.Context, cfg *Config, signalType slimcommon.SignalType) (*slimExporter, error) {
+func newSlimExporter(ctx context.Context, cfg *Config, signalType slimconfig.SignalType) (*slimExporter, error) {
 	app, connID, err := CreateApp(ctx, cfg, signalType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create/connect app: %w", err)

@@ -19,6 +19,7 @@ import (
 
 	slim "github.com/agntcy/slim-bindings-go"
 	slimcommon "github.com/agntcy/slim-otel/internal/slim"
+	"github.com/agntcy/slim-otel/slimconfig"
 )
 
 const (
@@ -67,7 +68,7 @@ func newSlimReceiver(
 		config:          cfg,
 		app:             nil,
 		connID:          0,
-		sessions:        slimcommon.NewSessionsList(slimcommon.SignalUnknown),
+		sessions:        slimcommon.NewSessionsList(slimconfig.SignalUnknown),
 		tracesConsumer:  nil,
 		metricsConsumer: nil,
 		logsConsumer:    nil,

@@ -19,6 +19,7 @@ import (
 	slim "github.com/agntcy/slim-bindings-go"
 	channelmanager "github.com/agntcy/slim-otel/channelmanager/internal/channelmanager"
 	slimcommon "github.com/agntcy/slim-otel/internal/slim"
+	"github.com/agntcy/slim-otel/slimconfig"
 )
 
 type channelManagerApp struct {
@@ -72,7 +73,7 @@ func main() {
 		cfg:      cfg,
 		app:      app,
 		connID:   connID,
-		channels: slimcommon.NewSessionsList(slimcommon.SignalUnknown),
+		channels: slimcommon.NewSessionsList(slimconfig.SignalUnknown),
 	}
 
 	// Set up signal handling for Ctrl+C

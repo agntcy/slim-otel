@@ -23,8 +23,8 @@ func TestSlimExporter_PublishData(t *testing.T) {
 					Address: "http://test-endpoint",
 				},
 			},
-			signalType: slimcommon.SignalTraces,
-			sessions:   slimcommon.NewSessionsList(slimcommon.SignalTraces),
+			signalType: slimconfig.SignalTraces,
+			sessions:   slimcommon.NewSessionsList(slimconfig.SignalTraces),
 		}
 
 		data := []byte("test trace data")
@@ -42,8 +42,8 @@ func TestSlimExporter_PublishData(t *testing.T) {
 					Address: "http://test-endpoint",
 				},
 			},
-			signalType: slimcommon.SignalTraces,
-			sessions:   slimcommon.NewSessionsList(slimcommon.SignalTraces),
+			signalType: slimconfig.SignalTraces,
+			sessions:   slimcommon.NewSessionsList(slimconfig.SignalTraces),
 		}
 
 		err := exporter.publishData(t.Context(), nil)
@@ -64,8 +64,8 @@ func TestSlimExporter_PushTraces(t *testing.T) {
 					Address: "http://test-endpoint",
 				},
 			},
-			signalType: slimcommon.SignalTraces,
-			sessions:   slimcommon.NewSessionsList(slimcommon.SignalTraces),
+			signalType: slimconfig.SignalTraces,
+			sessions:   slimcommon.NewSessionsList(slimconfig.SignalTraces),
 		}
 
 		td := ptrace.NewTraces()
@@ -84,8 +84,8 @@ func TestSlimExporter_PushTraces(t *testing.T) {
 					Address: "http://test-endpoint",
 				},
 			},
-			signalType: slimcommon.SignalTraces,
-			sessions:   slimcommon.NewSessionsList(slimcommon.SignalTraces),
+			signalType: slimconfig.SignalTraces,
+			sessions:   slimcommon.NewSessionsList(slimconfig.SignalTraces),
 		}
 
 		td := ptrace.NewTraces()
@@ -111,8 +111,8 @@ func TestSlimExporter_PushMetrics(t *testing.T) {
 					Address: "http://test-endpoint",
 				},
 			},
-			signalType: slimcommon.SignalMetrics,
-			sessions:   slimcommon.NewSessionsList(slimcommon.SignalMetrics),
+			signalType: slimconfig.SignalMetrics,
+			sessions:   slimcommon.NewSessionsList(slimconfig.SignalMetrics),
 		}
 
 		md := pmetric.NewMetrics()
@@ -134,8 +134,8 @@ func TestSlimExporter_PushLogs(t *testing.T) {
 					Address: "http://test-endpoint",
 				},
 			},
-			signalType: slimcommon.SignalLogs,
-			sessions:   slimcommon.NewSessionsList(slimcommon.SignalLogs),
+			signalType: slimconfig.SignalLogs,
+			sessions:   slimcommon.NewSessionsList(slimconfig.SignalLogs),
 		}
 
 		ld := plog.NewLogs()

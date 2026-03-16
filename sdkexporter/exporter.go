@@ -16,6 +16,7 @@ import (
 
 	slim "github.com/agntcy/slim-bindings-go"
 	slimcommon "github.com/agntcy/slim-otel/internal/slim"
+	"github.com/agntcy/slim-otel/slimconfig"
 )
 
 const (
@@ -90,14 +91,14 @@ func New(_ context.Context, config Config, opts ...Option) (*Exporter, error) {
 
 	metricExporter := &MetricExporter{
 		app:                 metricApp,
-		sessions:            slimcommon.NewSessionsList(slimcommon.SignalMetrics),
+		sessions:            slimcommon.NewSessionsList(slimconfig.SignalMetrics),
 		temporalitySelector: sdkmetric.DefaultTemporalitySelector,
 		aggregationSelector: sdkmetric.DefaultAggregationSelector,
 	}
 
 	logExporter := &LogExporter{
 		app:      logApp,
-		sessions: slimcommon.NewSessionsList(slimcommon.SignalLogs),
+		sessions: slimcommon.NewSessionsList(slimconfig.SignalLogs),
 	}
 
 	// Apply options to metric exporter

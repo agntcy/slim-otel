@@ -7,16 +7,17 @@ import (
 	"sync"
 	"testing"
 
+	slimconfig "github.com/agntcy/slim-otel/slimconfig"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // TestNewSessionsList tests creating a new SessionsList
 func TestNewSessionsList(t *testing.T) {
-	ss := NewSessionsList(SignalTraces)
+	ss := NewSessionsList(slimconfig.SignalTraces)
 
 	assert.NotNil(t, ss)
-	assert.Equal(t, SignalTraces, ss.signalType)
+	assert.Equal(t, slimconfig.SignalTraces, ss.signalType)
 	assert.NotNil(t, ss.sessionsByID)
 	assert.NotNil(t, ss.sessionsByName)
 	assert.Equal(t, 0, len(ss.sessionsByID))
@@ -26,7 +27,7 @@ func TestNewSessionsList(t *testing.T) {
 // TestSessionsList_GetSessionByID tests getting sessions by ID
 func TestSessionsList_GetSessionByID(t *testing.T) {
 	t.Run("get non-existing session", func(t *testing.T) {
-		ss := NewSessionsList(SignalTraces)
+		ss := NewSessionsList(slimconfig.SignalTraces)
 
 		_, err := ss.GetSessionByID(t.Context(), 1)
 		require.Error(t, err)
@@ -35,7 +36,7 @@ func TestSessionsList_GetSessionByID(t *testing.T) {
 
 	t.Run("get from nil sessions map", func(t *testing.T) {
 		ss := &SessionsList{
-			signalType:   SignalTraces,
+			signalType:   slimconfig.SignalTraces,
 			sessionsByID: nil,
 		}
 
@@ -48,7 +49,7 @@ func TestSessionsList_GetSessionByID(t *testing.T) {
 // TestSessionsList_GetSessionByName tests getting sessions by name
 func TestSessionsList_GetSessionByName(t *testing.T) {
 	t.Run("get non-existing session", func(t *testing.T) {
-		ss := NewSessionsList(SignalMetrics)
+		ss := NewSessionsList(slimconfig.SignalMetrics)
 
 		_, err := ss.GetSessionByName(t.Context(), "test-session")
 		require.Error(t, err)
@@ -57,7 +58,7 @@ func TestSessionsList_GetSessionByName(t *testing.T) {
 
 	t.Run("get from nil sessions map", func(t *testing.T) {
 		ss := &SessionsList{
-			signalType:     SignalMetrics,
+			signalType:     slimconfig.SignalMetrics,
 			sessionsByName: nil,
 		}
 
@@ -70,7 +71,7 @@ func TestSessionsList_GetSessionByName(t *testing.T) {
 // TestSessionsList_RemoveSessionByID tests removing sessions by ID
 func TestSessionsList_RemoveSessionByID(t *testing.T) {
 	t.Run("remove non-existing session", func(t *testing.T) {
-		ss := NewSessionsList(SignalLogs)
+		ss := NewSessionsList(slimconfig.SignalLogs)
 
 		_, err := ss.RemoveSessionByID(t.Context(), 1)
 		require.Error(t, err)
@@ -79,7 +80,7 @@ func TestSessionsList_RemoveSessionByID(t *testing.T) {
 
 	t.Run("remove from nil sessions map", func(t *testing.T) {
 		ss := &SessionsList{
-			signalType:   SignalLogs,
+			signalType:   slimconfig.SignalLogs,
 			sessionsByID: nil,
 		}
 
@@ -92,7 +93,7 @@ func TestSessionsList_RemoveSessionByID(t *testing.T) {
 // TestSessionsList_RemoveSessionByName tests removing sessions by name
 func TestSessionsList_RemoveSessionByName(t *testing.T) {
 	t.Run("remove non-existing session", func(t *testing.T) {
-		ss := NewSessionsList(SignalTraces)
+		ss := NewSessionsList(slimconfig.SignalTraces)
 
 		_, err := ss.RemoveSessionByName(t.Context(), "test-session")
 		require.Error(t, err)
@@ -101,7 +102,7 @@ func TestSessionsList_RemoveSessionByName(t *testing.T) {
 
 	t.Run("remove from nil sessions map", func(t *testing.T) {
 		ss := &SessionsList{
-			signalType:     SignalTraces,
+			signalType:     slimconfig.SignalTraces,
 			sessionsByName: nil,
 		}
 
@@ -114,7 +115,7 @@ func TestSessionsList_RemoveSessionByName(t *testing.T) {
 // TestSessionsList_ListSessionNames tests listing session names
 func TestSessionsList_ListSessionNames(t *testing.T) {
 	t.Run("list from empty sessions", func(t *testing.T) {
-		ss := NewSessionsList(SignalMetrics)
+		ss := NewSessionsList(slimconfig.SignalMetrics)
 
 		names := ss.ListSessionNames(t.Context())
 		assert.Equal(t, 0, len(names))
@@ -122,7 +123,7 @@ func TestSessionsList_ListSessionNames(t *testing.T) {
 
 	t.Run("list from nil sessions map", func(t *testing.T) {
 		ss := &SessionsList{
-			signalType:   SignalMetrics,
+			signalType:   slimconfig.SignalMetrics,
 			sessionsByID: nil,
 		}
 
@@ -134,7 +135,7 @@ func TestSessionsList_ListSessionNames(t *testing.T) {
 // TestSessionsList_DeleteAll tests removing all sessions
 func TestSessionsList_DeleteAll(t *testing.T) {
 	t.Run("delete all with nil app does not delete sessions", func(t *testing.T) {
-		ss := NewSessionsList(SignalTraces)
+		ss := NewSessionsList(slimconfig.SignalTraces)
 
 		ss.DeleteAll(t.Context(), nil)
 
@@ -145,7 +146,7 @@ func TestSessionsList_DeleteAll(t *testing.T) {
 
 	t.Run("delete all with nil sessions map", func(t *testing.T) {
 		ss := &SessionsList{
-			signalType:   SignalMetrics,
+			signalType:   slimconfig.SignalMetrics,
 			sessionsByID: nil,
 		}
 
@@ -157,7 +158,7 @@ func TestSessionsList_DeleteAll(t *testing.T) {
 // TestSessionsList_PublishToAll tests publishing data to all sessions
 func TestSessionsList_PublishToAll(t *testing.T) {
 	t.Run("publish to all sessions with empty map", func(t *testing.T) {
-		ss := NewSessionsList(SignalLogs)
+		ss := NewSessionsList(slimconfig.SignalLogs)
 
 		data := []byte("test data")
 		closedSessions, err := ss.PublishToAll(t.Context(), data)
@@ -166,7 +167,7 @@ func TestSessionsList_PublishToAll(t *testing.T) {
 	})
 
 	t.Run("publish with nil data", func(t *testing.T) {
-		ss := NewSessionsList(SignalTraces)
+		ss := NewSessionsList(slimconfig.SignalTraces)
 
 		closedSessions, err := ss.PublishToAll(t.Context(), nil)
 
@@ -177,7 +178,7 @@ func TestSessionsList_PublishToAll(t *testing.T) {
 
 	t.Run("publish with nil sessions map", func(t *testing.T) {
 		ss := &SessionsList{
-			signalType:   SignalMetrics,
+			signalType:   slimconfig.SignalMetrics,
 			sessionsByID: nil,
 		}
 
@@ -192,7 +193,7 @@ func TestSessionsList_PublishToAll(t *testing.T) {
 // TestSessionsList_ConcurrentAccess tests concurrent access to SessionsList
 func TestSessionsList_ConcurrentAccess(t *testing.T) {
 	t.Run("concurrent operations", func(_ *testing.T) {
-		ss := NewSessionsList(SignalTraces)
+		ss := NewSessionsList(slimconfig.SignalTraces)
 		var wg sync.WaitGroup
 
 		// Concurrent RemoveSessionByID operations
@@ -236,7 +237,7 @@ func TestSessionsList_ConcurrentAccess(t *testing.T) {
 	})
 
 	t.Run("concurrent DeleteAll with nil app", func(t *testing.T) {
-		ss := NewSessionsList(SignalMetrics)
+		ss := NewSessionsList(slimconfig.SignalMetrics)
 		var wg sync.WaitGroup
 
 		// Test that concurrent calls don't cause race conditions or panics
@@ -255,7 +256,7 @@ func TestSessionsList_ConcurrentAccess(t *testing.T) {
 	})
 
 	t.Run("concurrent GetSessionById operations", func(_ *testing.T) {
-		ss := NewSessionsList(SignalLogs)
+		ss := NewSessionsList(slimconfig.SignalLogs)
 		var wg sync.WaitGroup
 
 		// Concurrent GetSessionById operations
@@ -271,7 +272,7 @@ func TestSessionsList_ConcurrentAccess(t *testing.T) {
 	})
 
 	t.Run("concurrent GetSessionByName operations", func(_ *testing.T) {
-		ss := NewSessionsList(SignalTraces)
+		ss := NewSessionsList(slimconfig.SignalTraces)
 		var wg sync.WaitGroup
 
 		// Concurrent GetSessionByName operations
