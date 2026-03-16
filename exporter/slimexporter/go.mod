@@ -1,4 +1,4 @@
-module github.com/agntcy/slim-otel/slimexporter
+module github.com/agntcy/slim-otel/exporter/slimexporter
 
 go 1.26.1
 
