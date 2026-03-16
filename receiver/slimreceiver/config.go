@@ -6,7 +6,7 @@ package slimreceiver
 import (
 	"errors"
 
-	slimcommon "github.com/agntcy/slim/otel/internal/slim"
+	slimcommon "github.com/agntcy/slim-otel/internal/slim"
 )
 
 // Config represents the receiver config settings in the Collector config.yaml

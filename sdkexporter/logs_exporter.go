@@ -13,8 +13,8 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	slim "github.com/agntcy/slim-bindings-go"
-	slimcommon "github.com/agntcy/slim/otel/internal/slim"
-	"github.com/agntcy/slim/otel/sdkexporter/internal/otlp/logtransform"
+	slimcommon "github.com/agntcy/slim-otel/internal/slim"
+	"github.com/agntcy/slim-otel/sdkexporter/internal/otlp/logtransform"
 )
 
 // LogExporter exports logs to SLIM

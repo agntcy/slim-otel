@@ -1,4 +1,4 @@
-module github.com/agntcy/slim/internal/tools
+module github.com/agntcy/slim-otel/internal/tools
 
 go 1.26.1
 

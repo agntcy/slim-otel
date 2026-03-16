@@ -17,8 +17,8 @@ import (
 	"google.golang.org/grpc"
 
 	slim "github.com/agntcy/slim-bindings-go"
-	channelmanager "github.com/agntcy/slim/otel/channelmanager/internal/channelmanager"
-	slimcommon "github.com/agntcy/slim/otel/internal/slim"
+	channelmanager "github.com/agntcy/slim-otel/channelmanager/internal/channelmanager"
+	slimcommon "github.com/agntcy/slim-otel/internal/slim"
 )
 
 type channelManagerApp struct {

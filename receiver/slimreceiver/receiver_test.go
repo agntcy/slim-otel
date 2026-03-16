@@ -15,7 +15,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 
-	slimcommon "github.com/agntcy/slim/otel/internal/slim"
+	slimcommon "github.com/agntcy/slim-otel/internal/slim"
 )
 
 func TestHandleReceivedTraces(t *testing.T) {
