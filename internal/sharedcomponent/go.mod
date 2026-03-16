@@ -1,4 +1,4 @@
-module github.com/open-telemetry/opentelemetry-collector-contrib/internal/sharedcomponent
+module github.com/agntcy/slim-otel/internal/sharedcomponent
 
 go 1.26.1
 
