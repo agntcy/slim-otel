@@ -6,9 +6,11 @@ replace github.com/agntcy/slim-otel/sdkexporter => ../
 
 replace github.com/agntcy/slim-otel => ../../
 
+replace github.com/agntcy/slim-otel/slimconfig => ../../slimconfig
+
 require (
-	github.com/agntcy/slim-otel v0.0.0
-	github.com/agntcy/slim-otel/sdkexporter v0.0.0-00010101000000-000000000000
+	github.com/agntcy/slim-otel/sdkexporter v0.2.0
+	github.com/agntcy/slim-otel/slimconfig v0.2.0
 	go.opentelemetry.io/otel v1.40.0
 	go.opentelemetry.io/otel/log v0.16.0
 	go.opentelemetry.io/otel/metric v1.40.0
@@ -21,6 +23,7 @@ require (
 
 require (
 	github.com/agntcy/slim-bindings-go v1.1.1 // indirect
+	github.com/agntcy/slim-otel v0.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect

@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	slim "github.com/agntcy/slim-bindings-go"
+	"github.com/agntcy/slim-otel/slimconfig"
 )
 
 // global variables for connection management
@@ -36,7 +37,7 @@ var (
 //	uint64: Connection ID for the established connection
 //	error: If initialization or connection fails
 func InitAndConnect(
-	cfg ConnectionConfig,
+	cfg slimconfig.ConnectionConfig,
 ) (uint64, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
