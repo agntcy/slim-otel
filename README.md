@@ -25,7 +25,7 @@ To run the SLIM OpenTelemetry Collector with the exporter configuration:
 task collector:run:exporter
 ```
 
-The collector will use the configuration defined in `exporter/slimexporter/example-exporter-collector-config.yaml`.
+The collector will use the configuration defined in `tests/config/base/exporter.yaml`.
 
 ### Run Receiver Locally
 
@@ -35,7 +35,7 @@ To run the SLIM OpenTelemetry Collector with the receiver configuration:
 task collector:run:receiver
 ```
 
-The collector will use the configuration defined in `receiver/slimreceiver/example-receiver-collector-config.yaml`.
+The collector will use the configuration defined in `tests/config/base/receiver.yaml`.
 
 ## Testing
 

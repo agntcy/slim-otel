@@ -6,7 +6,7 @@ package sdkexporter
 import (
 	"errors"
 
-	slimcommon "github.com/agntcy/slim/otel/internal/slim"
+	slimcommon "github.com/agntcy/slim-otel/internal/slim"
 )
 
 // Config defines configuration for the Slim exporter

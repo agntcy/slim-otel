@@ -11,8 +11,8 @@ import (
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/receiver"
 
-	sharedcomponent "github.com/agntcy/slim/otel/internal/sharedcomponent"
-	slimcommon "github.com/agntcy/slim/otel/internal/slim"
+	sharedcomponent "github.com/agntcy/slim-otel/internal/sharedcomponent"
+	slimcommon "github.com/agntcy/slim-otel/internal/slim"
 )
 
 const (

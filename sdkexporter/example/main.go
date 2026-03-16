@@ -25,8 +25,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
-	slimcommon "github.com/agntcy/slim/otel/internal/slim"
-	sdkexporter "github.com/agntcy/slim/otel/sdkexporter"
+	slimcommon "github.com/agntcy/slim-otel/internal/slim"
+	sdkexporter "github.com/agntcy/slim-otel/sdkexporter"
 )
 
 func strPtr(s string) *string {

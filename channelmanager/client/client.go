@@ -14,7 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	pb "github.com/agntcy/slim/otel/channelmanager/internal/channelmanager"
+	pb "github.com/agntcy/slim-otel/channelmanager/internal/channelmanager"
 )
 
 // Client provides a high-level interface to the Channel Manager service.

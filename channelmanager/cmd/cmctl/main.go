@@ -11,7 +11,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/agntcy/slim/otel/channelmanager/client"
+	"github.com/agntcy/slim-otel/channelmanager/client"
 )
 
 func printUsage() {

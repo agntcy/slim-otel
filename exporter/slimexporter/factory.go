@@ -11,7 +11,7 @@ import (
 	"go.opentelemetry.io/collector/exporter"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
 
-	slimcommon "github.com/agntcy/slim/otel/internal/slim"
+	slimcommon "github.com/agntcy/slim-otel/internal/slim"
 )
 
 const (

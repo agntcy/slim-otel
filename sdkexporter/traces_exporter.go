@@ -15,7 +15,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	slim "github.com/agntcy/slim-bindings-go"
-	slimcommon "github.com/agntcy/slim/otel/internal/slim"
+	slimcommon "github.com/agntcy/slim-otel/internal/slim"
 )
 
 // slimTraceClient implements otlptrace.Client.

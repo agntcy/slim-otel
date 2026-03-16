@@ -200,8 +200,8 @@ tasks:
       - echo "Compiling proto files..."
       - >
         PATH="{{.TOOLS_INSTALL_DIR}}:$(go env GOPATH)/bin:$PATH" protoc 
-        --go_out=. --go_opt=module=github.com/agntcy/slim/otel
-        --go-grpc_out=. --go-grpc_opt=module=github.com/agntcy/slim/otel
+        --go_out=. --go_opt=module=github.com/agntcy/slim-otel
+        --go-grpc_out=. --go-grpc_opt=module=github.com/agntcy/slim-otel
         channelmanager/api/commands.proto
       - echo "Proto files compiled successfully"
 

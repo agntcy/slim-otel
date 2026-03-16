@@ -1,4 +1,4 @@
-module github.com/agntcy/slim/otel
+module github.com/agntcy/slim-otel
 
 go 1.26.1
 
