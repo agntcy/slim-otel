@@ -9,6 +9,7 @@ replace github.com/agntcy/slim-otel => ../../
 replace github.com/agntcy/slim-otel/slimconfig => ../../slimconfig
 
 require (
+	github.com/agntcy/slim-otel v0.2.0
 	github.com/agntcy/slim-otel/sdkexporter v0.2.0
 	github.com/agntcy/slim-otel/slimconfig v0.2.0
 	go.opentelemetry.io/otel v1.40.0

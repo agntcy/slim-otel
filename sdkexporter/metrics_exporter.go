@@ -17,7 +17,6 @@ import (
 	slim "github.com/agntcy/slim-bindings-go"
 	slimcommon "github.com/agntcy/slim-otel/internal/slim"
 	"github.com/agntcy/slim-otel/sdkexporter/internal/otlp/metrictransform"
-	"github.com/agntcy/slim-otel/slimconfig"
 )
 
 // MetricExporter exports metrics to SLIM
