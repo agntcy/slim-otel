@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
 
 	slimcommon "github.com/agntcy/slim-otel/internal/slim"
+	"github.com/agntcy/slim-otel/slimconfig"
 )
 
 const (
@@ -51,7 +52,7 @@ func createTracesExporter(
 	}
 
 	ctx = slimcommon.InitContextWithLogger(ctx, set.Logger)
-	exp, err := newSlimExporter(ctx, exporterConfig, slimcommon.SignalTraces)
+	exp, err := newSlimExporter(ctx, exporterConfig, slimconfig.SignalTraces)
 	if err != nil {
 		return nil, fmt.Errorf("error creating the exporter: %w", err)
 	}
@@ -79,7 +80,7 @@ func createMetricsExporter(
 	}
 
 	ctx = slimcommon.InitContextWithLogger(ctx, set.Logger)
-	exp, err := newSlimExporter(ctx, exporterConfig, slimcommon.SignalMetrics)
+	exp, err := newSlimExporter(ctx, exporterConfig, slimconfig.SignalMetrics)
 	if err != nil {
 		return nil, fmt.Errorf("error creating the exporter: %w", err)
 	}
@@ -107,7 +108,7 @@ func createLogsExporter(
 	}
 
 	ctx = slimcommon.InitContextWithLogger(ctx, set.Logger)
-	exp, err := newSlimExporter(ctx, exporterConfig, slimcommon.SignalLogs)
+	exp, err := newSlimExporter(ctx, exporterConfig, slimconfig.SignalLogs)
 	if err != nil {
 		return nil, fmt.Errorf("error creating the exporter: %w", err)
 	}

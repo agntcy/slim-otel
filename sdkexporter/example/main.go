@@ -25,8 +25,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
-	slimcommon "github.com/agntcy/slim-otel/internal/slim"
-	sdkexporter "github.com/agntcy/slim-otel/sdkexporter"
+	"github.com/agntcy/slim-otel/sdkexporter"
+	"github.com/agntcy/slim-otel/slimconfig"
 )
 
 func strPtr(s string) *string {
@@ -65,10 +65,10 @@ func main() {
 
 	// Configure the SLIM exporter
 	config := sdkexporter.Config{
-		ConnectionConfig: &slimcommon.ConnectionConfig{
+		ConnectionConfig: &slimconfig.ConnectionConfig{
 			Address: "http://127.0.0.1:46357",
 		},
-		ExporterNames: &slimcommon.SignalNames{
+		ExporterNames: &slimconfig.SignalNames{
 			Traces:  strPtr("sdk/exporter/traces"),
 			Metrics: strPtr("sdk/exporter/metrics"),
 			Logs:    strPtr("sdk/exporter/logs"),

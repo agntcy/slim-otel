@@ -13,12 +13,13 @@ import (
 	"go.uber.org/zap"
 
 	slim "github.com/agntcy/slim-bindings-go"
+	"github.com/agntcy/slim-otel/slimconfig"
 )
 
 // SessionsList holds sessions related to a specific signal type
 type SessionsList struct {
 	mutex      sync.RWMutex
-	signalType SignalType
+	signalType slimconfig.SignalType
 	// map of session ID to Session
 	sessionsByID map[uint32]*slim.Session
 	// map of session Name to Session
@@ -29,7 +30,7 @@ type SessionsList struct {
 }
 
 // NewSessionsList creates a new SessionsList instance
-func NewSessionsList(signalType SignalType) *SessionsList {
+func NewSessionsList(signalType slimconfig.SignalType) *SessionsList {
 	return &SessionsList{
 		signalType:     signalType,
 		sessionsByID:   make(map[uint32]*slim.Session),

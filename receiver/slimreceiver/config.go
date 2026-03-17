@@ -6,13 +6,13 @@ package slimreceiver
 import (
 	"errors"
 
-	slimcommon "github.com/agntcy/slim-otel/internal/slim"
+	"github.com/agntcy/slim-otel/slimconfig"
 )
 
 // Config represents the receiver config settings in the Collector config.yaml
 type Config struct {
 	// Connection configuration for the SLIM server
-	ConnectionConfig *slimcommon.ConnectionConfig `mapstructure:"connection-config"`
+	ConnectionConfig *slimconfig.ConnectionConfig `mapstructure:"connection-config"`
 
 	// Receiver name for different signals
 	ReceiverName string `mapstructure:"receiver-name"`

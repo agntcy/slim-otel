@@ -10,7 +10,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	slimcommon "github.com/agntcy/slim-otel/internal/slim"
+	"github.com/agntcy/slim-otel/slimconfig"
 )
 
 // Config represents the channel manager configuration
@@ -25,7 +25,7 @@ type Config struct {
 // ManagerConfig defines configuration for the channel manager itself
 type ManagerConfig struct {
 	// Slim endpoint where to connect
-	ConnectionConfig *slimcommon.ConnectionConfig `yaml:"connection-config"`
+	ConnectionConfig *slimconfig.ConnectionConfig `yaml:"connection-config"`
 
 	// gRPC service address to listen for commands
 	GRPCAddress string `yaml:"service-address"`

@@ -4,10 +4,13 @@ go 1.26.1
 
 replace github.com/agntcy/slim-otel => ../
 
+replace github.com/agntcy/slim-otel/slimconfig => ../slimconfig
+
 replace github.com/agntcy/slim-otel/internal/sharedcomponent => ../internal/sharedcomponent
 
 require (
 	github.com/agntcy/slim-otel v0.2.0
+	github.com/agntcy/slim-otel/slimconfig v0.2.0
 	go.uber.org/zap v1.27.1
 	google.golang.org/grpc v1.78.0
 	google.golang.org/protobuf v1.36.11

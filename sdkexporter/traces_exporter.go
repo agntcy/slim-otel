@@ -16,6 +16,7 @@ import (
 
 	slim "github.com/agntcy/slim-bindings-go"
 	slimcommon "github.com/agntcy/slim-otel/internal/slim"
+	"github.com/agntcy/slim-otel/slimconfig"
 )
 
 // slimTraceClient implements otlptrace.Client.
@@ -66,7 +67,7 @@ func (c *slimTraceClient) UploadTraces(ctx context.Context, protoSpans []*tracep
 func newTraceExporter(app *slim.App) (*TraceExporter, error) {
 	client := &slimTraceClient{
 		app:      app,
-		sessions: slimcommon.NewSessionsList(slimcommon.SignalTraces),
+		sessions: slimcommon.NewSessionsList(slimconfig.SignalTraces),
 	}
 
 	// otlptrace.New calls client.Start and wraps it in an Exporter

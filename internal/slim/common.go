@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	slim "github.com/agntcy/slim-bindings-go"
+	"github.com/agntcy/slim-otel/slimconfig"
 )
 
 // global variables for connection management
@@ -36,7 +37,7 @@ var (
 //	uint64: Connection ID for the established connection
 //	error: If initialization or connection fails
 func InitAndConnect(
-	cfg ConnectionConfig,
+	cfg slimconfig.ConnectionConfig,
 ) (uint64, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -61,16 +62,6 @@ func InitAndConnect(
 	}
 	return connID, nil
 }
-
-type SignalType string
-
-// SignalType represents the type of signal to be exported
-const (
-	SignalTraces  SignalType = "traces"
-	SignalMetrics SignalType = "metrics"
-	SignalLogs    SignalType = "logs"
-	SignalUnknown SignalType = "unknown"
-)
 
 // SplitID splits an ID of form organization/namespace/application (or channel).
 //

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	slimcommon "github.com/agntcy/slim-otel/internal/slim"
+	"github.com/agntcy/slim-otel/slimconfig"
 )
 
 func TestConfigValidate(t *testing.T) {
@@ -23,7 +23,7 @@ func TestConfigValidate(t *testing.T) {
 		{
 			name: "valid configuration",
 			config: &Config{
-				ConnectionConfig: &slimcommon.ConnectionConfig{
+				ConnectionConfig: &slimconfig.ConnectionConfig{
 					Address: "http://localhost:46357",
 				},
 				ReceiverName: "agntcy/otel/test-receiver",
@@ -39,7 +39,7 @@ func TestConfigValidate(t *testing.T) {
 		{
 			name: "valid config with default endpoint address",
 			config: &Config{
-				ConnectionConfig: &slimcommon.ConnectionConfig{
+				ConnectionConfig: &slimconfig.ConnectionConfig{
 					Address: "http://127.0.0.1:46357",
 				},
 				ReceiverName: "agntcy/otel/test-receiver",
@@ -55,7 +55,7 @@ func TestConfigValidate(t *testing.T) {
 		{
 			name: "missing receiver name returns error",
 			config: &Config{
-				ConnectionConfig: &slimcommon.ConnectionConfig{
+				ConnectionConfig: &slimconfig.ConnectionConfig{
 					Address: "http://localhost:46357",
 				},
 				SharedSecret: "test-secret-0123456789-abcdefg",
@@ -75,7 +75,7 @@ func TestConfigValidate(t *testing.T) {
 		{
 			name: "missing shared secret returns error",
 			config: &Config{
-				ConnectionConfig: &slimcommon.ConnectionConfig{
+				ConnectionConfig: &slimconfig.ConnectionConfig{
 					Address: "http://localhost:46357",
 				},
 				ReceiverName: "agntcy/otel/test-receiver",
@@ -86,7 +86,7 @@ func TestConfigValidate(t *testing.T) {
 		{
 			name: "empty shared secret returns error",
 			config: &Config{
-				ConnectionConfig: &slimcommon.ConnectionConfig{
+				ConnectionConfig: &slimconfig.ConnectionConfig{
 					Address: "http://localhost:46357",
 				},
 				ReceiverName: "agntcy/otel/test-receiver",

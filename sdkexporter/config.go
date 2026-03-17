@@ -6,16 +6,16 @@ package sdkexporter
 import (
 	"errors"
 
-	slimcommon "github.com/agntcy/slim-otel/internal/slim"
+	"github.com/agntcy/slim-otel/slimconfig"
 )
 
 // Config defines configuration for the Slim exporter
 type Config struct {
 	// Connection configuration for the SLIM server
-	ConnectionConfig *slimcommon.ConnectionConfig `mapstructure:"connection-config"`
+	ConnectionConfig *slimconfig.ConnectionConfig `mapstructure:"connection-config"`
 
 	// Exporter names
-	ExporterNames *slimcommon.SignalNames `mapstructure:"exporter-names"`
+	ExporterNames *slimconfig.SignalNames `mapstructure:"exporter-names"`
 
 	// Shared Secret
 	SharedSecret string `mapstructure:"shared-secret"`

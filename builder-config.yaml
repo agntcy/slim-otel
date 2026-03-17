@@ -8,7 +8,9 @@ replaces:
   - github.com/agntcy/slim-otel => ..
   - github.com/agntcy/slim-otel/exporter/slimexporter => ../exporter/slimexporter
   - github.com/agntcy/slim-otel/receiver/slimreceiver => ../receiver/slimreceiver
+  - github.com/agntcy/slim-otel/slimconfig => ../slimconfig
   - github.com/agntcy/slim-otel/internal/sharedcomponent => ../internal/sharedcomponent
+
   
 exporters:
   - gomod: github.com/agntcy/slim-otel/exporter/slimexporter v0.0.1

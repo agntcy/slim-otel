@@ -7,16 +7,16 @@ import (
 	"errors"
 	"fmt"
 
-	slimcommon "github.com/agntcy/slim-otel/internal/slim"
+	"github.com/agntcy/slim-otel/slimconfig"
 )
 
 // Config defines configuration for the Slim exporter
 type Config struct {
 	// Connection configuration for the SLIM server
-	ConnectionConfig *slimcommon.ConnectionConfig `mapstructure:"connection-config"`
+	ConnectionConfig *slimconfig.ConnectionConfig `mapstructure:"connection-config"`
 
 	// exporter names
-	ExporterNames *slimcommon.SignalNames `mapstructure:"exporter-names"`
+	ExporterNames *slimconfig.SignalNames `mapstructure:"exporter-names"`
 
 	// Shared Secret
 	SharedSecret string `mapstructure:"shared-secret"`
@@ -72,9 +72,9 @@ func (cfg *Config) Validate() error {
 			return fmt.Errorf("signal type is required for channel %d", i)
 		}
 		// Validate signal types
-		if channel.Signal != string(slimcommon.SignalMetrics) &&
-			channel.Signal != string(slimcommon.SignalTraces) &&
-			channel.Signal != string(slimcommon.SignalLogs) {
+		if channel.Signal != string(slimconfig.SignalMetrics) &&
+			channel.Signal != string(slimconfig.SignalTraces) &&
+			channel.Signal != string(slimconfig.SignalLogs) {
 			return fmt.Errorf("invalid signal type '%s' for channel %d", channel.Signal, i)
 		}
 		// At least one participant must be specified
