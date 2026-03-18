@@ -39,10 +39,10 @@ type ConnectionConfig struct {
 	Proxy *ProxyConfig `mapstructure:"proxy"`
 
 	// Connection timeout
-	ConnectTimeout time.Duration `mapstructure:"connect_timeout"`
+	ConnectTimeout *time.Duration `mapstructure:"connect_timeout"`
 
 	// Request timeout
-	RequestTimeout time.Duration `mapstructure:"request_timeout"`
+	RequestTimeout *time.Duration `mapstructure:"request_timeout"`
 
 	// Buffer size in bytes
 	BufferSize *uint64 `mapstructure:"buffer_size"`
@@ -489,14 +489,6 @@ func validateProxyConfig(cfg *ProxyConfig) error {
 
 // ToSlimClientConfig converts the ConnectionConfig to a slim.ClientConfig
 func (cfg *ConnectionConfig) ToSlimClientConfig() (slim.ClientConfig, error) {
-	// Initialize headers to empty map if nil
-	var headers map[string]string
-	if cfg.Headers != nil {
-		headers = *cfg.Headers
-	} else {
-		headers = make(map[string]string)
-	}
-
 	clientCfg := slim.ClientConfig{
 		Endpoint:       cfg.Address,
 		Origin:         cfg.Origin,
@@ -505,7 +497,7 @@ func (cfg *ConnectionConfig) ToSlimClientConfig() (slim.ClientConfig, error) {
 		ConnectTimeout: cfg.ConnectTimeout,
 		RequestTimeout: cfg.RequestTimeout,
 		BufferSize:     cfg.BufferSize,
-		Headers:        headers,
+		Headers:        cfg.Headers,
 		Metadata:       cfg.Metadata,
 	}
 
@@ -550,23 +542,7 @@ func (cfg *ConnectionConfig) ToSlimClientConfig() (slim.ClientConfig, error) {
 		if err != nil {
 			return clientCfg, fmt.Errorf("failed to convert proxy config: %w", err)
 		}
-		clientCfg.Proxy = proxyCfg
-	} else {
-		// set default proxy config with no proxy
-		defaultTLS := &TLSConfig{
-			Insecure:                 true,
-			TLSVersion:               "tls1.3",
-			IncludeSystemCACertsPool: nil,
-		}
-		tlsCfg, err := defaultTLS.toSlimTLSConfig()
-		if err != nil {
-			return clientCfg, fmt.Errorf("failed to convert default TLS config: %w", err)
-		}
-		clientCfg.Proxy = slim.ProxyConfig{
-			Url:     nil,
-			Tls:     tlsCfg,
-			Headers: map[string]string{},
-		}
+		clientCfg.Proxy = &proxyCfg
 	}
 
 	// Convert authentication configuration
@@ -575,9 +551,7 @@ func (cfg *ConnectionConfig) ToSlimClientConfig() (slim.ClientConfig, error) {
 		if err != nil {
 			return clientCfg, fmt.Errorf("failed to convert auth config: %w", err)
 		}
-		clientCfg.Auth = authCfg
-	} else {
-		clientCfg.Auth = slim.ClientAuthenticationConfigNone{}
+		clientCfg.Auth = &authCfg
 	}
 
 	// Convert backoff configuration
@@ -586,16 +560,7 @@ func (cfg *ConnectionConfig) ToSlimClientConfig() (slim.ClientConfig, error) {
 		if err != nil {
 			return clientCfg, fmt.Errorf("failed to convert backoff config: %w", err)
 		}
-		clientCfg.Backoff = backoffCfg
-	} else {
-		config := slim.ExponentialBackoff{
-			Base:        100 * time.Millisecond,
-			Factor:      1,
-			MaxDelay:    100 * time.Second,
-			MaxAttempts: 0xffffffffffffffff,
-			Jitter:      true,
-		}
-		clientCfg.Backoff = slim.BackoffConfigExponential{Config: config}
+		clientCfg.Backoff = &backoffCfg
 	}
 
 	return clientCfg, nil
