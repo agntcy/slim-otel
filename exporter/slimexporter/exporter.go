@@ -258,7 +258,6 @@ func (e *slimExporter) pushTraces(ctx context.Context, td ptrace.Traces) error {
 		return err
 	}
 
-	logger.Info("Exporting Traces")
 	return e.publishData(ctx, message)
 }
 
@@ -272,7 +271,6 @@ func (e *slimExporter) pushMetrics(ctx context.Context, md pmetric.Metrics) erro
 		return err
 	}
 
-	logger.Info("Exporting Metrics")
 	return e.publishData(ctx, message)
 }
 
@@ -286,6 +284,5 @@ func (e *slimExporter) pushLogs(ctx context.Context, ld plog.Logs) error {
 		return err
 	}
 
-	logger.Info("Exporting Logs")
 	return e.publishData(ctx, message)
 }

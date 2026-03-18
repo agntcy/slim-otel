@@ -6,7 +6,7 @@ replace github.com/agntcy/slim-otel/slimconfig => ./slimconfig
 
 require (
 	github.com/agntcy/slim-bindings-go v1.2.0
-	github.com/agntcy/slim-otel/slimconfig v0.3.0
+	github.com/agntcy/slim-otel/slimconfig v0.3.1
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.1
 )

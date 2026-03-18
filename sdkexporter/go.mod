@@ -8,8 +8,8 @@ replace github.com/agntcy/slim-otel/slimconfig => ../slimconfig
 
 require (
 	github.com/agntcy/slim-bindings-go v1.2.0
-	github.com/agntcy/slim-otel v0.3.0
-	github.com/agntcy/slim-otel/slimconfig v0.3.0
+	github.com/agntcy/slim-otel v0.3.1
+	github.com/agntcy/slim-otel/slimconfig v0.3.1
 	go.opentelemetry.io/otel v1.40.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.40.0
 	go.opentelemetry.io/otel/log v0.16.0
