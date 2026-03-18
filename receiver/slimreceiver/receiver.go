@@ -151,11 +151,8 @@ func detectAndHandleMessage(ctx context.Context, r *slimReceiver, payload []byte
 
 // handleReceivedTraces processes a received trace message
 func handleReceivedTraces(ctx context.Context, r *slimReceiver, traces ptrace.Traces) {
-	logger := slimcommon.LoggerFromContextOrDefault(ctx)
-	logger.Info("Received trace message",
-		zap.Int("spanCount", traces.SpanCount()))
-
 	if err := r.tracesConsumer.ConsumeTraces(ctx, traces); err != nil {
+		logger := slimcommon.LoggerFromContextOrDefault(ctx)
 		logger.Error("Failed to consume traces",
 			zap.Error(err))
 	}
@@ -163,11 +160,8 @@ func handleReceivedTraces(ctx context.Context, r *slimReceiver, traces ptrace.Tr
 
 // handleReceivedMetrics processes a received metrics message
 func handleReceivedMetrics(ctx context.Context, r *slimReceiver, metrics pmetric.Metrics) {
-	logger := slimcommon.LoggerFromContextOrDefault(ctx)
-	logger.Info("Received metrics message",
-		zap.Int("dataPointCount", metrics.DataPointCount()))
-
 	if err := r.metricsConsumer.ConsumeMetrics(ctx, metrics); err != nil {
+		logger := slimcommon.LoggerFromContextOrDefault(ctx)
 		logger.Error("Failed to consume metrics",
 			zap.Error(err))
 	}
@@ -175,11 +169,8 @@ func handleReceivedMetrics(ctx context.Context, r *slimReceiver, metrics pmetric
 
 // handleReceivedLogs processes a received logs message
 func handleReceivedLogs(ctx context.Context, r *slimReceiver, logs plog.Logs) {
-	logger := slimcommon.LoggerFromContextOrDefault(ctx)
-	logger.Info("Received logs message",
-		zap.Int("logRecordCount", logs.LogRecordCount()))
-
 	if err := r.logsConsumer.ConsumeLogs(ctx, logs); err != nil {
+		logger := slimcommon.LoggerFromContextOrDefault(ctx)
 		logger.Error("Failed to consume logs",
 			zap.Error(err))
 	}

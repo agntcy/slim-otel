@@ -10,8 +10,8 @@ replace github.com/agntcy/slim-otel/internal/sharedcomponent => ../internal/shar
 
 require (
 	github.com/agntcy/slim-bindings-go v1.2.0
-	github.com/agntcy/slim-otel v0.3.0
-	github.com/agntcy/slim-otel/slimconfig v0.3.0
+	github.com/agntcy/slim-otel v0.3.1
+	github.com/agntcy/slim-otel/slimconfig v0.3.1
 	go.uber.org/zap v1.27.1
 	google.golang.org/grpc v1.78.0
 	google.golang.org/protobuf v1.36.11
