@@ -963,7 +963,7 @@ func TestConnectionConfig_ToSlimClientConfig(t *testing.T) {
 
 		clientCfg, err := config.ToSlimClientConfig()
 		require.NoError(t, err)
-		assert.Equal(t, headers, clientCfg.Headers)
+		assert.Equal(t, &headers, clientCfg.Headers)
 	})
 
 	t.Run("config with compression", func(t *testing.T) {
@@ -1003,6 +1003,40 @@ func TestConnectionConfig_ToSlimClientConfig(t *testing.T) {
 		assert.Equal(t, 60*time.Second, clientCfg.Keepalive.Http2Keepalive)
 	})
 
+	t.Run("config with timeouts", func(t *testing.T) {
+		connectTimeout := 5 * time.Second
+		requestTimeout := 30 * time.Second
+		config := ConnectionConfig{
+			Address: "http://localhost:8080",
+			TLS: &TLSConfig{
+				Insecure: true,
+			},
+			ConnectTimeout: &connectTimeout,
+			RequestTimeout: &requestTimeout,
+		}
+
+		clientCfg, err := config.ToSlimClientConfig()
+		require.NoError(t, err)
+		assert.NotNil(t, clientCfg.ConnectTimeout)
+		assert.Equal(t, 5*time.Second, *clientCfg.ConnectTimeout)
+		assert.NotNil(t, clientCfg.RequestTimeout)
+		assert.Equal(t, 30*time.Second, *clientCfg.RequestTimeout)
+	})
+
+	t.Run("config without timeouts", func(t *testing.T) {
+		config := ConnectionConfig{
+			Address: "http://localhost:8080",
+			TLS: &TLSConfig{
+				Insecure: true,
+			},
+		}
+
+		clientCfg, err := config.ToSlimClientConfig()
+		require.NoError(t, err)
+		assert.Nil(t, clientCfg.ConnectTimeout)
+		assert.Nil(t, clientCfg.RequestTimeout)
+	})
+
 	t.Run("config with basic auth", func(t *testing.T) {
 		config := ConnectionConfig{
 			Address: "http://localhost:8080",
@@ -1021,7 +1055,7 @@ func TestConnectionConfig_ToSlimClientConfig(t *testing.T) {
 		clientCfg, err := config.ToSlimClientConfig()
 		require.NoError(t, err)
 		assert.NotNil(t, clientCfg.Auth)
-		basicAuth, ok := clientCfg.Auth.(slim.ClientAuthenticationConfigBasic)
+		basicAuth, ok := (*clientCfg.Auth).(slim.ClientAuthenticationConfigBasic)
 		assert.True(t, ok)
 		assert.Equal(t, "user", basicAuth.Config.Username)
 		assert.Equal(t, "pass", basicAuth.Config.Password)
@@ -1048,7 +1082,7 @@ func TestConnectionConfig_ToSlimClientConfig(t *testing.T) {
 		clientCfg, err := config.ToSlimClientConfig()
 		require.NoError(t, err)
 		assert.NotNil(t, clientCfg.Backoff)
-		expBackoff, ok := clientCfg.Backoff.(slim.BackoffConfigExponential)
+		expBackoff, ok := (*clientCfg.Backoff).(slim.BackoffConfigExponential)
 		assert.True(t, ok)
 		assert.Equal(t, 100*time.Millisecond, expBackoff.Config.Base)
 		assert.Equal(t, uint64(2), expBackoff.Config.Factor)
@@ -1075,7 +1109,7 @@ func TestConnectionConfig_ToSlimClientConfig(t *testing.T) {
 		clientCfg, err := config.ToSlimClientConfig()
 		require.NoError(t, err)
 		assert.NotNil(t, clientCfg.Backoff)
-		fixedBackoff, ok := clientCfg.Backoff.(slim.BackoffConfigFixedInterval)
+		fixedBackoff, ok := (*clientCfg.Backoff).(slim.BackoffConfigFixedInterval)
 		assert.True(t, ok)
 		assert.Equal(t, 1*time.Second, fixedBackoff.Config.Interval)
 		assert.Equal(t, uint64(3), fixedBackoff.Config.MaxAttempts)
@@ -1093,22 +1127,17 @@ func TestConnectionConfig_ToSlimClientConfig(t *testing.T) {
 		assert.NotNil(t, clientCfg.Tls)
 		assert.True(t, clientCfg.Tls.Insecure)
 
-		// Should have default auth (none)
-		_, ok := clientCfg.Auth.(slim.ClientAuthenticationConfigNone)
-		assert.True(t, ok)
+		// Auth should be nil when not specified
+		assert.Nil(t, clientCfg.Auth)
 
-		// Should have default backoff (exponential)
-		expBackoff, ok := clientCfg.Backoff.(slim.BackoffConfigExponential)
-		assert.True(t, ok)
-		assert.Equal(t, 100*time.Millisecond, expBackoff.Config.Base)
+		// Backoff should be nil when not specified
+		assert.Nil(t, clientCfg.Backoff)
 
-		// Should have default proxy config
-		assert.NotNil(t, clientCfg.Proxy)
-		assert.Nil(t, clientCfg.Proxy.Url)
+		// Proxy should be nil when not specified
+		assert.Nil(t, clientCfg.Proxy)
 
-		// Should have empty headers map
-		assert.NotNil(t, clientCfg.Headers)
-		assert.Equal(t, 0, len(clientCfg.Headers))
+		// Should have nil headers when not specified
+		assert.Nil(t, clientCfg.Headers)
 	})
 
 	t.Run("config with proxy", func(t *testing.T) {

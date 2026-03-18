@@ -3,7 +3,7 @@ module github.com/agntcy/slim-otel/slimconfig
 go 1.26.1
 
 require (
-	github.com/agntcy/slim-bindings-go v1.1.1
+	github.com/agntcy/slim-bindings-go v1.2.0
 	github.com/stretchr/testify v1.11.1
 )
 
